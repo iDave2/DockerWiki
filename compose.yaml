@@ -1,0 +1,50 @@
+name: wiki
+#
+# Compose file for DockerWiki.
+#
+services:
+
+  view:
+    image: $DID/mediawiki:0.2
+    build:
+      context: ./mediawiki
+      tags:
+        - "$DID/mediawiki:0.2"
+        - "$DID/mediawiki:latest"
+    depends_on:
+      - data
+    environment:
+      - TZ=${TZ}
+    hostname: view
+    networks:
+      - net
+    ports:
+      - "${PORTS}"
+
+  data:
+    image: $DID/mariadb:0.2
+    build:
+      context: ./mariadb
+      tags:
+        - '$DID/mariadb:0.2'
+        - '$DID/mariadb:latest'
+      args:
+        # https://stackoverflow.com/q/76229692
+        - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+        - MARIADB_ROOT_HOST=${MARIADB_ROOT_HOST}
+        - MARIADB_DATABASE=${MARIADB_DATABASE}
+        - MARIADB_USER=${MARIADB_USER}
+        - MARIADB_PASSWORD_HASH=${MARIADB_PASSWORD_HASH}
+    environment:
+      - TZ=${TZ}
+    hostname: data
+    networks:
+      - net
+    volumes:
+      - data:/var/lib/mysql
+
+networks:
+  net:
+
+volumes:
+  data:
