@@ -5,11 +5,11 @@ name: wiki
 services:
 
   view:
-    image: $DID/mediawiki:0.2
+    image: $DID/mediawiki:$TAG
     build:
       context: ./mediawiki
       tags:
-        - "$DID/mediawiki:0.2"
+        - "$DID/mediawiki:$TAG"
         - "$DID/mediawiki:latest"
     depends_on:
       - data
@@ -22,11 +22,11 @@ services:
       - "${PORTS}"
 
   data:
-    image: $DID/mariadb:0.2
+    image: $DID/mariadb:$TAG
     build:
       context: ./mariadb
       tags:
-        - '$DID/mariadb:0.2'
+        - '$DID/mariadb:$TAG'
         - '$DID/mariadb:latest'
       args:
         # https://stackoverflow.com/q/76229692

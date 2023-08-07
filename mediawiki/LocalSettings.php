@@ -99,7 +99,12 @@ $wgLocaltimezone = "UTC";
 ## be publicly accessible from the web.
 #$wgCacheDirectory = "$IP/cache";
 
-$wgSecretKey = "4336ee50c72f2d3d9695ae34ad5080e53d6c1664714cfa0872910876811973fe";
+# A brash attempt to defeat Git Guardian warnings.
+# $wgSecretKey = "433... hide these secret numbers...";
+if (!defined('wgSecretKey')) {
+  include 'includes/utils/MWCryptRand.php';
+  $wgSecretKey = MWCryptRand::generateHex(64);
+}
 
 # Changing this will log out all existing sessions.
 $wgAuthenticationTokenVersion = "1";
@@ -133,4 +138,3 @@ wfLoadSkin( 'Vector' );
 
 # End of automatically generated settings.
 # Add more configuration options below.
-

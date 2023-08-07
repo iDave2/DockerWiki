@@ -5,12 +5,15 @@ name: wiki
 #  Compose file for a Bitnami-style download-and-go feature. See their
 #  Hub site for more info.
 #
+#  This is mildly awkward -- tweaking .env and config.yaml for simple
+#  version bump -- one is tempted to Upgrade for Docker Hub helpers...
+#
 services:
   data:
     environment:
       TZ: UTC
     hostname: data
-    image: idave2/mariadb:0.2
+    image: idave2/mariadb:0.1.1
     networks:
       net: null
     volumes:
@@ -26,7 +29,7 @@ services:
     environment:
       TZ: UTC
     hostname: view
-    image: idave2/mediawiki:0.2
+    image: idave2/mediawiki:0.1.1
     networks:
       net: null
     ports:
