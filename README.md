@@ -19,5 +19,5 @@ Latest images are pushed to [Docker Hub](https://hub.docker.com/u/idave2).
 
 Docker is fun; five stars to the team.
 
-> "Yes, we are very good."<br/>
+> "Yes, we are *very* good."<br/>
 > &nbsp;&nbsp;&nbsp; – Top Gun: Maverick, community edition
