@@ -76,7 +76,7 @@ $wgMemCachedServers = [];
 
 ## To enable image uploads, make sure the 'images' directory
 ## is writable, then set this to true:
-$wgEnableUploads = false;
+$wgEnableUploads = true;
 $wgUseImageMagick = true;
 $wgImageMagickConvertCommand = "/usr/bin/convert";
 
@@ -138,3 +138,18 @@ wfLoadSkin( 'Vector' );
 
 # End of automatically generated settings.
 # Add more configuration options below.
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+# These acronyms are sometimes (often) conflated online:
+#
+# - OATH = Open Authentication = a reference standard like TOTP or HOTP
+#   for login auth'n (i.e., making sure you are in fact who you say you are).
+#
+# - OAuth = Open Authorization = an open standard for Access Delegation,
+#   like saying who (i.e., Facebook, Google, etc.) can read your secrets.
+#   "Who can access what" is auth'z, not auth'n.
+#
+# This is recommended (if client supports it)
+# but *not* required for using simple bot passwords.
+# wfLoadExtension('OATHAuth');

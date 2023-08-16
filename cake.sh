@@ -15,6 +15,9 @@ source $ENV_FILE
 # Simulate composer-generated names for volume 'data' and network 'net'
 # so we don't need to keep switching when changing builds.
 DATA_VOLUME=wiki_data
+DATA_TARGET=/var/lib/mysql
+# DOCS_VOLUME=wiki_docs  # Temporary, for debugging php
+# DOCS_TARGET=/var/www/html # Temporary, for debugging php
 NETWORK=wiki_net
 
 # Continue with Docker file build(s).
@@ -115,7 +118,7 @@ make() {
 makeData() {
   CONTAINER=data
   IMAGE=$DID/mariadb
-  MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=/var/lib/mysql"
+  MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
   PUBLISH=
   make
 }
