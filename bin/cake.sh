@@ -6,11 +6,11 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-SCRIPT_DIR=$(dirname $(realpath $0)) # https://stackoverflow.com/a/246128
-source $SCRIPT_DIR/include.sh
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+ENV_FILE="${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
 
-ENV_FILE="$SCRIPT_DIR/.env"
-source $ENV_FILE
+source ${SCRIPT_DIR}/include.sh
+source "$ENV_FILE"
 
 # Simulate composer-generated names for volume 'data' and network 'net'
 # so we don't need to keep switching when changing builds.
@@ -36,7 +36,10 @@ main() {
   for arg; do
     case "$arg" in
     -c | --clean) CLEAN=true ;;
-    -h | --help) usage; return 1 ;;
+    -h | --help)
+      usage
+      return 1
+      ;;
     -i | --interactive) INTERACTIVE=true ;;
     -k | --klean) KLEAN=true ;;
     *)
@@ -55,7 +58,7 @@ main() {
       cd mariadb && makeData && cd ..
       cd mediawiki && makeView && cd ..
     else
-      usage Expected \$PWD in mariadb, mediawiki, or their parent, not \"$HERE\".
+      usage Expected \$PWD in mariadb, mediawiki, or their parent folder, not \"$HERE\".
       return 1
     fi
     ;;
@@ -137,7 +140,7 @@ usage() {
   fi
   cat <<-EOT
 
-Usage: $0 [OPTIONS]
+Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
 Build and run this project using Docker files.
 

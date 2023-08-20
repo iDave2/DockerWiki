@@ -5,31 +5,25 @@
 #
 #  Heuristic output may include Secrets so is Not Secure.
 #
-#  Thanks, Mr. & Ms. Cloud!
+#  This program uses MW robots. See here to learn more,
+#
+#    https://www.mediawiki.org/wiki/Manual:Creating_a_bot
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-#  KEEP BUT ADD YOUR CONTEXT ? SAY SOMETHING ABOUT DANGEROUS ROBOTS.
-#
-# You can create a new bot with this command:
-#
-# php maintenance/createBotPassword.php --grants \
-#   basic,createeditmovepage,editdata,delete,editpage,uploadeditmovefile,uploadfile,highvolume \
-#     --appid mediawiki1 UserData ff38s9u4feh07vjs2s6t88dh2pv5cfgv
-#
-# You can login in using username:'UserData@mediawiki1' and
-# password:'ff38s9u4feh07vjs2s6t88dh2pv5cfgv'.
-
 # Tokens are required for most write operations.
-LOGIN_TOKEN=
+# LOGIN_TOKEN=
 EDIT_TOKEN=
 
-# USERNAME="UserData@mediawiki1"
-# USERPASS="ff38s9u4feh07vjs2s6t88dh2pv5cfgv"
-USERNAME="WikiAdmin@Robot"
-USERPASS="sdkij9pu5lsr9q1inpvkml4bh7q6ro5h"
+DASHES='-----'
+
+# The following credentials are wired into initial database so that
+# test scripts work "out of the box." Not even ChatGPT could figure
+# out how to create and destroy bots locally with the API. ;)
+BOT_NAME="WikiAdmin@Robot"
+BOT_PASS="8gskqe10rgglcocrdt89pqvq6sshkd42"
+
 WIKI="http://localhost:8080"
-# WIKI_API="http://serverdev-mediawiki2/w/api.php"
 API=api.php
 WIKI_API="${WIKI}/${API}"
 
@@ -48,10 +42,22 @@ FILE_NAME=myMediaWikiWiki.png
 FILE_COMMENT="image file comment"
 FILE_TEXT="image file text"
 
+#
 cookie_jar="${WORK_DIR}/cjInit"
 [ -e "$cookie_jar" ] && rm $cookie_jar
 cookie_jar_login="${WORK_DIR}/cjLogin"
 [ -e "$cookie_jar_login" ] && rm $cookie_jar_login
+
+####-####+####-####+####-####+####-####+
+#
+#  Exit area for show stoppers.
+#
+abort() {
+  local exitStatus=$1
+  shift
+  echo && echo '***' $(basename ${BASH_SOURCE[0]}): "$*" - aborting 1>&2
+  exit $exitStatus
+}
 
 ####-####+####-####+####-####+####-####+
 #
@@ -70,16 +76,18 @@ END
 
 ####-####+####-####+####-####+####-####+
 #
-#  Append text to a given page. Create page if it does not already exist.
+#  Append text to a given page. Create page if it does not exist.
 #
 edit() {
 
-  # Output banners represent both POST and GET requests as URL queries
-  # since the notation is compact if technically incorrect.
-  query=$(qURL action=edit format=json "title=${PAGE}" "appendtext=${PAGE_TEXT}" "token=${EDIT_TOKEN}")
+  local token
+  getEditToken token || abort 2 "getEditToken() failed"
+
+  # Represent POST as URL query for ease of reading.
+  local query=$(qURL action=edit format=json title="${PAGE}" appendtext="${PAGE_TEXT}" token="${token}")
   banner "POST $API?$query"
 
-  CR=$(curl --no-progress-meter --show-error \
+  local cr=$(curl --no-progress-meter --show-error \
     --location --compressed \
     --keepalive-time 60 \
     --cookie $cookie_jar_login \
@@ -89,10 +97,15 @@ edit() {
     --form "format=json" \
     --form "title=${PAGE}" \
     --form "appendtext=${PAGE_TEXT}" \
-    --form "token=${EDIT_TOKEN}" \
+    --form "token=${token}" \
     --request "POST" "${WIKI_API}")
 
-  echo "$CR" | jq .
+  echo "$cr" | jq .
+
+  [ "$(echo $cr | jq '.error')" != "null" ] && return 2
+  [ "$(echo $cr | jq '.warnings')" != "null" ] && return 1
+  [ "$(echo $cr | jq '.edit.result')" == *"Success"* ] && return 0
+  return 42
 }
 
 ####-####+####-####+####-####+####-####+
@@ -101,10 +114,13 @@ edit() {
 #
 getEditToken() {
 
-  query=$(qURL action=query meta=tokens format=json)
+  local __return=$1
+  eval $__return="''"
+
+  local query=$(qURL action=query meta=tokens format=json)
   banner "GET $API?$query"
 
-  CR=$(curl --no-progress-meter --show-error \
+  local cr=$(curl --no-progress-meter --show-error \
     --location --compressed \
     --keepalive-time 60 \
     --cookie $cookie_jar_login \
@@ -112,32 +128,31 @@ getEditToken() {
     --header "Accept-Language: en-us" --header "Connection: keep-alive" \
     --request "GET" "${WIKI_API}?${query}")
 
-  echo "$CR" | jq .
+  echo "$cr" | jq .
 
-  # Border family highlights cool features of 'jq' tool...
-  echo "$CR" >${WORK_DIR}/tkEdit.json
-  EDIT_TOKEN=$(jq --raw-output '.query.tokens.csrftoken' ${WORK_DIR}/tkEdit.json)
+  echo "$cr" >${WORK_DIR}/tkEdit.json
+  local __token=$(jq --raw-output '.query.tokens.csrftoken' ${WORK_DIR}/tkEdit.json)
+  eval $__return="'$__token'"
 
   # Remove carriage return!
-  if [[ $EDIT_TOKEN == *"+\\"* ]]; then
-    true # echo "Edit token is: $EDIT_TOKEN"
-  else
-    echo "Edit token not set."
-    return 1
-  fi
+  [[ "$__token" == *"+\\"* ]] && return 0 || return 1
 }
 
 ####-####+####-####+####-####+####-####+
 #
-#  Login, part 1: retrieve a login token.
+#  Robot login requires a login token. Also see,
+#  https://www.linuxjournal.com/content/return-values-bash-functions
 #
 getLoginToken() {
 
-  query=$(qURL action=query meta=tokens type=login format=json)
+  local __return=$1
+  eval $__return="''"
+
+  local query=$(qURL action=query meta=tokens type=login format=json)
   banner "GET $API?$query"
 
-  # CR=$(curl -S \
-  CR=$(curl --no-progress-meter --show-error \
+  local cr=$(curl \
+    --no-progress-meter --show-error \
     --location --compressed \
     --retry 2 --retry-delay 5 --keepalive-time 60 \
     --cookie-jar $cookie_jar \
@@ -145,62 +160,49 @@ getLoginToken() {
     --header "Accept-Language: en-us" --header "Connection: keep-alive" \
     --request "GET" "${WIKI_API}?${query}")
 
-  echo "$CR" | jq .
+  echo "$cr" | jq .
 
-  file="${WORK_DIR}/tkLogin.json"
-  echo "$CR" >${file}
-  LOGIN_TOKEN=$(jq --raw-output '.query.tokens.logintoken' ${file})
+  # highlight jq reading from a file
+  local file="${WORK_DIR}/tkLogin.json"
+  echo "$cr" >${file}
+  local __token=$(jq --raw-output '.query.tokens.logintoken' ${file})
 
-  if [ "$LOGIN_TOKEN" == "null" ]; then
-    echo "Getting a login token failed."
-    return 1
-  else
-    true # echo "Login token is $LOGIN_TOKEN"
-    # echo "-----"
-  fi
-
-  return 0
+  # set return value and status code
+  eval $__return="'$__token'"
+  [ "$__token" == "null" ] && return 1 || return 0
 }
 
 ####-####+####-####+####-####+####-####+
 #
-#  Login, part 2: login the bot.
+#  Login the bot.
 #
 login() {
 
-  args="action=login lgname=${USERNAME} lgpassword=${USERPASS} lgtoken=${LOGIN_TOKEN} format=json"
+  local token=''
+  getLoginToken token || abort 2 "getLoginToken() failed"
 
-  # $form does not work in curl args but, fwiw,
-  form=$(qForm $args)
-  # echo '***' form: $form.
-
-  # Format as URL query for easier output notation.
-  query=$(qURL $args)
+  # Format POST as URL query for easier output representation.
+  query=$(qURL action=login lgname=${BOT_NAME} lgpassword=${BOT_PASS} lgtoken=${token} format=json)
   banner "POST $API?$query"
 
-  CR=$(curl --no-progress-meter --show-error \
+  local cr=$(curl \
+    --no-progress-meter --show-error \
     --location --compressed \
     --keepalive-time 60 \
     --cookie $cookie_jar --cookie-jar $cookie_jar_login \
     --user-agent "Curl Shell Script" \
     --header "Accept-Language: en-us" --header "Connection: keep-alive" \
     --form "action=login" \
-    --form "lgname=${USERNAME}" \
-    --form "lgpassword=${USERPASS}" \
-    --form "lgtoken=${LOGIN_TOKEN}" \
+    --form "lgname=${BOT_NAME}" \
+    --form "lgpassword=${BOT_PASS}" \
+    --form "lgtoken=${token}" \
     --form "format=json" \
     --request "POST" "${WIKI_API}")
 
-  echo "$CR" | jq .
+  echo "$cr" | jq .
 
-  STATUS=$(echo $CR | jq '.login.result')
-  if [[ $STATUS == *"Success"* ]]; then
-    true # echo "Successfully logged in as $USERNAME, STATUS is $STATUS."
-    # echo "-----"
-  else
-    echo "Unable to login, is logintoken ${LOGIN_TOKEN} correct?"
-    return 1
-  fi
+  local status=$(echo $cr | jq '.login.result')
+  [[ $status == *"Success"* ]] && return 0 || return 2
 }
 
 ####-####+####-####+####-####+####-####+
@@ -208,28 +210,28 @@ login() {
 #  In the beginning, there was main().
 #
 main() {
-  banner "UTF8 check: ☠ (<- is that a padlock?)"
-  getLoginToken
-  login
-  showBotRights
-  getEditToken
-  edit
-  upload
-  # Delete something? This looks trickier.
-  # See https://www.mediawiki.org/wiki/Manual:Image_administration#Deletion_of_images
-  echo && echo '###' END OF TEST
-}
 
-####-####+####-####+####-####+####-####+
-#
-#  For ease reading form's, $(qForm n1=v1 n2=v2 n3=v3) --> --form "n1=v1" --form "n2=v2" ...
-#
-qForm() {
-  form=()
-  for arg; do
-    form+=("--form \"$arg\"")
-  done
-  echo "${form[@]}"
+  banner "UTF8 check: ☠ (<- is that a padlock?)"
+
+  login || abort 2 "login() failed"
+
+  showBotRights
+  case $? in
+  0) ;;
+  1) echo "showBotRights() has warnings, ignoring" ;;
+  *) abort 2 "showBotRights() failed" ;;
+  esac
+
+  edit || abort 2 "edit() failed"
+
+  # upload() works but is disabled as it may fill mw's image archive with
+  # redundant files if run repeatedly.
+  # upload || abort 2 "upload() failed"
+
+  # Delete something? Not today.
+  # See https://www.mediawiki.org/wiki/Manual:Image_administration#Deletion_of_images
+
+  echo && echo '### END OF TEST'
 }
 
 ####-####+####-####+####-####+####-####+
@@ -242,14 +244,15 @@ qURL() { # https://stackoverflow.com/a/12973694
 
 ####-####+####-####+####-####+####-####+
 #
-#  Display bot rights. Robots have rights too. Dammit.
+#  Display bot rights. Robots have rights too...
 #
 showBotRights() {
 
-  query=$(qURL action=query meta=userinfo 'uiprop=groups|realname|rights' format=json)
+  local query=$(qURL action=query meta=userinfo 'uiprop=groups|realname|Xrights' format=json)
   banner "GET $API?$query"
 
-  CR=$(curl --no-progress-meter --show-error \
+  local cr=$(curl \
+    --no-progress-meter --show-error \
     --location --compressed \
     --retry 2 --retry-delay 5 --keepalive-time 60 \
     --cookie $cookie_jar_login \
@@ -257,8 +260,7 @@ showBotRights() {
     --header "Accept-Language: en-us" --header "Connection: keep-alive" \
     --request "GET" "${WIKI_API}?${query}")
 
-  echo "$CR" | jq .
-
+  echo "$cr" | jq .
 }
 
 ####-####+####-####+####-####+####-####+
@@ -267,15 +269,16 @@ showBotRights() {
 #
 upload() {
 
-  local cr
+  local token cr
 
+  # download test image if not already here
   if [ ! -e "$FILE_PATH" ]; then
     banner "GET $FILE_URL"
     cr=$(curl --no-progress-meter --show-error "$FILE_URL" --output "$FILE_PATH")
   fi
   echo "$cr" | jq .
 
-  query=$(qURL action=upload format=json "filename=$FILE_NAME" "token=$EDIT_TOKEN")
+  query=$(qURL action=upload format=json filename="$FILE_NAME" token="$EDIT_TOKEN")
   banner "POST $API?$query"
 
   # Re --header "Expect:", from curl man page, "Remove an internal header

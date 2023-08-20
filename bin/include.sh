@@ -3,9 +3,9 @@
 #  Helpers to be sourced.
 #
 
-# Join list with a given delimiter: "$(join ', ' A 'B C' D)" = "A, B C, D"
+# Join list with a given delimiter: "$(join ', ' A 'B C' D)" => "A, B C, D"
 join() { # https://stackoverflow.com/a/17841619
-  c="" d="$1" r=""
+  local c="" d="$1" r=""
   shift
   for arg; do
     r="$r$c$arg"
@@ -14,7 +14,7 @@ join() { # https://stackoverflow.com/a/17841619
   echo $r
 }
 
-# Pretty-print commands executed and save output in array LINES. Sometimes.
+# Pretty-print commands executed and save output in array LINES, sometimes.
 LINES=()
 xShow() {
   echo && echo "[$(basename $(pwd))] \$ $*"

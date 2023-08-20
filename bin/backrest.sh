@@ -6,8 +6,11 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-source include.sh
-source .env
+# https://stackoverflow.com/a/246128
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
+source "${SCRIPT_DIR}/include.sh"
+source "${SCRIPT_DIR}/../.env"
 
 BACKUP=false
 CONTAINER=
@@ -88,7 +91,7 @@ usage() {
   fi
   cat <<-EOT
 
-Usage: $0 [OPTIONS] DATABASE_CONTAINER
+Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS] DATABASE_CONTAINER
 
 Backup and restore a MariaDB database.
 
