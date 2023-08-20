@@ -6,8 +6,8 @@ name: wiki
 #  a Bitnami-style download-and-go feature. See their Hub site for more
 #  examples.
 #
-#  Research GitHub "recommendation" for a workflow to help with building
-#  these images and syncing with docker hub?
+#  Note to self: Research GitHub recommendation for a workflow to help
+#  with building these images and syncing with docker hub?
 #
 services:
   data:

@@ -2,10 +2,6 @@ name: wiki
 #
 #  Compose file for DockerWiki.
 #
-#  Caveat: Docker composer cache can be sticky. If you get stuck and
-#  just want a quick code/debug cycle, try using cake.sh (which only uses
-#  Dockerfiles, not Compose files) to create and destroy this system.
-#
 services:
 
   view:
