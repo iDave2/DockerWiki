@@ -1,8 +1,6 @@
 .DS_Store
 .vscode
 junk*
-MariaDBServerKnowledgeBase.pdf
-your/*
 tmp/
 all-databases.sql
 out.docker
