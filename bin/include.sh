@@ -51,14 +51,6 @@ xOut() {
 #  Curly version of xShow, this pretty-prints comment + command.
 #
 cShow() {
-  # echo GET OUT
-  # return 0
-  # $TRACE
-  # eval echo $FUNCNAME[$LINENO]
   local comment=$1 command=$2
-  #echo HELLO WORLD \# $comment
-  # echo && echo "\$1 is $1, \$2 is $2."
   echo && echo "# $comment" && echo "\$ $command"
-  # local cr=$($command)
-  # echo $cr
 }
