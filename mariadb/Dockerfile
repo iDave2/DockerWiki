@@ -5,8 +5,8 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-FROM mariadb:lts AS data
-# FROM mariadb:10.11 AS data
+# FROM mariadb:lts AS data
+FROM mariadb:10.11 AS data
 
 # Root login instructions using cleartext password.
 ARG MARIADB_ROOT_PASSWORD

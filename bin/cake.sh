@@ -28,6 +28,8 @@ IMAGE=
 INTERACTIVE=false
 KLEAN=false
 MOUNT=
+NO_CACHE=false
+OPTIONS=
 PUBLISH=
 
 main() {
@@ -42,6 +44,7 @@ main() {
       ;;
     -i | --interactive) INTERACTIVE=true ;;
     -k | --klean) KLEAN=true ;;
+    -n | --no-cache) NO_CACHE=true ;;
     *)
       usage unexpected command line token \"$arg\"
       return $?
@@ -66,6 +69,9 @@ main() {
 }
 
 make() {
+
+  # OPTIONS is the same for any container.
+  $NO_CACHE && OPTIONS='--no-cache'
 
   # Remove any existing CONTAINER.
   xCute docker container ls --all --filter name=$CONTAINER
@@ -108,13 +114,14 @@ make() {
   fi
 
   # Rebuild and rerun. Over and over and.
-  xCute docker build $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
+  xCute docker build $OPTIONS $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
   if $INTERACTIVE; then # --interactive needs work...
-    xCute docker run --env-file $ENV_FILE --interactive --rm --tty --network $NETWORK \
-      --name $CONTAINER --hostname $CONTAINER --network-alias $CONTAINER $MOUNT $PUBLISH $IMAGE
+    xCute docker run --env-file $ENV_FILE --interactive --rm --tty \
+    --network $NETWORK --name $CONTAINER --hostname $CONTAINER \
+    --network-alias $CONTAINER $MOUNT $PUBLISH $IMAGE
   else
-    xCute docker run --detach --env-file $ENV_FILE $PUBLISH --network $NETWORK \
-      $(echo --{name,hostname,network-alias}" $CONTAINER") $MOUNT $IMAGE
+    xCute docker run --detach --env-file $ENV_FILE --network $NETWORK \
+    $(echo --{name,hostname,network-alias}" $CONTAINER") $MOUNT $PUBLISH $IMAGE
   fi
 }
 
@@ -149,6 +156,7 @@ Options:
   -i | --interactive  Run interactively (run -it)
   -h | --help         Print this usage summary
   -k | --klean        --clean plus remove volumes and network!
+  -n | --no-cache     Disable cache during builds
 
 Note: --interactive is out of order; STDOUT goes to Tahiti.
 EOT
