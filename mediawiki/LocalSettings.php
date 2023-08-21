@@ -150,6 +150,8 @@ wfLoadSkin( 'Vector' );
 #   like saying who (i.e., Facebook, Google, etc.) can read your secrets.
 #   "Who can access what" is auth'z, not auth'n.
 #
+# Also see https://en.wikipedia.org/wiki/Initiative_for_Open_Authentication.
+#
 # This is recommended (if client supports it)
-# but *not* required for using simple bot passwords.
+# but not required for simple bot passwords.
 # wfLoadExtension('OATHAuth');
