@@ -43,7 +43,7 @@ $wgLogos = [
 
 ## UPO means: this is also a user preference option
 
-$wgEnableEmail = false;
+$wgEnableEmail = true;
 $wgEnableUserEmail = true; # UPO
 
 $wgEmergencyContact = "";
@@ -167,46 +167,3 @@ wfLoadSkin( 'Vector' );
 # This is recommended (if client supports it)
 # but not required for simple bot passwords.
 # wfLoadExtension('OATHAuth');
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  OATHAuth yields "Fatal exception of type Wikimedia\Rdbms\DBQueryError"
-#  so try this: https://www.mediawiki.org/wiki/Topic:U26n1a1pgo0078tt.
-#
-# $wgShowExceptionDetails = true;
-# $wgShowDBErrorBacktrace = true;
-# $wgShowSQLErrors = true;
-#
-#  Seems we are missing table 'mediawiki.oathauth_users'. Sad indeed.
-#
-#    $ php maintenance/update.php # added table, hooray
-#
-#  So remember to run this whenever you introduce a new extension.
-#  (And you'll need to burn it into image if this works.)
-#
-#  Now Special:Version says we have OAUTH v0.5.0.
-#
-#  The "owner-only consumer" page says at least OAuth v1.27 is required,
-#  but MW's Extension:OAuth page says OAuth is only up to 1.1.0. I feel the
-#  Earth move under my feet, and the sky? Leave that to the consumer.
-#
-#  For example, we (at Hub MW v1.39) have no Special:OAuthConsumerRegistration
-#  page, but you can see this page at meta.WikiMedia.org and it looks similar
-#  to the bot password page we have already used without problems. (We want
-#  REST, REST wants OAuth.) HTTP header "Authorization: Bearer <access token>"
-#  may be a "signature" for sites using tokens to leak everything.
-#
-#  Hmm... Just tried activating OATH for WikiAdmin. Initial secret sharing
-#  worked, got a DockerWiki on TOTP app, but login fails consistently with
-#  vague error "You might have timed out..."
-#
-#  Maybe abandon all this, get back to development.
-#
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  Something to peek at php environment. https://stackoverflow.com/a/9816958.
-#
-# echo '<pre>';
-# print_r($GLOBALS);
-# echo '</pre>';
