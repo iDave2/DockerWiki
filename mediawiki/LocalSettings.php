@@ -141,30 +141,67 @@ wfLoadSkin( 'Vector' );
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-# These acronyms are sometimes (often) conflated online:
+#  These acronyms are sometimes (often) conflated online:
 #
-# - OATH = Open Authentication = a reference standard like TOTP or HOTP
-#   for login auth'n (i.e., making sure you are in fact who you say you are).
+#  - OATH = Open Authentication = a reference standard like TOTP or HOTP
+#    for login auth'n (i.e., making sure you are in fact who you say you are).
 #
-# - OAuth = Open Authorization = an open standard for Access Delegation,
-#   like saying who (i.e., Facebook, Google, etc.) can read your secrets.
-#   "Who can access what" is auth'z, not auth'n.
+#  - OAuth = Open Authorization = an open standard for Access Delegation,
+#    like saying who (i.e., Facebook, Google, etc.) can read your secrets.
+#    "Who can access what" is auth'z, not auth'n.
+#
+#  In particular, MW has two extensions,
+#
+#  - OATHAuth = OATH = TOTP login stuff. This was included with MW 1.39.
+#
+#  - OAuth = extension to make your MW server an OAuth server, one that
+#    (your robot) apps can request permissions from to access your secrets.
+#    If you have registered this permission in the past, the app starts
+#    quickly; else, I suppose the protocol would ask you first time if such
+#    grants were OK. It is this initial shared agreement that both OATH and
+#    OAuth use to eliminate all stress from life. Your MW 1.39 does not
+#    include an OAuth extension.
 #
 # Also see https://en.wikipedia.org/wiki/Initiative_for_Open_Authentication.
 #
 # This is recommended (if client supports it)
 # but not required for simple bot passwords.
-wfLoadExtension('OATHAuth');
+# wfLoadExtension('OATHAuth');
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  OATHAuth yields "Fatal exception of type Wikimedia\Rdbms\DBQueryError"
 #  so try this: https://www.mediawiki.org/wiki/Topic:U26n1a1pgo0078tt.
+#
+# $wgShowExceptionDetails = true;
+# $wgShowDBErrorBacktrace = true;
+# $wgShowSQLErrors = true;
+#
 #  Seems we are missing table 'mediawiki.oathauth_users'. Sad indeed.
 #
-$wgShowExceptionDetails = true;
-$wgShowDBErrorBacktrace = true;
-$wgShowSQLErrors = true;
+#    $ php maintenance/update.php # added table, hooray
+#
+#  So remember to run this whenever you introduce a new extension.
+#  (And you'll need to burn it into image if this works.)
+#
+#  Now Special:Version says we have OAUTH v0.5.0.
+#
+#  The "owner-only consumer" page says at least OAuth v1.27 is required,
+#  but MW's Extension:OAuth page says OAuth is only up to 1.1.0. I feel the
+#  Earth move under my feet, and the sky? Leave that to the consumer.
+#
+#  For example, we (at Hub MW v1.39) have no Special:OAuthConsumerRegistration
+#  page, but you can see this page at meta.WikiMedia.org and it looks similar
+#  to the bot password page we have already used without problems. (We want
+#  REST, REST wants OAuth.) HTTP header "Authorization: Bearer <access token>"
+#  may be a "signature" for sites using tokens to leak everything.
+#
+#  Hmm... Just tried activating OATH for WikiAdmin. Initial secret sharing
+#  worked, got a DockerWiki on TOTP app, but login fails consistently with
+#  vague error "You might have timed out..."
+#
+#  Maybe abandon all this, get back to development.
+#
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
