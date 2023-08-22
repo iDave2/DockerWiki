@@ -17,7 +17,8 @@ API="rest.php"
 WIKI_API="${WIKI}/${API}"
 
 # Reusable chunks of Curl Options.
-CO_CORE="--no-progress-meter --show-error"
+# CO_CORE="--no-progress-meter --show-error"
+CO_CORE='-Ss'
 
 ####-####+####-####+####-####+####-####+
 #
@@ -60,6 +61,50 @@ main() {
   cShow "REST a bit" "$command"
   local cr=$($command)
   echo "$cr" | jq . # | head -20 && echo '---' && echo '}'
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  POST /page - Create a new page
+#
+pageCreate() {
+  # https://www.mediawiki.org/wiki/API:REST_API/Reference#Create_page
+  curl -X POST ${WIKI_API}/v1/page \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN" \
+    --data '{ \
+      "source": "Hello, world!", \
+      "title": "User:WikiAdmin/Sandbox", \
+      "comment": "Creating a test page with the REST API" \
+    }'
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  GET /page/{title}/bare - Get page object w/"html_url" replacing "source"
+#
+pageGet() {
+  # https://www.mediawiki.org/wiki/API:REST_API/Reference#Get_page
+  # curl $CO_CORE "${WIKI_API}/v1/page/Main_Page/bare" | jq .
+  curl -Ss "http://localhost:8080/rest.php/v1/page/Main_Page/bare" | jq .
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  PUT /page/{title} - Update a page
+#
+pageUpdate() {
+  # https://www.mediawiki.org/wiki/API:REST_API/Reference#Update_page
+  curl -X PUT ${WIKI_API}/v1/page/WikiAdmin:Sandbox \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN" \
+    --data '{ \
+      "source": "Hello, world!", \
+      "comment": "Testing out the REST API", \
+      "latest": {\
+        "id": 555555555 \
+      } \
+    }'
 }
 
 ####-####+####-####+####-####+####-####+
