@@ -155,3 +155,11 @@ wfLoadSkin( 'Vector' );
 # This is recommended (if client supports it)
 # but not required for simple bot passwords.
 # wfLoadExtension('OATHAuth');
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Something to peek at php environment. https://stackoverflow.com/a/9816958.
+#
+# echo '<pre>';
+# print_r($GLOBALS);
+# echo '</pre>';
