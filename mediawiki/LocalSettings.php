@@ -154,7 +154,17 @@ wfLoadSkin( 'Vector' );
 #
 # This is recommended (if client supports it)
 # but not required for simple bot passwords.
-# wfLoadExtension('OATHAuth');
+wfLoadExtension('OATHAuth');
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  OATHAuth yields "Fatal exception of type Wikimedia\Rdbms\DBQueryError"
+#  so try this: https://www.mediawiki.org/wiki/Topic:U26n1a1pgo0078tt.
+#  Seems we are missing table 'mediawiki.oathauth_users'. Sad indeed.
+#
+$wgShowExceptionDetails = true;
+$wgShowDBErrorBacktrace = true;
+$wgShowSQLErrors = true;
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #

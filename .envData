@@ -2,32 +2,14 @@
 #  This is the MariaDB portion of .env.  Dockerfile-built
 #  images do not need entire shebang in their environment.
 #
+#  To regenerate, run something like,
+#
+#    $ grep '^MARIADB' .env >> .envData
+#
 #####  MariaDB variables  ###########################################
 
-# Root login instructions using cleartext password.
 MARIADB_ROOT_PASSWORD=changeThis
-
-# MariaDB hash method leaves no cleartext password inside container.
-# SELECT PASSWORD('changeThis') gives the hash below.
-# Use either this or cleartext, not both.
-# MARIADB_ROOT_PASSWORD_HASH=*16A80F8F14F66A02675B175838139E7B296280F0
-
-# Limit root to local access.
 MARIADB_ROOT_HOST=localhost
-
-# Add mysql@localhost to database. "This user is especially
-# useful for a variety of health checks and backup scripts."
-# (Note to self: review plugin:mysql_native_password vs
-# plugin:unix_socket.)
-# MARIADB_MYSQL_LOCALHOST_USER
-# MARIADB_MYSQL_LOCALHOST_GRANTS
-
-# MariaDB kindly sets up a user and database for us.
-# Configure something for MediaWiki.
 MARIADB_DATABASE=mediawiki
 MARIADB_USER=wikiDBA
-# MARIADB_PASSWORD=changeThis
 MARIADB_PASSWORD_HASH=*16A80F8F14F66A02675B175838139E7B296280F0
-
-# Keep time zones.
-# MARIADB_INITDB_SKIP_TZINFO

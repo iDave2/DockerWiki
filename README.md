@@ -8,17 +8,18 @@ The audience might be developers or students learning Docker or researching
 this environment for, I don't know, for the next Mars expedition.
 If you want to use Docker + LAMP for business, please find similar projects
 from [Bitnami](https://hub.docker.com/r/bitnami/mediawiki) or organizations
-whose context includes strong security, support, and all the other things
-a business needs to run.
+whose context includes strong security, support, and all the things a
+business needs to run.
 
 A summary of what is here:
 
-- `bin/actionAPI.sh`: test MediaWiki's Action API
+- `bin/actionAPI.sh`: MediaWiki (MW) action API tests
 - `bin/backrest.sh`: simple backup and restore starter kit
-- `bin/cake.sh`: build and run using Docker files
-- `.env`: most configuration variables
-- `compose.yaml`: build and run using Compose files
-- `config.yaml`: `compose.yaml` for launching from Docker Hub
+- `bin/cake.sh`: build and run makefile for `docker`
+- `.env`: build and runtime configuration variables
+- `.envData`: just MariaDB runtime environment
+- `compose.yaml`: build and run makefile for `docker compose`
+- `config.yaml`: run-only compose file for Docker Hub liftoff
 - `setEnv.sh`: shortcuts to simplify development
 
 If you source `setEnv.sh`,
