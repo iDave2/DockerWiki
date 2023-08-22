@@ -1,26 +1,7 @@
 #
-#  Trying to keep most configuration up here.
+#  This is the MariaDB portion of .env.  Dockerfile-built
+#  images do not need entire shebang in their environment.
 #
-#  Remember Spock: https://semver.org.
-#
-
-DID=idave2 # change to your Docker Hub ID
-TAG=0.2.1
-TAGS=$TAG,latest
-
-#####  Docker  ######################################################
-
-DATA_VOLUME=data # volume where the database lives
-NETWORK=net      # network for container discourse
-
-#####  Host configs  ################################################
-
-# Data container name is 'data' for Dockerfile builds but
-# 'wiki-data-1' for compose. Maybe grok at runtime?
-DATABASE_CONTAINER=wiki-data-1
-BACKUP_FILE=./all-databases.sql
-TZ=UTC
-
 #####  MariaDB variables  ###########################################
 
 # Root login instructions using cleartext password.
@@ -50,8 +31,3 @@ MARIADB_PASSWORD_HASH=*16A80F8F14F66A02675B175838139E7B296280F0
 
 # Keep time zones.
 # MARIADB_INITDB_SKIP_TZINFO
-
-#####  MediaWiki  ###################################################
-
-PORTS=127.0.0.1:8080:80
-# LocalSettings.php has additional MediaWiki configuration.

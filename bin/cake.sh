@@ -7,7 +7,9 @@
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-ENV_FILE="${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
+# https://stackoverflow.com/a/246128
+ENV_FILE="${SCRIPT_DIR}/../.env"
+ENV_DATA="${SCRIPT_DIR}/../.envData"
 
 source ${SCRIPT_DIR}/include.sh
 source "$ENV_FILE"
@@ -23,6 +25,7 @@ NETWORK=wiki_net
 # Continue with Docker file build(s).
 CLEAN=false
 CONTAINER=
+ENVIRONMENT=
 HERE=$(basename $(pwd -P))
 IMAGE=
 INTERACTIVE=false
@@ -116,17 +119,18 @@ make() {
   # Rebuild and rerun. Over and over and.
   xCute docker build $OPTIONS $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
   if $INTERACTIVE; then # --interactive needs work...
-    xCute docker run --env-file $ENV_FILE --interactive --rm --tty \
-    --network $NETWORK --name $CONTAINER --hostname $CONTAINER \
-    --network-alias $CONTAINER $MOUNT $PUBLISH $IMAGE
+    xCute docker run $ENVIRONMENT --interactive --rm --tty \
+      --network $NETWORK --name $CONTAINER --hostname $CONTAINER \
+      --network-alias $CONTAINER $MOUNT $PUBLISH $IMAGE
   else
-    xCute docker run --detach --env-file $ENV_FILE --network $NETWORK \
-    $(echo --{name,hostname,network-alias}" $CONTAINER") $MOUNT $PUBLISH $IMAGE
+    xCute docker run --detach $ENVIRONMENT --network $NETWORK \
+      $(echo --{name,hostname,network-alias}" $CONTAINER") $MOUNT $PUBLISH $IMAGE
   fi
 }
 
 makeData() {
   CONTAINER=data
+  ENVIRONMENT="--env-file $ENV_DATA"
   IMAGE=$DID/mariadb
   MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
   PUBLISH=
@@ -135,6 +139,7 @@ makeData() {
 
 makeView() {
   CONTAINER=view
+  ENVIRONMENT=
   IMAGE=$DID/mediawiki
   MOUNT=
   PUBLISH="--publish $PORTS"
