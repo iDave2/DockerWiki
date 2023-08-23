@@ -5,6 +5,18 @@
 #  "At rest, however, in the middle of everything is the sun."
 #     -- Nicolaus Copernicus
 #
+#  Best listening: Ramin Djawadi, https://www.youtube.com/watch?v=6Bj5uyDe-hM
+#
+#  MW wants a cool user agent for botwork.
+#  https://meta.wikimedia.org/wiki/User-Agent_policy
+#
+#    "The generic format is <client name>/<version> (<contact information>)
+#       <library/framework name>/<version> [<library name>/<version> ...].
+#     Parts that are not applicable can be omitted."
+#
+#  User-Agent: CoolBot/0.0 (https://example.org/coolbot/; coolbot@example.org) generic-library/0.0
+#  User-Agent: "Curly Shell Script" (http://localhost:8080/index.php/User:WikiAdmin)
+#
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
 # Where am I? What year is this?
@@ -22,8 +34,7 @@ CO_CORE='-Ss'
 
 ####-####+####-####+####-####+####-####+
 #
-#  Example is not the main thing in influencing others.
-#  It is the only thing.
+#  Example is not the main thing in influencing others; it is the only thing.
 #    -- Albert Schweitzer
 #
 main() {
@@ -81,12 +92,32 @@ pageCreate() {
 
 ####-####+####-####+####-####+####-####+
 #
-#  GET /page/{title}/bare - Get page object w/"html_url" replacing "source"
+#  GET /page/{title}/bare - Get page object with "html_url"
+#  https://www.mediawiki.org/wiki/API:REST_API/Reference#Get_page
 #
 pageGet() {
-  # https://www.mediawiki.org/wiki/API:REST_API/Reference#Get_page
   # curl $CO_CORE "${WIKI_API}/v1/page/Main_Page/bare" | jq .
   curl -Ss "http://localhost:8080/rest.php/v1/page/Main_Page/bare" | jq .
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  GET /page/{title}/history - Get page history
+#  https://www.mediawiki.org/wiki/API:REST_API/Reference#Get_page_history
+#
+pageGetHistory() {
+  # curl $CO_CORE "${WIKI_API}/v1/page/Main_Page/history" | jq .
+  curl -Ss "http://localhost:8080/rest.php/v1/page/Main_Page/history" | jq .
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  GET /page/{title} - Get page object with "source" (usually wikitext)
+#  https://www.mediawiki.org/wiki/API:REST_API/Reference#Get_page_source
+#
+pageGetSource() {
+  # curl $CO_CORE "${WIKI_API}/v1/page/Main_Page" | jq .
+  curl -Ss "http://localhost:8080/rest.php/v1/page/Main_Page" | jq .
 }
 
 ####-####+####-####+####-####+####-####+
