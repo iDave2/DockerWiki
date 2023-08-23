@@ -139,6 +139,10 @@ wfLoadSkin( 'Vector' );
 # End of automatically generated settings.
 # Add more configuration options below.
 
+# This is recommended (if client supports it)
+# but not required for simple bot passwords.
+# wfLoadExtension('OATHAuth');
+
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  These acronyms are sometimes (often) conflated online:
@@ -164,6 +168,8 @@ wfLoadSkin( 'Vector' );
 #
 # Also see https://en.wikipedia.org/wiki/Initiative_for_Open_Authentication.
 #
-# This is recommended (if client supports it)
-# but not required for simple bot passwords.
-# wfLoadExtension('OATHAuth');
+#  To summarize:
+#    - Tried OATH, initial sync worked but login failed repeatedly;
+#    - Decided against OAuth, MW may still be finishing the details in 1.4.1.
+#      which is not yet on Hub.
+#
