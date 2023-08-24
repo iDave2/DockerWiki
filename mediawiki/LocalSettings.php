@@ -43,7 +43,7 @@ $wgLogos = [
 
 ## UPO means: this is also a user preference option
 
-$wgEnableEmail = true;
+$wgEnableEmail = false;
 $wgEnableUserEmail = true; # UPO
 
 $wgEmergencyContact = "";
@@ -71,7 +71,7 @@ $wgDBTableOptions = "ENGINE=InnoDB, DEFAULT CHARSET=binary";
 $wgSharedTables[] = "actor";
 
 ## Shared memory settings
-$wgMainCacheType = CACHE_NONE;
+$wgMainCacheType = CACHE_ACCEL;
 $wgMemCachedServers = [];
 
 ## To enable image uploads, make sure the 'images' directory
@@ -99,19 +99,16 @@ $wgLocaltimezone = "UTC";
 ## be publicly accessible from the web.
 #$wgCacheDirectory = "$IP/cache";
 
-# A brash attempt to defeat Git Guardian warnings.
-# $wgSecretKey = "433... hide these secret numbers...";
-if (!defined('wgSecretKey')) {
-  include 'includes/utils/MWCryptRand.php';
-  $wgSecretKey = MWCryptRand::generateHex(64);
-}
+# This may be the server's secret OATH key; Git Guardian raises warning.
+# So leave a message for git and generate this key during build.
+$wgSecretKey = "See Dockerfile";
 
 # Changing this will log out all existing sessions.
 $wgAuthenticationTokenVersion = "1";
 
 # Site upgrade key. Must be set to a string (default provided) to turn on the
 # web installer while LocalSettings.php is in place
-$wgUpgradeKey = "dd6c12193cb5c6b5";
+$wgUpgradeKey = "fdd7684c4afe5f83";
 
 ## For attaching licensing metadata to pages, and displaying an
 ## appropriate copyright notice / icon. GNU Free Documentation
@@ -136,40 +133,12 @@ wfLoadSkin( 'Timeless' );
 wfLoadSkin( 'Vector' );
 
 
+# Enabled extensions. Most of the extensions are enabled by adding
+# wfLoadExtension( 'ExtensionName' );
+# to LocalSettings.php. Check specific extension documentation for more details.
+# The following extensions were automatically enabled:
+wfLoadExtension( 'OATHAuth' );
+
+
 # End of automatically generated settings.
 # Add more configuration options below.
-
-# This is recommended (if client supports it)
-# but not required for simple bot passwords.
-# wfLoadExtension('OATHAuth');
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  These acronyms are sometimes (often) conflated online:
-#
-#  - OATH = Open Authentication = a reference standard like TOTP or HOTP
-#    for login auth'n (i.e., making sure you are in fact who you say you are).
-#
-#  - OAuth = Open Authorization = an open standard for Access Delegation,
-#    like saying who (i.e., Facebook, Google, etc.) can read your secrets.
-#    "Who can access what" is auth'z, not auth'n.
-#
-#  In particular, MW has two extensions,
-#
-#  - OATHAuth = OATH = TOTP login stuff. This was included with MW 1.39.
-#
-#  - OAuth = extension to make your MW server an OAuth server, one that
-#    (your robot) apps can request permissions from to access your secrets.
-#    If you have registered this permission in the past, the app starts
-#    quickly; else, I suppose the protocol would ask you first time if such
-#    grants were OK. It is this initial shared agreement that both OATH and
-#    OAuth use to eliminate all stress from life. Your MW 1.39 does not
-#    include an OAuth extension.
-#
-# Also see https://en.wikipedia.org/wiki/Initiative_for_Open_Authentication.
-#
-#  To summarize:
-#    - Tried OATH, initial sync worked but login failed repeatedly;
-#    - Decided against OAuth, MW may still be finishing the details in 1.4.1.
-#      which is not yet on Hub.
-#

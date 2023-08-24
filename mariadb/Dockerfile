@@ -5,7 +5,6 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-# FROM mariadb:lts AS data
 FROM mariadb:10.11 AS data
 
 # Root login instructions using cleartext password.
@@ -32,7 +31,7 @@ ENV MARIADB_USER=$MARIADB_USER
 ARG MARIADB_PASSWORD_HASH
 ENV MARIADB_PASSWORD_HASH=$MARIADB_PASSWORD_HASH
 
-# Place custom DB initialization steps inside /docker-entrypoint-initdb.d.
+# Place custom initialization steps inside /docker-entrypoint-initdb.d.
 COPY ./50-noop.sh /docker-entrypoint-initdb.d
 COPY ./70-initdb.sql.gz /docker-entrypoint-initdb.d
 
