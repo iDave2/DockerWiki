@@ -3,6 +3,7 @@
 #  Ideas for data backup and restore.
 #  Also see https://hub.docker.com/_/mariadb.
 #  This script passes cleartext passwords so is Not Secure.
+#  This script requires bash and the ever-more-useful jq.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
@@ -12,12 +13,35 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${SCRIPT_DIR}/include.sh"
 source "${SCRIPT_DIR}/../.env"
 
+# What are we even doing here?
 BACKUP=false
 RESTORE=false
 
+# Where to backup to or restore from.
 WORK_DIR=${BACKUP_DIR}
 DATA_FILE="${WORK_DIR}/all-databases.sql"
 IMAGE_DIR="${WORK_DIR}/images"
+
+# Constants used to validate incoming data and view container names.
+DATA_HOST_NAME() { echo data; }
+DATA_IMAGE_NAME() { echo mariadb; } # Actually $DID/mariadb, see below.
+VIEW_HOST_NAME() { echo view; }
+VIEW_IMAGE_NAME() { echo mediawiki; }
+
+# [ mariadb == $(DATA_IMAGE_NAME) ] && echo Match || echo No Match
+# exit 2
+
+####-####+####-####+####-####+####-####+
+#
+#  Check validity of requested data and view containers.
+#
+checkContainer() {
+  local container=$1 hostName=$2 imageName=$3
+  local command="docker container inspect '$container' | jq '[ .[0].Config.Hostname, .[0].Config.Image ]'"
+  xShow $command
+  local hi=$(eval $command)
+  echo && echo "array 'hi' is '$hi'"
+}
 
 main() {
 
@@ -64,6 +88,38 @@ main() {
     esac
   done
 
+  # Validate input.
+  if ! $BACKUP && ! $RESTORE; then
+    usage Specify --backup or --restore \(or both FWIW\)
+    return $?
+  fi
+
+  # Is data container reasonable?
+  checkContainer ${DATA_CONTAINER} $(DATA_HOST_NAME) $(DATA_IMAGE_NAME)
+  return 99
+  local command="docker container inspect '$DATA_CONTAINER' | jq '.[0].Config.Env' | grep MARIADB_DATABASE"
+  xShow $command
+  local dbName=$(eval $command)
+  echo $dbName
+  if [[ "$dbName" == *mediawiki* ]]; then
+    echo && echo "# Using data container '$DATA_CONTAINER'"
+  else
+    usage "Expected to find 'mediawiki' database in data container '$DATA_CONTAINER'; found '$dbName' instead"
+    return -17
+  fi
+
+  # Is view container compelling? https://stackoverflow.com/a/12973694
+  command="docker container inspect '$VIEW_CONTAINER' | jq '.[0].Config.Env' | grep MEDIAWIKI_VERSION | xargs"
+  xShow $command
+  local version=$(eval $command)
+  echo $version
+  if [ -n "$version" ]; then
+    echo && echo "# Using data container '$DATA_CONTAINER'"
+  else
+    usage "Expected to find MEDIAWIKI_VERSION in view container '$VIEW_CONTAINER'; found '$version' instead"
+    return -18
+  fi
+
   # [ -d "$WORK_DIR" ] || mkdir "$BACKUP_DIR"
   # [ -d "$IMAGE_DIR"] || mkdir "$IMAGE_DIR"
 
@@ -73,28 +129,7 @@ main() {
   echo "DATA_FILE = '$DATA_FILE'"
   echo "IMAGE_DIR = '$IMAGE_DIR'"
 
-  # echo backup[$BACKUP], restore[$RESTORE], file[$DATA_FILE], containers[\"$(join '" "' "${CONTAINERS[@]}")\"]
-
-  if ! $BACKUP && ! $RESTORE; then
-    usage Specify --backup or --restore \(or both FWIW\)
-    return $?
-  fi
-
-  case ${#CONTAINERS[@]} in
-  0)
-    usage Please specify a DATABASE_CONTAINER
-    return 41
-    ;;
-  1)
-    CONTAINER=${CONTAINERS[0]}
-    ;;
-  *)
-    usage Expected one container, found \"$(join '" "' "${CONTAINERS[@]}")\"
-    return $?
-    ;;
-  esac
-
-  # echo backup[$BACKUP], restore[$RESTORE], file[$DATA_FILE], container[$CONTAINER]
+  return 42
 
   # Backup and restore.
   if $BACKUP; then
