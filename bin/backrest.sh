@@ -3,7 +3,7 @@
 #  Ideas for data backup and restore.
 #  Also see https://hub.docker.com/_/mariadb.
 #  This script passes cleartext passwords so is Not Secure.
-#  This script requires bash and the ever-more-useful jq.
+#  This script requires bash and the ever useful jq.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
@@ -36,66 +36,45 @@ VIEW_IMAGE_NAME() { echo mediawiki; }
 #  Check validity of requested data and view containers.
 #
 checkContainer() {
+
   local container=$1 hostName=$2 imageName=$3
-  local command="docker container inspect '$container' | jq '[ .[0].Config.Hostname, .[0].Config.Image ]'"
-  xShow $command
-  local hi=$(eval $command)
-  echo && echo "array 'hi' is '$hi'"
+
+  local commandA="docker container inspect $container"
+  local commandB="jq --raw-output '.[0].Config.Hostname, .[0].Config.Image'"
+  xShow $commandA '|' $commandB
+
+  local errFile='/tmp/stderr'
+  local inspect=$($commandA 2>$errFile) # docker $? always zero...
+  local error=$(<$errFile)
+  [ -n "$error" ] && usage $error
+
+  local hostTest=$(echo "$inspect" | jq --raw-output '.[0].Config.Hostname')
+  local imageTest=$(echo "$inspect" | jq --raw-output '.[0].Config.Image')
+  # remove $DID at front and :tag at end
+  imageTest=$(echo $(basename $imageTest) | sed -e s/:.*//)
+
+  if [ "$hostTest" != "$hostName" ]; then
+    usage "Expected host name '$hostName' for container '$container'; found '$hostTest' instead"
+  fi
+  if [ "$imageTest" != "$imageName" ]; then
+    usage "Expected image name '$imageName' for container '$container'; found '$imageTest' instead"
+  fi
 }
 
+####-####+####-#'###+####-####+####-####+
+#
+#  chatgpt://sound/play/quote?key="main"&limit=1
+#
 main() {
 
-  # echo '"$@"' = \"$(join '" "' "$@")\"
+  parseCommandLine "$@"
 
-  # Parse command line, https://stackoverflow.com/a/14203146.
+  ! $BACKUP && ! $RESTORE &&
+    usage Please specify --backup or --restore \(or both FWIW\)
 
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-    -b | --backup)
-      BACKUP=true
-      shift
-      ;;
-    -d | --data-container)
-      DATA_CONTAINER="$2"
-      shift 2
-      ;;
-    -h | --help)
-      usage
-      return 1
-      ;;
-    -r | --restore)
-      RESTORE=true
-      shift
-      ;;
-    -v | --view-container)
-      VIEW_CONTAINER="$2"
-      shift 2
-      ;;
-    -w | --work-dir)
-      WORK_DIR="$2"
-      shift 2
-      DATA_FILE="${WORK_DIR}/all-databases.sql"
-      IMAGE_DIR="${WORK_DIR}/images"
-      ;;
-    -* | --*)
-      usage unknown option \"$1\"
-      return 41
-      ;;
-    *)
-      usage "unexpected argument '$1'"
-      return 42
-      ;;
-    esac
-  done
-
-  # Validate input.
-  if ! $BACKUP && ! $RESTORE; then
-    usage Specify --backup or --restore \(or both FWIW\)
-    return $?
-  fi
-
-  # Is data container reasonable?
+  # Are containers fairly valid?
   checkContainer ${DATA_CONTAINER} $(DATA_HOST_NAME) $(DATA_IMAGE_NAME)
+  checkContainer ${VIEW_CONTAINER} $(VIEW_HOST_NAME) $(VIEW_IMAGE_NAME)
   return 99
   local command="docker container inspect '$DATA_CONTAINER' | jq '.[0].Config.Env' | grep MARIADB_DATABASE"
   xShow $command
@@ -107,6 +86,8 @@ main() {
     usage "Expected to find 'mediawiki' database in data container '$DATA_CONTAINER'; found '$dbName' instead"
     return -17
   fi
+
+  return 42
 
   # Is view container compelling? https://stackoverflow.com/a/12973694
   command="docker container inspect '$VIEW_CONTAINER' | jq '.[0].Config.Env' | grep MEDIAWIKI_VERSION | xargs"
@@ -142,13 +123,60 @@ main() {
   fi
 }
 
+####-####+####-####+####-####+####-####+
+#
+#  There are no more words.
+#
+parseCommandLine() {
+  # https://stackoverflow.com/a/14203146
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    -b | --backup)
+      BACKUP=true
+      shift
+      ;;
+    -d | --data-container)
+      DATA_CONTAINER="$2"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      ;;
+    -r | --restore)
+      RESTORE=true
+      shift
+      ;;
+    -v | --view-container)
+      VIEW_CONTAINER="$2"
+      shift 2
+      ;;
+    -w | --work-dir)
+      WORK_DIR="$2"
+      shift 2
+      DATA_FILE="${WORK_DIR}/all-databases.sql"
+      IMAGE_DIR="${WORK_DIR}/images"
+      ;;
+    -* | --*)
+      usage unknown option \"$1\"
+      ;;
+    *)
+      usage "unexpected argument '$1'"
+      ;;
+    esac
+  done
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  Print a usage summary and exit.
+#
 usage() {
   if [ -n "$*" ]; then
-    echo && echo "** $*"
+    echo && echo "==> $*"
   fi
   cat <<-EOT
 
-Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS] DATABASE_CONTAINER
+Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
 Backup and restore a MariaDB database.
 
@@ -160,7 +188,7 @@ Options:
   -v | --view-container  string   View container, overrides .env
   -w | --work-dir  string         Work area, overrides .env/BACKUP_DIR
 EOT
-  return 42
+  exit 42
 }
 
 main "$@"
