@@ -7,8 +7,19 @@
 # is equivalent to referencing element zero. -[bash]
 TRACE='eval echo $FUNCNAME[$LINENO]'
 
+####-####+####-####+####-####+####-####+
+#
+#  Curly version of xShow, this pretty-prints comment + command.
+#
+cShow() {
+  local comment=$1 command=$2
+  echo && echo "# $comment" && echo "\$ $command"
+}
 
-# Join list with a given delimiter: "$(join ', ' A 'B C' D)" => "A, B C, D"
+####-####+####-####+####-####+####-####+
+#
+#  Join list with a given delimiter: "$(join ', ' A 'B C' D)" => "A, B C, D"
+#
 join() { # https://stackoverflow.com/a/17841619
   local c="" d="$1" r=""
   shift
@@ -20,7 +31,10 @@ join() { # https://stackoverflow.com/a/17841619
 }
 
 
-# Pretty-print commands executed and save output in array LINES, sometimes.
+####-####+####-####+####-####+####-####+
+#
+#  Pretty-print commands executed and save output in array LINES, sometimes.
+#
 LINES=()
 xShow() {
   echo && echo "[$(basename $(pwd))] \$ $*"
@@ -44,13 +58,4 @@ xOut() {
   # echo xOut\( $(join ', ' "$@") \)
   xShow "$@" "> $out"
   "$@" > $out
-}
-
-####-####+####-####+####-####+####-####+
-#
-#  Curly version of xShow, this pretty-prints comment + command.
-#
-cShow() {
-  local comment=$1 command=$2
-  echo && echo "# $comment" && echo "\$ $command"
 }

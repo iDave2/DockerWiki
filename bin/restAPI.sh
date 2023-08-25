@@ -25,12 +25,21 @@ source ${SCRIPT_DIR}/include.sh # https://stackoverflow.com/a/246128
 
 # Local endpoint.
 WIKI="http://localhost:8080"
-API="rest.php"
+API="rest.php/v1"
 WIKI_API="${WIKI}/${API}"
 
 # Reusable chunks of Curl Options.
 # CO_CORE="--no-progress-meter --show-error"
 CO_CORE='-Ss'
+
+# Sample page for testing REST API.
+#PAGE_TITLE='Sleep Study'
+PAGE_TITLE='Main Page'
+read -r -d '' PAGE_SOURCE <<'EOF' # https://stackoverflow.com/a/1655389
+Lorem ipsum *ipsum* blee,
+Foorem mopsum *blipsun* glee.
+EOF
+PAGE_EDIT='Please do not hit Reply-All.'
 
 ####-####+####-####+####-####+####-####+
 #
@@ -43,35 +52,15 @@ main() {
   local command="curl ${CO_CORE} --request GET ${WIKI_API}"
   [ -n "$*" ] && command+="/$*"
 
-  # These phrases (may need quoting) worked in '$ restAPI.sh <phrase>'
-  #
-  # The following formulas are written as "METHOD ROUTE" where method is
-  # GET, PUT, POST, UPDATE and ROUTEs like '/page' become 'v1/page' with
-  # our current choice of ${WIKI_API}.
-  #
-  # ---- Create page ----
-  #  POST /page
-  #
-  #   v1/page/Main_Page         (return Main_Page wikitext)
-  #   v1/page/Main_Page/history (returns full Main_Page history)
-  #   v1/search/page?q=Main_Page&limit=1" (returns nothing)
-  #   v1/search/page?q=main     (returns Main_Page)
-  #   v1/search/page?q=page     (same, returns Main_Page)
-  #   v1/search/page?q=hondas   (returns "Hondas" and "Main Page")
-  #   v1/page/Hondas            (returns "Hondas" wikitext or "source")
-  #   v1/search/page?q=*        (returns nothing)
-  #
-  #  *v1/page/{title}           (returns page object w/"source" as wikitext)
-  #   v1/page/{title}/with_html (like * but w/"html" instead of "source")
-  #   v1/page/{title}/bare      (like * but w/"html_url" -> [/html route] instead of "source")
-  #   v1/page/{title}/html      (raw html, do not try to jq!)
-  #   v1/page/{title}/links/language (zip here)
-  #   v1/page/{title}/links/media (lots from mediawiki, nothing on Main_Page?)
-  #
+  echo "PAGE_TITLE = '$PAGE_TITLE'"
+  echo "PAGE_SOURCE = '$PAGE_SOURCE'"
+  echo "PAGE_EDIT = '$PAGE_EDIT'"
 
-  cShow "REST a bit" "$command"
-  local cr=$($command)
-  echo "$cr" | jq . # | head -20 && echo '---' && echo '}'
+  searchPage "$PAGE_TITLE"
+
+  # cShow "REST a bit" "$command"
+  # local cr=$($command)
+  # echo "$cr" | jq . # | head -20 && echo '---' && echo '}'
 }
 
 ####-####+####-####+####-####+####-####+
@@ -136,6 +125,25 @@ pageUpdate() {
         "id": 555555555 \
       } \
     }'
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  GET /search/page? - Search for page(s)
+#
+#  https://www.mediawiki.org/wiki/API:REST_API/Reference#Search_pages
+#
+searchPage() {
+  # local title=$1
+  local title=$(echo $1 | tr ' ' '%20')
+  echo "title => '$title'"
+  # local key=$(echo $title | tr ' ' '_')
+  # echo "*** key = '$key'"
+  # local cr=$(curl -sS ${WIKI_API}/search/page?q=${key}&limit=1)
+  local command="curl -sS ${WIKI_API}/search/page?q=$title&limit=1"
+  cShow "Search for page '$title'" "$command"
+  local cr=$($command)
+  echo $cr | jq .
 }
 
 ####-####+####-####+####-####+####-####+
