@@ -23,7 +23,7 @@ WORK_DIR=${TEMP_DIR}
 DATA_FILE="${WORK_DIR}/all-databases.sql"
 IMAGE_DIR="${WORK_DIR}/images"
 
-# Constants used to validate incoming data and view container names.
+# Constants.
 DATA_HOST_NAME() { echo data; }
 DATA_IMAGE_NAME() { echo mariadb; }
 VIEW_HOST_NAME() { echo view; }
@@ -31,7 +31,7 @@ VIEW_IMAGE_NAME() { echo mediawiki; }
 
 ####-####+####-####+####-####+####-####+
 #
-#  Check validity of requested data and view containers.
+#  Validate requested data and view containers.
 #
 checkContainer() {
 
@@ -70,13 +70,13 @@ main() {
   ! $BACKUP && ! $RESTORE &&
     usage "Please specify --backup or --restore (or both FWIW)"
 
-  xCute mkdir $WORK_DIR $IMAGE_DIR # 2>/dev/null
+  mkdir $WORK_DIR $IMAGE_DIR 2>/dev/null
 
   checkContainer ${DATA_CONTAINER} $(DATA_HOST_NAME) $(DATA_IMAGE_NAME)
   checkContainer ${VIEW_CONTAINER} $(VIEW_HOST_NAME) $(VIEW_IMAGE_NAME)
 
-  # Add a pause here? "Press enter to continue with this config?"
-  if true; then
+  # Maybe a --verbose option...
+  if false; then
     echo
     echo "DATA_CONTAINER = '$DATA_CONTAINER'"
     echo "VIEW_CONTAINER = '$VIEW_CONTAINER'"
@@ -101,6 +101,13 @@ main() {
   if $RESTORE; then
 
     xIn "$DATA_FILE" docker exec -i "$DATA_CONTAINER" sh -c "exec mariadb -uroot -p$MARIADB_ROOT_PASSWORD"
+
+    local commandA="tar -cC ${WORK_DIR}/images ."
+    local commandB="docker exec --interactive $VIEW_CONTAINER tar -xC /var/www/html/images"
+    xShow "$commandA | $commandB"
+    $commandA | $commandB
+
+    echo && echo "Wiki restored from '$WORK_DIR'"
 
   fi
 }
@@ -150,7 +157,7 @@ parseCommandLine() {
 
 ####-####+####-####+####-####+####-####+
 #
-#  Print a usage summary and exit.
+#  You have to say something.
 #
 usage() {
   if [ -n "$*" ]; then
