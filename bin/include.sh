@@ -18,6 +18,24 @@ cShow() {
 
 ####-####+####-####+####-####+####-####+
 #
+#  Decorate generated artifact names; emulate docker compose.
+#
+decorate() {
+  local name=$1 project=$2 type=$3
+  local result=$name
+  case $type in
+  'container')
+    result="${project}-${name}-1"
+    ;;
+  'network' | 'volume')
+    result="${project}_${name}"
+    ;;
+  esac
+  echo $result
+}
+
+####-####+####-####+####-####+####-####+
+#
 #  Join list with a given delimiter: "$(join ', ' A 'B C' D)" => "A, B C, D"
 #
 join() { # https://stackoverflow.com/a/17841619
@@ -29,7 +47,6 @@ join() { # https://stackoverflow.com/a/17841619
   done
   echo $r
 }
-
 
 ####-####+####-####+####-####+####-####+
 #
@@ -50,12 +67,12 @@ xIn() {
   shift
   # echo xIn\( $(join ', ' "$@") \)
   xShow "$@" "< $in"
-  "$@" < $in
+  "$@" <$in
 }
 xOut() {
   local out=$1
   shift
   # echo xOut\( $(join ', ' "$@") \)
   xShow "$@" "> $out"
-  "$@" > $out
+  "$@" >$out
 }
