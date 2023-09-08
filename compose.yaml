@@ -4,7 +4,7 @@ name: wiki
 #
 services:
 
-  view:
+  "$VIEW_SERVICE_NAME":
     image: $DID/mediawiki:$TAG
     build:
       context: ./mediawiki

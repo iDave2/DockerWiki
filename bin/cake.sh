@@ -8,25 +8,26 @@
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 # https://stackoverflow.com/a/246128
+
 ENV_FILE="${SCRIPT_DIR}/../.env"
 ENV_DATA="${SCRIPT_DIR}/../.envData"
 
 source ${SCRIPT_DIR}/include.sh
 source "$ENV_FILE"
+source "$USER_CONFIG" 2>/dev/null
 
 # Simulate composer-generated names for volume 'data' and network 'net'
 # so we don't need to keep switching when changing builds.
-DATA_VOLUME=wiki_data
+DATA_VOLUME=wiki_${DATA_VOLUME}
 DATA_TARGET=/var/lib/mysql
-# DOCS_VOLUME=wiki_docs  # Temporary, for debugging php
-# DOCS_TARGET=/var/www/html # Temporary, for debugging php
-NETWORK=wiki_net
+NETWORK=wiki_${NETWORK}
 
 # Continue with Docker file build(s).
 CLEAN=false
 CONTAINER=
 ENVIRONMENT=
 HERE=$(basename $(pwd -P))
+HOST_NAME=
 IMAGE=
 INTERACTIVE=false
 KLEAN=false
@@ -86,7 +87,7 @@ make() {
   # Remove any existing IMAGE.
   xCute docker image ls $IMAGE
   if [[ $? && ${#LINES[@]} > 1 ]]; then
-    xCute docker rmi $(eval echo "$IMAGE:"{$TAGS})
+    xOut "/dev/null" docker rmi $(eval echo "$IMAGE:"{$TAGS})
   fi
 
   # Remove volumes and networks if requested.
@@ -120,17 +121,19 @@ make() {
   xCute docker build $OPTIONS $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
   if $INTERACTIVE; then # --interactive needs work...
     xCute docker run $ENVIRONMENT --interactive --rm --tty \
-      --network $NETWORK --name $CONTAINER --hostname $CONTAINER \
-      --network-alias $CONTAINER $MOUNT $PUBLISH $IMAGE
+      --network $NETWORK --name $CONTAINER --hostname $HOST_NAME \
+      --network-alias $HOST_NAME $MOUNT $PUBLISH $IMAGE
   else
     xCute docker run --detach $ENVIRONMENT --network $NETWORK \
-      $(echo --{name,hostname,network-alias}" $CONTAINER") $MOUNT $PUBLISH $IMAGE
+      --name $CONTAINER --hostname $HOST_NAME --network-alias $HOST_NAME \
+      $MOUNT $PUBLISH $IMAGE
   fi
 }
 
 makeData() {
-  CONTAINER=data
+  CONTAINER=$DATA_CONTAINER
   ENVIRONMENT="--env-file $ENV_DATA"
+  HOST_NAME=$DATA_HOST_NAME
   IMAGE=$DID/mariadb
   MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
   PUBLISH=
@@ -138,8 +141,9 @@ makeData() {
 }
 
 makeView() {
-  CONTAINER=view
+  CONTAINER=$VIEW_CONTAINER
   ENVIRONMENT=
+  HOST_NAME=$VIEW_HOST_NAME
   IMAGE=$DID/mediawiki
   MOUNT=
   PUBLISH="--publish $PORTS"

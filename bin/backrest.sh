@@ -3,7 +3,7 @@
 #  Ideas for data backup and restore.
 #  Also see https://hub.docker.com/_/mariadb.
 #  This script passes cleartext passwords so is Not Secure.
-#  This script requires 'bash' and the always delightful 'jq'.
+#  This script requires 'bash' and 'jq'.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
@@ -12,10 +12,11 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
 source "${SCRIPT_DIR}/include.sh"
 source "${SCRIPT_DIR}/../.env"
+source "${USER_CONFIG}" 2>/dev/null
 
 # What to do.
 BACKUP=false
-QUIET=false
+QUIET=true
 RESTORE=false
 
 # Where to do it.
@@ -61,7 +62,7 @@ checkContainer() {
 
 ####-####+####-#'###+####-####+####-####+
 #
-#  chatgpt://sound/play/quote?key="main"&limit=1
+#  chatgpt://get/quote?keyword="main"&limit=1
 #
 main() {
 
@@ -75,8 +76,7 @@ main() {
   checkContainer ${DATA_CONTAINER} $(DATA_HOST_NAME) $(DATA_IMAGE_NAME)
   checkContainer ${VIEW_CONTAINER} $(VIEW_HOST_NAME) $(VIEW_IMAGE_NAME)
 
-  # Maybe a --verbose option...
-  if false; then
+  if ! $QUIET; then
     echo
     echo "DATA_CONTAINER = '$DATA_CONTAINER'"
     echo "VIEW_CONTAINER = '$VIEW_CONTAINER'"
@@ -84,6 +84,8 @@ main() {
     echo "DATA_FILE = '$DATA_FILE'"
     echo "IMAGE_DIR = '$IMAGE_DIR'"
   fi
+
+echo && echo SKIPPING BACKUP/RESTORE TILL DAVE TESTS  ~/.DOCKERWIKI/.ENV && return 1
 
   if $BACKUP; then
 
@@ -145,6 +147,10 @@ parseCommandLine() {
       DATA_FILE="${WORK_DIR}/all-databases.sql"
       IMAGE_DIR="${WORK_DIR}/images"
       ;;
+    -x | --xerbose)
+      QUIET=false
+      shift
+      ;;
     -* | --*)
       usage unknown option \"$1\"
       ;;
@@ -167,15 +173,16 @@ usage() {
 
 Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
-Backup and restore a MariaDB database.
+Backup and restore a DockerWiki.
 
 Options:
   -b | --backup                   Backup database and images
-  -d | --data-container  string   Data container, overrides .env
+  -d | --data-container  string   Override .env/DATA_CONTAINER
   -h | --help                     Print this usage summary
   -r | --restore                  Restore database and images
-  -v | --view-container  string   View container, overrides .env
+  -v | --view-container  string   Override .env/VIEW_CONTAINER
   -w | --work-dir  string         Work area, overrides .env/TEMP_DIR
+  -x | --xerbose                  Verbose (sorry, -v was taken)
 EOT
   exit 42
 }
