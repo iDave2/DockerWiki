@@ -18,7 +18,7 @@ source "$USER_CONFIG" 2>/dev/null
 
 # Basename of working directory determines what is built:
 # mariadb, mediawiki, or both.
-HERE=$(basename $(pwd -P))
+WHAT=$(basename $(pwd -P))
 
 # Command-line options.
 CLEAN=false
@@ -70,7 +70,7 @@ main() {
   NETWORK=$(rename "$DW_NETWORK" "$DW_PROJECT" 'network')
 
   # Make one or both services.
-  case $HERE in
+  case $WHAT in
   mariadb) makeData ;;
   mediawiki) makeView ;;
   *)
@@ -78,7 +78,7 @@ main() {
       cd mariadb && makeData && cd ..
       cd mediawiki && makeView && cd ..
     else
-      usage Expected \$PWD in mariadb, mediawiki, or their parent folder, not \"$HERE\".
+      usage Expected \$PWD in mariadb, mediawiki, or their parent folder, not \"$WHAT\".
       return 1
     fi
     ;;
@@ -151,7 +151,7 @@ makeData() {
   CONTAINER=$(rename "$DW_DATA_SERVICE" "$DW_PROJECT" 'container')
   ENVIRONMENT="--env-file $ENV_DATA"
   HOST=$DW_DATA_HOST
-  IMAGE=$DID/mariadb
+  IMAGE=$DW_DID/mariadb
   MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
   PUBLISH=
   make
@@ -161,7 +161,7 @@ makeView() {
   CONTAINER=$(rename "$DW_VIEW_SERVICE" "$DW_PROJECT" 'container')
   ENVIRONMENT=
   HOST=$DW_VIEW_HOST
-  IMAGE=$DID/mediawiki
+  IMAGE=$DW_DID/mediawiki
   MOUNT=
   PUBLISH="--publish $DW_PORTS"
   make

@@ -4,13 +4,13 @@ name: wiki
 #
 services:
 
-  "$VIEW_SERVICE_NAME":
-    image: $DID/mediawiki:$TAG
+  view:
+    image: $DW_DID/mediawiki:$TAG
     build:
       context: ./mediawiki
       tags:
-        - "$DID/mediawiki:$TAG"
-        - "$DID/mediawiki:latest"
+        - "$DW_DID/mediawiki:$TAG"
+        - "$DW_DID/mediawiki:latest"
     depends_on:
       - data
     environment:
@@ -19,15 +19,15 @@ services:
     networks:
       - net
     ports:
-      - "${PORTS}"
+      - "${DW_PORTS}"
 
   data:
-    image: $DID/mariadb:$TAG
+    image: $DW_DID/mariadb:$TAG
     build:
       context: ./mariadb
       tags:
-        - '$DID/mariadb:$TAG'
-        - '$DID/mariadb:latest'
+        - '$DW_DID/mariadb:$TAG'
+        - '$DW_DID/mariadb:latest'
       args:
         # https://stackoverflow.com/q/76229692
         - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
