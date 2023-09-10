@@ -8,10 +8,12 @@
 FROM mediawiki:1.39 AS view
 
 # Image configuration via --build-arg's.
-ARG MW_DB_DATABASE MW_DB_USER MW_DB_PASSWORD
+ARG MW_DB_DATABASE MW_DB_USER MW_DB_PASSWORD MW_PASSWORD
 
 # Use a distinct work area. Go to your room.
-RUN set -eux && mkdir DockerWiki && echo "$MW_DB_PASSWORD" > DockerWiki/dbpassfile
+RUN set -eux && mkdir DockerWiki; \
+    echo "$MW_DB_PASSWORD" > DockerWiki/dbpassfile; \
+    echo "$MW_PASSWORD" > DockerWiki/passfile;
 
 # Author keeps mumbling "Less is more, less is more..." Strange indeed.
 # Use --no-cache-filter when available to cache this 4 second layer.

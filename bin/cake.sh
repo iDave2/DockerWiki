@@ -159,19 +159,18 @@ makeView() {
     MW_DB_DATABASE $DW_DB_DATABASE
     MW_DB_USER $DW_DB_USER
     MW_DB_PASSWORD $DW_DB_PASSWORD
+    MW_PASSWORD $DW_MW_PASSWORD
   )
   for (( i = 0; $i < ${#options[*]}; i += 2 )); do
     BUILD_OPTIONS+=" --build-arg ${options[$i]}=${options[$i+1]}"
   done
-  # BUILD_OPTIONS+=" --build-arg MW_DB_DATABASE=$DW_DB_DATABASE"
-  # BUILD_OPTIONS+=" --build-arg MW_DB_USER=$DW_DB_USER"
 
   CONTAINER=$(rename "$DW_VIEW_SERVICE" "$DW_PROJECT" 'container')
   ENVIRONMENT=
   HOST=$DW_VIEW_HOST
   IMAGE=$DW_DID/mediawiki
   MOUNT=
-  PUBLISH="--publish $DW_PORTS"
+  PUBLISH="--publish $DW_MW_PORTS"
 
   make
 }

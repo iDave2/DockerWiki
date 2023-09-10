@@ -19,7 +19,7 @@ services:
     networks:
       - net
     ports:
-      - "${DW_PORTS}"
+      - "${DW_MW_PORTS}"
 
   data:
     image: $DW_DID/mariadb:$TAG
