@@ -56,9 +56,9 @@ $wgEmailAuthentication = true;
 ## Database settings
 $wgDBtype = "mysql";
 $wgDBserver = "data";
-$wgDBname = "mediawiki";
-$wgDBuser = "wikiDBA";
-$wgDBpassword = "changeThis";
+$wgDBname = "%%wgDBname%%";
+$wgDBuser = "%%wgDBuser%%";
+$wgDBpassword = "%%wgDBpassword%%";
 
 # MySQL specific settings
 $wgDBprefix = "";
@@ -99,9 +99,9 @@ $wgLocaltimezone = "UTC";
 ## be publicly accessible from the web.
 #$wgCacheDirectory = "$IP/cache";
 
-# This may be the server's secret OATH key; Git Guardian raises warning.
-# So leave a message for git and generate this key during build.
-$wgSecretKey = "See Dockerfile";
+# This may be the server's secret OATH key. Git Guardian raises warning
+# when this key's value appears on github so we generate during build.
+$wgSecretKey = "%%wgSecretKey%%";
 
 # Changing this will log out all existing sessions.
 $wgAuthenticationTokenVersion = "1";
@@ -142,3 +142,34 @@ wfLoadExtension( 'OATHAuth' );
 
 # End of automatically generated settings.
 # Add more configuration options below.
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  During development and testing of new DockerWiki images, when the
+#  MediaWiki database and its owner are configured in LocalSettings.php
+#  and properly created during MariaDB initialization,
+#
+#    $wgDBtype = "mysql";
+#    $wgDBserver = "data";
+#    $wgDBname = "mediawikiX";
+#    $wgDBuser = "wikiDBA";
+#    $wgDBpassword = "changeThis";
+#
+#  but the MediaWiki database tables are not yet created because we want
+#  new users to see a working DockerWiki rather than the MediaWiki web-
+#  based installer,
+#
+#    http://localhost:8080/mw-config/index.php
+#
+#  (i.e., we never start browser with a missing LocalSettings.php), then
+#  the browser correctly displays "cannot access database" or "internal
+#  error" or facsimile.
+#
+#  Peeking from inside this MediaWiki container,
+#
+#    # curl localhost
+#
+#  yields the following helpful tip which could be removed in a
+#  "production" context:
+#
+$wgShowExceptionDetails = true;

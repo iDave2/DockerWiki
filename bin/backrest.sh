@@ -25,9 +25,7 @@ DATA_FILE="${WORK_DIR}/all-databases.sql"
 IMAGE_DIR="${WORK_DIR}/images"
 
 # Constants.
-DATA_HOST_NAME() { echo data; }
 DATA_IMAGE_NAME() { echo mariadb; }
-VIEW_HOST_NAME() { echo view; }
 VIEW_IMAGE_NAME() { echo mediawiki; }
 
 ####-####+####-####+####-####+####-####+
@@ -73,8 +71,8 @@ main() {
 
   mkdir $WORK_DIR $IMAGE_DIR 2>/dev/null
 
-  checkContainer ${DATA_CONTAINER} $(DATA_HOST_NAME) $(DATA_IMAGE_NAME)
-  checkContainer ${VIEW_CONTAINER} $(VIEW_HOST_NAME) $(VIEW_IMAGE_NAME)
+  checkContainer "$DATA_CONTAINER" "$DATA_HOST" $(DATA_IMAGE_NAME)
+  checkContainer "$VIEW_CONTAINER" "$VIEW_HOST" $(VIEW_IMAGE_NAME)
 
   if ! $QUIET; then
     echo

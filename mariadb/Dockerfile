@@ -8,13 +8,13 @@
 FROM mariadb:10.11 AS data
 
 # Root login instructions using cleartext password.
-ARG MARIADB_ROOT_PASSWORD
-ENV MARIADB_ROOT_PASSWORD=$MARIADB_ROOT_PASSWORD
+# ARG MARIADB_ROOT_PASSWORD
+# ENV MARIADB_ROOT_PASSWORD=$MARIADB_ROOT_PASSWORD
 
 # MariaDB hash method leaves no cleartext password inside container.
 # SELECT PASSWORD('changeThis') gives the hash below.
-# ARG MARIADB_ROOT_PASSWORD_HASH
-# ENV MARIADB_ROOT_PASSWORD_HASH=$MARIADB_ROOT_PASSWORD_HASH
+ARG MARIADB_ROOT_PASSWORD_HASH
+ENV MARIADB_ROOT_PASSWORD_HASH=$MARIADB_ROOT_PASSWORD_HASH
 
 # Limit root to local access.
 ARG MARIADB_ROOT_HOST
@@ -33,6 +33,6 @@ ENV MARIADB_PASSWORD_HASH=$MARIADB_PASSWORD_HASH
 
 # Place custom initialization steps inside /docker-entrypoint-initdb.d.
 COPY ./50-noop.sh /docker-entrypoint-initdb.d
-COPY ./70-initdb.sql.gz /docker-entrypoint-initdb.d
+# COPY ./70-initdb.sql.gz /docker-entrypoint-initdb.d
 
 # Original MariaDB entry point remains active.
