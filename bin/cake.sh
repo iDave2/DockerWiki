@@ -236,6 +236,11 @@ makeView() {
 
   # Database needs to be Running for maintenance/install.php to work.
   waitForData
+  if [ $? -eq 0 ]; then
+    echo waitForData succeeded, data container is running
+  else
+    echo waitForData failed, data container is not running
+  fi
 
   echo SKIPPING SETUP
   return 1
@@ -349,34 +354,26 @@ waitForData() {
   local viewContainer=$(getContainer view) viewState
   local inspect='docker inspect --format' goville='{{json .State.Status}}'
 
-  # Show user what we are doing. The extra 'echo'
-  # removes excess whitespace from stderr results.
+  # Show user what we think is happening.
   xShow $inspect \"$goville\" $dataContainer
-  dataState=$(echo $($inspect "$goville" $dataContainer 2>&1))
-  echo
-  echo "dataState is '$dataState'"
 
-  # First, there needs to Be a data container.
-  # command="docker container ls --filter='$dataContainer'"
-  # dataState=$(x2to1 $command)
-  # echo -e "dataState is '$dataState'"
-  # xShow $command
-  #   if [[ $? && ${#LINES[@]} > 1 ]]; then # ignore sticky column headers
-  #   xCute docker stop $CONTAINER
-  #   xCute docker rm $CONTAINER
-  # fi
-  # sed -e 's/^"//' -e 's/"$//' <<<"$opt"
+  # Wait for data container to be Running. The extra 'echo's
+  # remove confusing whitespace from stderr results.
+  local success='"running"'
+  for ((i = 0; i < 5; ++i)); do
 
-  # Let user see what is happening.
-  # xShow docker inspect --format "$goville" $dataContainer
+    dataState=$(echo $($inspect "$goville" $dataContainer 2>&1))
+    [ "${dataState:0:1}" == \" ] || dataState=\"$dataState\"
 
-  # Wait for data container to be Running.
-  for ((i = 0; i < 5; ++i)); do # https://stackoverflow.com/a/38886047 ?
-    local dataState=$(echo $($inspect "$goville" $dataContainer))
-    local viewState=$(echo $($inspect "$goville" $viewContainer))
+    viewState=$(echo $($inspect "$goville" $viewContainer 2>&1))
+    [ "${viewState:0:1}" == \" ] || viewState=\"$viewState\"
+
     echo "Container status: data is $dataState, view is $viewState"
-    sleep 1
+
+    [ "$dataState" == '"running"' ] && return 0 || sleep 1
+
   done
+  return 1 # nonzero $? indicates failure
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
