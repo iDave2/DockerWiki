@@ -48,12 +48,40 @@ join() { # https://stackoverflow.com/a/17841619
   echo $r
 }
 
+# ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+# #
+# #  Remove leading and trailing space from a given string.
+# #  https://stackoverflow.com/a/9733456 ++
+# #
+# trim() {
+#   # sed -Ee s/^\w*// -Ee s/\w*$// <<<"$1"
+#   perl -pwe 's/^\s*//' <<<"$1"
+# }
+
 ####-####+####-####+####-####+####-####+
 #
 #  Pretty-print commands executed and save output in array LINES, sometimes.
 #
 LINES=()
 xShow() {
+  # echo -e "\n=> xShow(" $(join ', ' "$@") ")\n"
+  # local words=() # Try, oh try to preserve almighty bash words.
+  # for arg; do
+  #   [[ "$arg" =~ \' ]] && words+=(\"$arg\") ||
+  #     [[ "$arg" =~ \" ]] && words+=(\'$arg\') ||
+  #     [[ "$arg" =~ "\ " ]] && words+=(\"$arg\") ||
+  #     words+=($arg)
+
+  #   # if [[ "$arg" =~ \' ]]; then
+  #   #   words+=( \"$arg\" )
+  #   # elif [[ "$arg" =~ \" ]]; then
+  #   #   words+=( \'$arg\' )
+  #   # elif [[ "$arg" =~ "\ " ]]; then
+  #   #   words+=( \"$arg\" )
+  #   # else
+  #   #   words+=( $arg )
+  #   # fi
+  # done
   echo && echo "[$(basename $(pwd))] \$ $*"
 }
 xCute() { # https://stackoverflow.com/a/32931403
@@ -75,4 +103,8 @@ xOut() {
   # echo xOut\( $(join ', ' "$@") \)
   xShow "$@" "> $out"
   "$@" >$out
+}
+x2to1() { # Capture stderr for caller...
+  xShow "$@"
+  echo $("$@" 2>&1)
 }

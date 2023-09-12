@@ -18,16 +18,29 @@ source "$USER_CONFIG" 2>/dev/null
 
 # Basename of working directory determines what is built:
 # mariadb, mediawiki, or both.
-WHAT=$(basename $(pwd -P))
+WHERE=$(basename $(pwd -P))
 
 # Command-line options.
 CLEAN=false
 DECORATE=true
 INTERACTIVE=false
 KLEAN=false
+MAKING_BOTH=false # making both data and view or just one of them?
 
-# Build options.
-CACHE=1 # meaning cache data build, not view build
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Build options.
+#
+#  The funny $CACHE processing could be removed since we no longer
+#  generate '$wgSecretKey' in Dockerfile so no longer need to worry
+#  about it being cached into a constant. The idea was,
+#
+#    $CACHE=0  # --no-cache, disable cache for both data and view
+#    $CACHE=1  # default, cache data, don't cache view builds
+#    $CACHE=2  # --cache, cache both builds
+#
+# CACHE=1 # meaning cache data build, not view build
+CACHE=2
 BUILD_OPTIONS=''
 
 # Container / runtime configuration.
@@ -43,6 +56,31 @@ DATA_VOLUME= # database volume name
 DATA_TARGET= # database volume mountpoint inside container
 NETWORK=     # network name for container chatter
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Function returns requested container name given 'data' or 'view' as
+#  input. E.g., 'data' => 'wiki-data-1' unless --no-decoration.
+#
+getContainer() {
+  local service
+  case "$1" in
+  data)
+    service="$DW_DATA_SERVICE"
+    ;;
+  view)
+    service="$DW_VIEW_SERVICE"
+    ;;
+  *)
+    usage "getContainer: expected 'data' or 'view', not '$1'"
+    ;;
+  esac
+  echo $(rename "$service" "$DW_PROJECT" 'container')
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Yet another entry point.
+#
 main() {
 
   parseCommandLine "$@"
@@ -53,7 +91,7 @@ main() {
   NETWORK=$(rename "$DW_NETWORK" "$DW_PROJECT" 'network')
 
   # Make one or both services.
-  case $WHAT in
+  case $WHERE in
   mariadb) makeData ;;
   mediawiki) makeView ;;
   *)
@@ -66,12 +104,16 @@ main() {
         cd mediawiki && makeView && cd ..
       fi
     else
-      usage Expected \$PWD in mariadb, mediawiki, or their parent folder, not \"$WHAT\".
+      usage Expected \$PWD in mariadb, mediawiki, or their parent folder, not \"$WHERE\".
     fi
     ;;
   esac
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Create or destroy an image and its container.
+#
 make() {
 
   # Remove any existing CONTAINER.
@@ -120,31 +162,6 @@ make() {
 
   # Build the image.
   xCute docker build $BUILD_OPTIONS $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
-  # local command="docker build $BUILD_OPTIONS $(eval echo "'--tag $IMAGE:'"{$TAGS}) ."
-  # xShow $command
-
-  # # Pattern also in backrest.sh, docker status gets lost, do not launch nonsense.
-  # mkdir "$TEMP_DIR" 2>/dev/null
-  # local errFile="${TEMP_DIR}/stderrX"
-  # local status=$($command 2>$errFile)
-  # # local error=$(<$errFile)
-  # echo "docker build status is '$status'"
-  # local errSize=$( wc -c $errFile | cut -w -f 2 )
-  # echo "errSize = $errSize"
-  # if (( $errSize > 0 )); then
-  #   local dash='####-####+';
-  #   local dashes="$dash$dash$dash$dash";
-  #   echo -e "\n$dashes\n#\n#\tTHERE ARE BUILD ERRORS\n#\n$dashes\n"
-  #   # echo $dashes && echo && echo
-  #   # cat $errFile
-  # else
-  #   echo There is no build stderr
-  # fi
-  # # echo '---' && echo $error && echo '---'
-  # (( $errSize > 0 )) && usage build failed for image $IMAGE
-
-  # echo Skipping run step
-  # return 42
 
   # Launch container with new image.
   if $INTERACTIVE; then # --interactive needs work...
@@ -158,42 +175,54 @@ make() {
   fi
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Configure make() to create or destroy a mariadb image.
+#
 makeData() {
+
   [ $CACHE -lt 1 ] && BUILD_OPTIONS='--no-cache' || BUILD_OPTIONS=''
+
   local options=(
-    MARIADB_ROOT_PASSWORD_HASH $DW_DB_ROOT_PASSWORD_HASH
-    MARIADB_DATABASE $DW_DB_DATABASE
-    MARIADB_USER $DW_DB_USER
-    MARIADB_PASSWORD_HASH $DW_DB_PASSWORD_HASH
+    MARIADB_ROOT_PASSWORD_HASH "$DW_DB_ROOT_PASSWORD_HASH"
+    MARIADB_DATABASE "$DW_DB_DATABASE"
+    MARIADB_USER "$DW_DB_USER"
+    MARIADB_PASSWORD_HASH "$DW_DB_PASSWORD_HASH"
   )
-  for (( i = 0; $i < ${#options[*]}; i += 2 )); do
-    BUILD_OPTIONS+=" --build-arg ${options[$i]}=${options[$i+1]}"
+  for ((i = 0; $i < ${#options[*]}; i += 2)); do
+    BUILD_OPTIONS+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
-  CONTAINER=$(rename "$DW_DATA_SERVICE" "$DW_PROJECT" 'container')
-  # ENVIRONMENT="--env-file $ENV_DATA"
+  CONTAINER=$(getContainer data)
   HOST=$DW_DATA_HOST
   IMAGE=$DW_DID/mariadb
   MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
   PUBLISH=
 
   make
+
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Configure make() to create or destroy a mediawiki image.
+#
 makeView() {
+
   [ $CACHE -lt 2 ] && BUILD_OPTIONS='--no-cache' || BUILD_OPTIONS=''
+
   local options=(
-    MW_ADMINISTRATOR  $DW_MW_ADMINISTRATOR
-    MW_PASSWORD       $DW_MW_PASSWORD
-    MW_DB_DATABASE    $DW_DB_DATABASE
-    MW_DB_USER        $DW_DB_USER
-    MW_DB_PASSWORD    $DW_DB_PASSWORD
+    MW_ADMINISTRATOR "$DW_MW_ADMINISTRATOR"
+    MW_PASSWORD "$DW_MW_PASSWORD"
+    MW_DB_DATABASE "$DW_DB_DATABASE"
+    MW_DB_USER "$DW_DB_USER"
+    MW_DB_PASSWORD "$DW_DB_PASSWORD"
   )
-  for (( i = 0; $i < ${#options[*]}; i += 2 )); do
-    BUILD_OPTIONS+=" --build-arg ${options[$i]}=${options[$i+1]}"
+  for ((i = 0; $i < ${#options[*]}; i += 2)); do
+    BUILD_OPTIONS+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
-  CONTAINER=$(rename "$DW_VIEW_SERVICE" "$DW_PROJECT" 'container')
+  CONTAINER=$(getContainer view)
   ENVIRONMENT=
   HOST=$DW_VIEW_HOST
   IMAGE=$DW_DID/mediawiki
@@ -202,13 +231,27 @@ makeView() {
 
   make
 
+  # No need to configure mediawiki if tearing everything down.
+  ($CLEAN || $KLEAN) && return 0
+
+  # Database needs to be Running for maintenance/install.php to work.
+  waitForData
+
+  echo SKIPPING SETUP
+  return 1
+
+  # Install (aka configure, setup) mediawiki now that we have a mariadb
+  # network. This generates the famous LocalSettings.php file in docroot.
   xCute docker exec $CONTAINER maintenance/run CommandLineInstaller \
     --dbtype=mysql --dbserver=data --dbname=mediawiki --dbuser=wikiDBA \
     --dbpassfile='DockerWiki/dbpassfile' --passfile='DockerWiki/passfile' \
     --scriptpath='' --server='http://localhost:8080' DockerWiki WikiAdmin
-
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  TODO: Add a helpful comment here.
+#
 parseCommandLine() {
   for arg; do
     case "$arg" in
@@ -240,6 +283,10 @@ parseCommandLine() {
   done
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Emulate docker compose name decoration? 'view' => 'wiki-view-1'?
+#
 rename() {
   if $DECORATE; then
     echo $(decorate "$@")
@@ -248,6 +295,10 @@ rename() {
   fi
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Print usage summary when '--help' requested or program aborts.
+#
 usage() {
   if [ -n "$*" ]; then
     echo && echo "** $*"
@@ -259,20 +310,77 @@ Usage: $(basename ${BASH_SOURCE[0]}) [BUILD_OPTIONS]
 Build and run this project using Docker files.
 
 Options:
-       --cache           Enable cache for all builds (2)
+       --cache           Enable cache for all builds
   -c | --clean           Remove built artifacts
   -i | --interactive     Run interactively (1)
   -h | --help            Print this usage summary
   -k | --klean           --clean plus remove volumes and network!
-       --no-cache        Disable cache for all builds (2)
+       --no-cache        Disable cache for all builds
        --no-decoration   Disable composer-naming emulation
 
 Notes:
   1. "run -it" is out of order; STDOUT goes to Tahiti.
-  2. By default, data build is cached, view build is not (to avoid
+  2. Default used to be "cache data build, not view build" so we ...
+    Dave, just remove all this noise, may it  be forgotten...
+  By default, data build is cached, view build is not (to avoid
      caching secret key). Use --cache or --no-cache to override.
 EOT
   exit 1
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  This emulates a "view depends_on data" when creating things without
+#  the help of docker compose (i.e., when running this script).
+#
+#  From 'docker ps' dockumentation circa 2023, container status can be one
+#  of created, restarting, running, removing, paused, exited, or dead.
+#  https://docs.docker.com/engine/reference/commandline/ps/
+#
+#  If database is not Running, the wiki container will be left with no
+#  LocalSettings.php and user will see the initialization wizard rather
+#  than a working DockerWiki.
+#
+#  Also see https://docs.docker.com/config/formatting/.
+#
+waitForData() {
+
+  local dataContainer=$(getContainer data) dataState
+  local viewContainer=$(getContainer view) viewState
+  local inspect='docker inspect --format' goville='{{json .State.Status}}'
+
+  # Show user what we are doing. The extra 'echo'
+  # removes excess whitespace from stderr results.
+  xShow $inspect \"$goville\" $dataContainer
+  dataState=$(echo $($inspect "$goville" $dataContainer 2>&1))
+  echo
+  echo "dataState is '$dataState'"
+
+  # First, there needs to Be a data container.
+  # command="docker container ls --filter='$dataContainer'"
+  # dataState=$(x2to1 $command)
+  # echo -e "dataState is '$dataState'"
+  # xShow $command
+  #   if [[ $? && ${#LINES[@]} > 1 ]]; then # ignore sticky column headers
+  #   xCute docker stop $CONTAINER
+  #   xCute docker rm $CONTAINER
+  # fi
+  # sed -e 's/^"//' -e 's/"$//' <<<"$opt"
+
+  # Let user see what is happening.
+  # xShow docker inspect --format "$goville" $dataContainer
+
+  # Wait for data container to be Running.
+  for ((i = 0; i < 5; ++i)); do # https://stackoverflow.com/a/38886047 ?
+    local dataState=$(echo $($inspect "$goville" $dataContainer))
+    local viewState=$(echo $($inspect "$goville" $viewContainer))
+    echo "Container status: data is $dataState, view is $viewState"
+    sleep 1
+  done
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Piece of cake? Maybe in retrospect. ;)
+#
 main "$@"
