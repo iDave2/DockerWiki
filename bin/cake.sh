@@ -118,8 +118,35 @@ make() {
     xCute docker network create $NETWORK
   fi
 
-  # Rebuild and rerun. Over and over and.
+  # Build the image.
   xCute docker build $BUILD_OPTIONS $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
+  # local command="docker build $BUILD_OPTIONS $(eval echo "'--tag $IMAGE:'"{$TAGS}) ."
+  # xShow $command
+
+  # # Pattern also in backrest.sh, docker status gets lost, do not launch nonsense.
+  # mkdir "$TEMP_DIR" 2>/dev/null
+  # local errFile="${TEMP_DIR}/stderrX"
+  # local status=$($command 2>$errFile)
+  # # local error=$(<$errFile)
+  # echo "docker build status is '$status'"
+  # local errSize=$( wc -c $errFile | cut -w -f 2 )
+  # echo "errSize = $errSize"
+  # if (( $errSize > 0 )); then
+  #   local dash='####-####+';
+  #   local dashes="$dash$dash$dash$dash";
+  #   echo -e "\n$dashes\n#\n#\tTHERE ARE BUILD ERRORS\n#\n$dashes\n"
+  #   # echo $dashes && echo && echo
+  #   # cat $errFile
+  # else
+  #   echo There is no build stderr
+  # fi
+  # # echo '---' && echo $error && echo '---'
+  # (( $errSize > 0 )) && usage build failed for image $IMAGE
+
+  # echo Skipping run step
+  # return 42
+
+  # Launch container with new image.
   if $INTERACTIVE; then # --interactive needs work...
     xCute docker run $ENVIRONMENT --interactive --rm --tty \
       --network $NETWORK --name $CONTAINER --hostname $HOST \
@@ -156,10 +183,11 @@ makeData() {
 makeView() {
   [ $CACHE -lt 2 ] && BUILD_OPTIONS='--no-cache' || BUILD_OPTIONS=''
   local options=(
-    MW_DB_DATABASE $DW_DB_DATABASE
-    MW_DB_USER $DW_DB_USER
-    MW_DB_PASSWORD $DW_DB_PASSWORD
-    MW_PASSWORD $DW_MW_PASSWORD
+    MW_ADMINISTRATOR  $DW_MW_ADMINISTRATOR
+    MW_PASSWORD       $DW_MW_PASSWORD
+    MW_DB_DATABASE    $DW_DB_DATABASE
+    MW_DB_USER        $DW_DB_USER
+    MW_DB_PASSWORD    $DW_DB_PASSWORD
   )
   for (( i = 0; $i < ${#options[*]}; i += 2 )); do
     BUILD_OPTIONS+=" --build-arg ${options[$i]}=${options[$i+1]}"
@@ -173,6 +201,12 @@ makeView() {
   PUBLISH="--publish $DW_MW_PORTS"
 
   make
+
+  xCute docker exec $CONTAINER maintenance/run CommandLineInstaller \
+    --dbtype=mysql --dbserver=data --dbname=mediawiki --dbuser=wikiDBA \
+    --dbpassfile='DockerWiki/dbpassfile' --passfile='DockerWiki/passfile' \
+    --scriptpath='' --server='http://localhost:8080' DockerWiki WikiAdmin
+
 }
 
 parseCommandLine() {
