@@ -9,6 +9,15 @@ TRACE='eval echo $FUNCNAME[$LINENO]'
 
 ####-####+####-####+####-####+####-####+
 #
+#  IBM liked this word. Terminate ungracefully (as opposed to usage()).
+#
+abend() {
+  echo -e "\n$*"
+  exit 42
+}
+
+####-####+####-####+####-####+####-####+
+#
 #  Curly version of xShow, this pretty-prints comment + command.
 #
 cShow() {
@@ -32,6 +41,14 @@ decorate() {
     ;;
   esac
   echo $result
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  Underrated indeed: https://stackoverflow.com/a/55283209
+#
+isDockerRunning() {
+  docker info >/dev/null 2>&1
 }
 
 ####-####+####-####+####-####+####-####+

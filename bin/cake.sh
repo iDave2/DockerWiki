@@ -83,6 +83,9 @@ getContainer() {
 #
 main() {
 
+  isDockerRunning ||
+    abend "This program uses docker which appears to be down; aborting."
+
   parseCommandLine "$@"
 
   # Finish initializing parameters.
@@ -236,14 +239,9 @@ makeView() {
 
   # Database needs to be Running for maintenance/install.php to work.
   waitForData
-  if [ $? -eq 0 ]; then
-    echo waitForData succeeded, data container is running
-  else
-    echo waitForData failed, data container is not running
+  if [ $? -ne 0 ]; then
+    usage Data container unavailable, cannot initialize mediawiki, aborting
   fi
-
-  echo SKIPPING SETUP
-  return 1
 
   # Install (aka configure, setup) mediawiki now that we have a mariadb
   # network. This generates the famous LocalSettings.php file in docroot.
@@ -306,7 +304,7 @@ rename() {
 #
 usage() {
   if [ -n "$*" ]; then
-    echo && echo "** $*"
+    echo && echo "***  $*"
   fi
   cat <<-EOT
 
@@ -352,15 +350,31 @@ waitForData() {
 
   local dataContainer=$(getContainer data) dataState
   local viewContainer=$(getContainer view) viewState
-  local inspect='docker inspect --format' goville='{{json .State.Status}}'
+  local inspect='docker inspect --format' goville='{{json .State.Running}}'
 
   # Show user what we think is happening.
   xShow $inspect \"$goville\" $dataContainer
 
-  # Wait for data container to be Running. The extra 'echo's
+  # dataState=$(echo $($inspect "$goville" $dataContainer 2>&1))
+  # [ "${dataState:0:1}" == \" ] || dataState=\"$dataState\"
+  # echo Initial data container state is $dataState
+
+  # Even though data container status immediately shows "running",
+  # MediaWiki installer fails unless we explicitly rest a bit.
+  # "A bit" is four seconds on my laptop, perhaps there is another
+  # inspection that works better than .State.Status...
+  # sleep 5
+
+  # Wait for data container to be Running.
+  # The extra 'echo's
   # remove confusing whitespace from stderr results.
-  local success='"running"'
+  # sleep 4 # not working...
   for ((i = 0; i < 5; ++i)); do
+
+    local golom='{{json .NetworkSettings.Networks.wiki_net.IPAddress}}'
+    echo && echo '####-####+####-####+'
+    xShow $inspect "$golom" $dataContainer
+    $inspect "$golom" $dataContainer
 
     dataState=$(echo $($inspect "$goville" $dataContainer 2>&1))
     [ "${dataState:0:1}" == \" ] || dataState=\"$dataState\"
@@ -370,7 +384,7 @@ waitForData() {
 
     echo "Container status: data is $dataState, view is $viewState"
 
-    [ "$dataState" == '"running"' ] && return 0 || sleep 1
+    [ "$dataState" == '"true"' ] && return 0 || sleep 1
 
   done
   return 1 # nonzero $? indicates failure

@@ -64,6 +64,9 @@ checkContainer() {
 #
 main() {
 
+  isDockerRunning ||
+    abend "This program uses docker which appears to be down; aborting."
+
   parseCommandLine "$@"
 
   ! $BACKUP && ! $RESTORE &&
