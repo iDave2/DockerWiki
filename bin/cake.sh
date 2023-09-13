@@ -240,7 +240,11 @@ makeView() {
   # Database needs to be Running for maintenance/install.php to work.
   waitForData
   if [ $? -ne 0 ]; then
-    usage Data container unavailable, cannot initialize mediawiki, aborting
+    echo
+    echo "Data container '$(getContainer data)' is unavailable."
+    echo "Unable to generate LocalSettings.php."
+    echo "Browser may display web-based installer."
+    return 1
   fi
 
   # Install (aka configure, setup) mediawiki now that we have a mariadb
@@ -253,7 +257,7 @@ makeView() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  TODO: Add a helpful comment here.
+#  Lorem ipsum.
 #
 parseCommandLine() {
   for arg; do
@@ -350,7 +354,20 @@ waitForData() {
 
   local dataContainer=$(getContainer data) dataState
   local viewContainer=$(getContainer view) viewState
-  local inspect='docker inspect --format' goville='{{json .State.Running}}'
+  local inspect='docker inspect --format' goville='{{json .State.Status}}'
+
+  # Start the database.
+  xCute docker start $dataContainer
+
+  # Punt.
+  local dx="docker exec $dataContainer mariadb -uroot -pchangeThis -e"
+  local ac="show databases"
+  for ((i = 0; i < 5; ++i)); do
+    xShow $dx "'$ac'" && $dx "$ac"
+    local status=$?
+    echo Status of that is \$? = $status.
+    sleep 1
+  done
 
   # Show user what we think is happening.
   xShow $inspect \"$goville\" $dataContainer
@@ -369,12 +386,10 @@ waitForData() {
   # The extra 'echo's
   # remove confusing whitespace from stderr results.
   # sleep 4 # not working...
-  for ((i = 0; i < 5; ++i)); do
 
-    local golom='{{json .NetworkSettings.Networks.wiki_net.IPAddress}}'
-    echo && echo '####-####+####-####+'
-    xShow $inspect "$golom" $dataContainer
-    $inspect "$golom" $dataContainer
+  local running='"running"'
+
+  for ((i = 0; i < 5; ++i)); do
 
     dataState=$(echo $($inspect "$goville" $dataContainer 2>&1))
     [ "${dataState:0:1}" == \" ] || dataState=\"$dataState\"
@@ -384,14 +399,19 @@ waitForData() {
 
     echo "Container status: data is $dataState, view is $viewState"
 
-    [ "$dataState" == '"true"' ] && return 0 || sleep 1
+    [ "$dataState" == $running ] && return 0 || sleep 1
 
   done
+  # [ "$dataState" == '"running"' ] && return 0 || sleep 1
   return 1 # nonzero $? indicates failure
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Piece of cake? Maybe in retrospect. ;)
+#  Derrida suggested that philosophy is another form of literature.
+#  Sometimes it seems that software is like literature, a kind of
+#  mathematical poetry. </endWax>
+#
+#  <beginLLM>...
 #
 main "$@"
