@@ -2,14 +2,9 @@
 #
 #  Helpers to be sourced.
 #
-
-# Referencing an array variable without a subscript
-# is equivalent to referencing element zero. -[bash]
-TRACE='eval echo $FUNCNAME[$LINENO]'
-
-####-####+####-####+####-####+####-####+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  IBM liked this word. Terminate ungracefully (as opposed to usage()).
+#  Prints given message and dies. usage() is gentler.
 #
 abend() {
   echo -e "\n$*"
@@ -22,7 +17,7 @@ abend() {
 #
 cShow() {
   local comment=$1 command=$2
-  echo && echo "# $comment" && echo "\$ $command"
+  echo -e "\n# $comment\n\$ $command"
 }
 
 ####-####+####-####+####-####+####-####+
@@ -65,40 +60,12 @@ join() { # https://stackoverflow.com/a/17841619
   echo $r
 }
 
-# ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-# #
-# #  Remove leading and trailing space from a given string.
-# #  https://stackoverflow.com/a/9733456 ++
-# #
-# trim() {
-#   # sed -Ee s/^\w*// -Ee s/\w*$// <<<"$1"
-#   perl -pwe 's/^\s*//' <<<"$1"
-# }
-
 ####-####+####-####+####-####+####-####+
 #
 #  Pretty-print commands executed and save output in array LINES, sometimes.
 #
 LINES=()
 xShow() {
-  # echo -e "\n=> xShow(" $(join ', ' "$@") ")\n"
-  # local words=() # Try, oh try to preserve almighty bash words.
-  # for arg; do
-  #   [[ "$arg" =~ \' ]] && words+=(\"$arg\") ||
-  #     [[ "$arg" =~ \" ]] && words+=(\'$arg\') ||
-  #     [[ "$arg" =~ "\ " ]] && words+=(\"$arg\") ||
-  #     words+=($arg)
-
-  #   # if [[ "$arg" =~ \' ]]; then
-  #   #   words+=( \"$arg\" )
-  #   # elif [[ "$arg" =~ \" ]]; then
-  #   #   words+=( \'$arg\' )
-  #   # elif [[ "$arg" =~ "\ " ]]; then
-  #   #   words+=( \"$arg\" )
-  #   # else
-  #   #   words+=( $arg )
-  #   # fi
-  # done
   echo && echo "[$(basename $(pwd))] \$ $*"
 }
 xCute() { # https://stackoverflow.com/a/32931403
