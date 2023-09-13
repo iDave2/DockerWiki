@@ -359,13 +359,33 @@ waitForData() {
   # Start the database.
   xCute docker start $dataContainer
 
-  # Punt.
+  # Display issue (status says "running" but cannot talk) as we build...
+
+  cat <<'EOT'
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Note that while 'docker inspect' may show mariadb "running", it
+#  may not be "connectable" when it is initializing a new database.
+#
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+EOT
+
+  xShow $inspect \"$goville\" $dataContainer
+  dataState=$(echo $($inspect "$goville" $dataContainer 2>&1))
+  [ "${dataState:0:1}" == \" ] || dataState=\"$dataState\"
+  viewState=$(echo $($inspect "$goville" $viewContainer 2>&1))
+  [ "${viewState:0:1}" == \" ] || viewState=\"$viewState\"
+  echo "Container status: data is $dataState, view is $viewState"
+
+  # Punt. This works albeit painfully as a semaphore.
   local dx="docker exec $dataContainer mariadb -uroot -pchangeThis -e"
   local ac="show databases"
   for ((i = 0; i < 5; ++i)); do
     xShow $dx "'$ac'" && $dx "$ac"
-    local status=$?
-    echo Status of that is \$? = $status.
+    [ $? == 0 ] && break
+    # local status=$?
+    # echo Status of that is \$? = $status.
     sleep 1
   done
 
