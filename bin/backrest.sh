@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-#  Ideas for data backup and restore.
-#  Also see https://hub.docker.com/_/mariadb.
+#  Backup and restore tools adapted from hub pages for official
+#  mediawiki and mariadb images,
+
 #  This script passes cleartext passwords so is Not Secure.
 #  This script requires 'bash' and 'jq'.
 #
@@ -10,9 +11,9 @@
 # https://stackoverflow.com/a/246128
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
-source "${SCRIPT_DIR}/include.sh"
 source "${SCRIPT_DIR}/../.env"
 source "${USER_CONFIG}" 2>/dev/null
+source "${SCRIPT_DIR}/include.sh"
 
 # What to do.
 BACKUP=false
@@ -25,8 +26,8 @@ DATA_FILE="${WORK_DIR}/all-databases.sql"
 IMAGE_DIR="${WORK_DIR}/images"
 
 # Constants.
-DATA_IMAGE_NAME() { echo mariadb; }
-VIEW_IMAGE_NAME() { echo mediawiki; }
+# DATA_IMAGE_NAME() { echo mariadb; }
+# VIEW_IMAGE_NAME() { echo mediawiki; }
 
 ####-####+####-####+####-####+####-####+
 #
@@ -74,8 +75,8 @@ main() {
 
   mkdir $WORK_DIR $IMAGE_DIR 2>/dev/null
 
-  checkContainer "$DATA_CONTAINER" "$DATA_HOST" $(DATA_IMAGE_NAME)
-  checkContainer "$VIEW_CONTAINER" "$VIEW_HOST" $(VIEW_IMAGE_NAME)
+  checkContainer "$DATA_CONTAINER" "$DATA_HOST" mariadb
+  checkContainer "$VIEW_CONTAINER" "$VIEW_HOST" mediawiki
 
   if ! $QUIET; then
     echo

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
-#  Helpers to be sourced.
+#  Helpers to be sourced (include environment first).
 #
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Prints given message and dies. usage() is gentler.
@@ -24,17 +26,20 @@ cShow() {
 #
 #  Decorate generated artifact names; emulate docker compose.
 #
+DECORATE=true # cli option
 decorate() {
   local name="$1" project="$2" type="$3"
   local result=$name
-  case $type in
-  'container')
-    result="${project}-${name}-1"
-    ;;
-  'network' | 'volume')
-    result="${project}_${name}"
-    ;;
-  esac
+  if $DECORATE; then
+    case $type in
+    'container')
+      result="${project}-${name}-1"
+      ;;
+    'network' | 'volume')
+      result="${project}_${name}"
+      ;;
+    esac
+  fi
   echo $result
 }
 

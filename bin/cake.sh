@@ -15,20 +15,16 @@
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-ENV_FILE="${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
-ENV_DATA="${SCRIPT_DIR}/../.envData"
-
-source ${SCRIPT_DIR}/include.sh
-source "$ENV_FILE"
+source "${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
 source "$USER_CONFIG" 2>/dev/null
+source ${SCRIPT_DIR}/include.sh
 
 # Basename of working directory.
 WHERE=$(basename $(pwd -P))
 
-# Command-line options.
+# Initialize options.
 CACHE=true
 CLEAN=false
-DECORATE=true
 INTERACTIVE=false
 KLEAN=false
 TIMEOUT=10
