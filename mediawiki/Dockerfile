@@ -7,17 +7,19 @@
 
 FROM mediawiki:1.40 AS view
 
-# Configurable --build-arg's.
-ARG MW_ADMINISTRATOR MW_PASSWORD MW_DB_DATABASE MW_DB_USER MW_DB_PASSWORD
+# Configurable --build-arg's. TODO: We don't need all of these here?
+ARG MW_SITE_NAME
+ARG MW_ADMINISTRATOR MW_PASSWORD
+ARG MW_DB_NAME MW_DB_USER MW_DB_PASSWORD
 
 # Who keeps mumbling "Less is more, less is more?"
 # This layer helps with debugging and can be removed.
 RUN set -eux && apt update && apt install -y less iputils-ping
 
 # Use a distinct work area. Go to your room.
-RUN set -eux && mkdir DockerWiki; \
-    echo "$MW_DB_PASSWORD" > DockerWiki/dbpassfile; \
-    echo "$MW_PASSWORD" > DockerWiki/passfile;
+RUN set -eu && mkdir $MW_SITE_NAME; \
+    echo "$MW_DB_PASSWORD" > $MW_SITE_NAME/dbpassfile; \
+    echo "$MW_PASSWORD" > $MW_SITE_NAME/passfile;
 
 # It seems that no mariadb network is available during mediawiki builds,
 # which sounds about right, so we cannot run maintenance/install.php here,

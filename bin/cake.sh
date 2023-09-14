@@ -10,6 +10,8 @@
 #  that image. When run from their parent folder (i.e., the project root),
 #  this program builds and runs both images, aka DockerWiki.
 #
+#  TODO: Hide all the passwords echoed to logs (use secrets).
+#
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -29,6 +31,7 @@ CLEAN=false
 DECORATE=true
 INTERACTIVE=false
 KLEAN=false
+TIMEOUT=10
 
 # Container / runtime configuration.
 CONTAINER=
@@ -45,8 +48,8 @@ NETWORK=     # network name for container chatter
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Function returns requested container name given 'data' or 'view' as
-#  input. E.g., 'data' => 'wiki-data-1' unless --no-decoration.
+#  Function returns container name of a given service name.
+#  For example, 'data' => 'wiki-data-1' unless --no-decoration.
 #
 getContainer() {
   local service
@@ -62,6 +65,41 @@ getContainer() {
     ;;
   esac
   echo $(rename "$service" "$DW_PROJECT" 'container')
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Function returns the .State.Status of a given container. Returned
+#  status values have the form '"running"' where the double quotes are
+#  part of the string. Errors can be multiline so are collapsed into one
+#  line and quoted for simpler presentation.
+#
+#  From 'docker ps' dockumentation circa 2023, container status can be one
+#  of created, restarting, running, removing, paused, exited, or dead.
+#  See https://docs.docker.com/engine/reference/commandline/ps/.
+#
+#  Also see https://docs.docker.com/config/formatting/.
+#
+getState() {
+
+  local inspect='docker inspect --format' goville='{{json .State.Status}}'
+
+  local container="$1" result="$2" more="$3" options
+  while [ -n "$container" -a -n "$result" ]; do
+    shift 2
+    [ -n "$more" ] && options="-en" || options="-e"
+    xShow $options $inspect \"$goville\" $container
+
+    local state=$(echo $($inspect "$goville" $container 2>&1))
+    [ "${state:0:1}" = \" ] || state=\"$state\"
+    eval $result=$state
+
+    container="$1" result="$2" more="$3"
+  done
+
+  if [ -n "$1" ]; then # this would be internal nonsense
+    abend "Error: getState() requires an even number of arguments"
+  fi
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -206,10 +244,11 @@ makeView() {
   $CACHE || buildOptions='--no-cache'
 
   local options=(
-    MW_ADMINISTRATOR "$DW_MW_ADMINISTRATOR"
+    MW_SITE_NAME "$DW_SITE_NAME"
+    # MW_ADMINISTRATOR "$DW_MW_ADMINISTRATOR"
     MW_PASSWORD "$DW_MW_PASSWORD"
-    MW_DB_DATABASE "$DW_DB_NAME"
-    MW_DB_USER "$DW_DB_USER"
+    # MW_DB_NAME "$DW_DB_NAME"
+    # MW_DB_USER "$DW_DB_USER"
     MW_DB_PASSWORD "$DW_DB_PASSWORD"
   )
   for ((i = 0; $i < ${#options[*]}; i += 2)); do
@@ -231,19 +270,19 @@ makeView() {
   # Database needs to be Running and Connectable to continue.
   waitForData
   if [ $? -ne 0 ]; then
-    echo
-    echo "Data container '$(getContainer data)' is unavailable."
-    echo "Unable to generate LocalSettings.php."
-    echo "Browser may display web-based installer."
-    return 1
+    local error="Error: Cannot connect to data container '$(getContainer data)'; "
+    error+="unable to generate LocalSettings.php; "
+    error+="browser may display web-based installer."
+    echo -e "\n$error"
+    return -42
   fi
 
-  # Install (aka configure, setup) mediawiki now that we have a mariadb
-  # network. This generates the famous LocalSettings.php file in docroot.
+  # Install / configure mediawiki now that we have a mariadb network.
+  # This creates MW DB tables and generates LocalSettings.php file.
   xCute docker exec $CONTAINER maintenance/run CommandLineInstaller \
     --dbtype=mysql --dbserver=data --dbname=mediawiki --dbuser=wikiDBA \
-    --dbpassfile='DockerWiki/dbpassfile' --passfile='DockerWiki/passfile' \
-    --scriptpath='' --server='http://localhost:8080' DockerWiki WikiAdmin
+    --dbpassfile="$DW_SITE_NAME/dbpassfile" --passfile="$DW_SITE_NAME/passfile" \
+    --scriptpath='' --server='http://localhost:8080' $DW_SITE_NAME $DW_MW_ADMINISTRATOR
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -251,25 +290,37 @@ makeView() {
 #  Lorem ipsum.
 #
 parseCommandLine() {
-  for arg; do
-    case "$arg" in
+  while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
+    case "$1" in
     -c | --clean)
       CLEAN=true
+      shift
       ;;
     -h | --help)
       usage
       ;;
     -i | --interactive)
       INTERACTIVE=true
+      shift
       ;;
     -k | --klean)
       KLEAN=true
+      shift
       ;;
     --no-cache)
       CACHE=false
+      shift
       ;;
     --no-decoration)
       DECORATE=false
+      shift
+      ;;
+    -t | --timeout)
+      TIMEOUT="$2"
+      shift 2
+      if ! [[ $TIMEOUT =~ ^[+]?[1-9][0-9]*$ ]]; then
+        usage "--timeout 'seconds': expected a positive integer, found '$TIMEOUT'"
+      fi
       ;;
     *)
       usage unexpected command line token \"$arg\"
@@ -302,15 +353,16 @@ usage() {
 
 Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
-Build and run parts or all of this project.
+Build and run DockerWiki.
 
 Options:
-  -c | --clean           Remove project's containers and images
-  -i | --interactive     Run interactively (1)
-  -h | --help            Print this usage summary
-  -k | --klean           --clean plus remove volumes and networks!
-       --no-cache        Do not use cache when building images
-       --no-decoration   Disable composer-naming emulation
+  -c | --clean             Remove project's containers and images
+  -i | --interactive       Run interactively (1)
+  -h | --help              Print this usage summary
+  -k | --klean             --clean plus remove volumes and networks!
+       --no-cache          Do not use cache when building images
+       --no-decoration     Disable composer-naming emulation
+  -t | --timeout seconds   Seconds to retry DB connection before failing
 
 Notes:
   1. "run -it" is out of order; STDOUT goes to Tahiti.
@@ -327,86 +379,43 @@ EOT
 #  of created, restarting, running, removing, paused, exited, or dead.
 #  https://docs.docker.com/engine/reference/commandline/ps/
 #
-#  If database is not Running, the wiki container will be left with no
-#  LocalSettings.php and user will see the initialization wizard rather
-#  than a working DockerWiki.
-#
-#  Also see https://docs.docker.com/config/formatting/.
-#
 waitForData() {
 
   local dataContainer=$(getContainer data) dataState
   local viewContainer=$(getContainer view) viewState
-  local inspect='docker inspect --format' goville='{{json .State.Status}}'
 
   # Start the database.
   xCute docker start $dataContainer
 
-  # Display issue (status says "running" but cannot talk) as we build...
+  # Display issue as we build (status says "running" but cannot talk)...
 
   cat <<'EOT'
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Note that while 'docker inspect' may show mariadb "running", it
-#  may not be "connectable" when it is initializing a new database.
+#  Note that while 'docker inspect' may show mariadb "running",
+#  it may not be "connectable" when initializing a new database.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 EOT
 
-  xShow $inspect \"$goville\" $dataContainer
-  dataState=$(echo $($inspect "$goville" $dataContainer 2>&1))
-  [ "${dataState:0:1}" == \" ] || dataState=\"$dataState\"
-  viewState=$(echo $($inspect "$goville" $viewContainer 2>&1))
-  [ "${viewState:0:1}" == \" ] || viewState=\"$viewState\"
-  echo "Container status: data is $dataState, view is $viewState"
+  getState $dataContainer dataState $viewContainer viewState
+  echo -e "\n=> Container status: data is \"$dataState\", view is \"$viewState\"".
 
-  # Punt. This works albeit painfully as a semaphore.
+  # Punt. This semaphore works albeit painfully.
   local dx="docker exec $dataContainer mariadb -uroot -pchangeThis -e"
   local ac="show databases"
-  for ((i = 0; i < 5; ++i)); do
+
+  for ((i = 0; i < $TIMEOUT; ++i)); do
     xShow $dx "'$ac'" && $dx "$ac"
-    [ $? == 0 ] && break
-    # local status=$?
-    # echo Status of that is \$? = $status.
+    [ $? -eq 0 ] && break
     sleep 1
   done
 
-  # Show user what we think is happening.
-  xShow $inspect \"$goville\" $dataContainer
+  getState $dataContainer dataState $viewContainer viewState
+  echo -e "\n=> Container status: data is \"$dataState\", view is \"$viewState\"".
 
-  # dataState=$(echo $($inspect "$goville" $dataContainer 2>&1))
-  # [ "${dataState:0:1}" == \" ] || dataState=\"$dataState\"
-  # echo Initial data container state is $dataState
-
-  # Even though data container status immediately shows "running",
-  # MediaWiki installer fails unless we explicitly rest a bit.
-  # "A bit" is four seconds on my laptop, perhaps there is another
-  # inspection that works better than .State.Status...
-  # sleep 5
-
-  # Wait for data container to be Running.
-  # The extra 'echo's
-  # remove confusing whitespace from stderr results.
-  # sleep 4 # not working...
-
-  local running='"running"'
-
-  for ((i = 0; i < 5; ++i)); do
-
-    dataState=$(echo $($inspect "$goville" $dataContainer 2>&1))
-    [ "${dataState:0:1}" == \" ] || dataState=\"$dataState\"
-
-    viewState=$(echo $($inspect "$goville" $viewContainer 2>&1))
-    [ "${viewState:0:1}" == \" ] || viewState=\"$viewState\"
-
-    echo "Container status: data is $dataState, view is $viewState"
-
-    [ "$dataState" == $running ] && return 0 || sleep 1
-
-  done
-  # [ "$dataState" == '"running"' ] && return 0 || sleep 1
-  return 1 # nonzero $? indicates failure
+  [ "$dataState" = "running" ] && return 0 || return 1
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

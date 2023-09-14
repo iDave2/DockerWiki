@@ -66,7 +66,9 @@ join() { # https://stackoverflow.com/a/17841619
 #
 LINES=()
 xShow() {
-  echo && echo "[$(basename $(pwd))] \$ $*"
+  local options="$1"
+  [ "${options:0:1}" = "-" ] && shift || options="-e"
+  echo "$options" "\n[$(basename $(pwd))] \$ $*"
 }
 xCute() { # https://stackoverflow.com/a/32931403
   xShow "$@"
