@@ -377,7 +377,7 @@ EOT
 #
 #  From 'docker ps' dockumentation circa 2023, container status can be one
 #  of created, restarting, running, removing, paused, exited, or dead.
-#  https://docs.docker.com/engine/reference/commandline/ps/
+#  See https://docs.docker.com/engine/reference/commandline/ps/.
 #
 waitForData() {
 

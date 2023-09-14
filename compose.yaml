@@ -2,15 +2,12 @@ name: wiki
 #
 #  Compose file for DockerWiki.
 #
+#  'docker compose' can run this project but no longer builds it.
+#
 services:
 
   view:
     image: $DW_DID/mediawiki:$TAG
-    build:
-      context: ./mediawiki
-      tags:
-        - "$DW_DID/mediawiki:$TAG"
-        - "$DW_DID/mediawiki:latest"
     depends_on:
       - data
     environment:
@@ -23,18 +20,6 @@ services:
 
   data:
     image: $DW_DID/mariadb:$TAG
-    build:
-      context: ./mariadb
-      tags:
-        - '$DW_DID/mariadb:$TAG'
-        - '$DW_DID/mariadb:latest'
-      args:
-        # https://stackoverflow.com/q/76229692
-        - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
-        - MARIADB_ROOT_HOST=${MARIADB_ROOT_HOST}
-        - MARIADB_DATABASE=${MARIADB_DATABASE}
-        - MARIADB_USER=${MARIADB_USER}
-        - MARIADB_PASSWORD_HASH=${MARIADB_PASSWORD_HASH}
     environment:
       - TZ=${TZ}
     hostname: data
