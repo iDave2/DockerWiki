@@ -1,7 +1,10 @@
 #
 #  idave2/mariadb image generator
 #
-#  See '.env' for environment defaults.
+#  Parameter documentation is copied from official MariaDB hub page for
+#  easy recall; see https://hub.docker.com/_/mariadb.
+#
+#  See '../.env' for environment defaults.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 

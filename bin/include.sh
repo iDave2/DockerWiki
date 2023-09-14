@@ -16,7 +16,7 @@ abend() {
 #  Curly version of xShow, this pretty-prints comment + command.
 #
 cShow() {
-  local comment=$1 command=$2
+  local comment="$1" command="$2"
   echo -e "\n# $comment\n\$ $command"
 }
 
@@ -25,7 +25,7 @@ cShow() {
 #  Decorate generated artifact names; emulate docker compose.
 #
 decorate() {
-  local name=$1 project=$2 type=$3
+  local name="$1" project="$2" type="$3"
   local result=$name
   case $type in
   'container')
@@ -75,14 +75,14 @@ xCute() { # https://stackoverflow.com/a/32931403
   printf "%s\n" "${LINES[@]}"
 }
 xIn() {
-  local in=$1
+  local in="$1"
   shift
   # echo xIn\( $(join ', ' "$@") \)
   xShow "$@" "< $in"
   "$@" <$in
 }
 xOut() {
-  local out=$1
+  local out="$1"
   shift
   # echo xOut\( $(join ', ' "$@") \)
   xShow "$@" "> $out"

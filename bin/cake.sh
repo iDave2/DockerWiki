@@ -1,47 +1,34 @@
 #!/usr/bin/env bash
 #
-#  Something to build and run things (over and over and).
+#  Something to build and run things:
 #
-#  This only builds Dockerfiles. Use compose.yaml for music.
+#    $ ./cake.sh     # create everything
+#    $ ./cake.sh -k  # destroy everything
+#    $ ./cake.sh -h  # print usage summary
+#
+#  When run from mariadb or mediawiki folders, this only builds and runs
+#  that image. When run from their parent folder (i.e., the project root),
+#  this program builds and runs both images, aka DockerWiki.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-# https://stackoverflow.com/a/246128
-
-ENV_FILE="${SCRIPT_DIR}/../.env"
+ENV_FILE="${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
 ENV_DATA="${SCRIPT_DIR}/../.envData"
 
 source ${SCRIPT_DIR}/include.sh
 source "$ENV_FILE"
 source "$USER_CONFIG" 2>/dev/null
 
-# Basename of working directory determines what is built:
-# mariadb, mediawiki, or both.
+# Basename of working directory.
 WHERE=$(basename $(pwd -P))
 
 # Command-line options.
+CACHE=true
 CLEAN=false
 DECORATE=true
 INTERACTIVE=false
 KLEAN=false
-MAKING_BOTH=false # making both data and view or just one of them?
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  Build options.
-#
-#  The funny $CACHE processing could be removed since we no longer
-#  generate '$wgSecretKey' in Dockerfile so no longer need to worry
-#  about it being cached into a constant. The idea was,
-#
-#    $CACHE=0  # --no-cache, disable cache for both data and view
-#    $CACHE=1  # default, cache data, don't cache view builds
-#    $CACHE=2  # --cache, cache both builds
-#
-# CACHE=1 # meaning cache data build, not view build
-CACHE=2
-BUILD_OPTIONS=''
 
 # Container / runtime configuration.
 CONTAINER=
@@ -119,6 +106,8 @@ main() {
 #
 make() {
 
+  local buildOptions="$1"
+
   # Remove any existing CONTAINER.
   xCute docker container ls --all --filter name=$CONTAINER
   if [[ $? && ${#LINES[@]} > 1 ]]; then # ignore sticky column headers
@@ -164,7 +153,7 @@ make() {
   fi
 
   # Build the image.
-  xCute docker build $BUILD_OPTIONS $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
+  xCute docker build $buildOptions $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
 
   # Launch container with new image.
   if $INTERACTIVE; then # --interactive needs work...
@@ -184,16 +173,17 @@ make() {
 #
 makeData() {
 
-  [ $CACHE -lt 1 ] && BUILD_OPTIONS='--no-cache' || BUILD_OPTIONS=''
+  local buildOptions=''
+  $CACHE || buildOptions='--no-cache'
 
   local options=(
     MARIADB_ROOT_PASSWORD_HASH "$DW_DB_ROOT_PASSWORD_HASH"
-    MARIADB_DATABASE "$DW_DB_DATABASE"
+    MARIADB_DATABASE "$DW_DB_NAME"
     MARIADB_USER "$DW_DB_USER"
     MARIADB_PASSWORD_HASH "$DW_DB_PASSWORD_HASH"
   )
   for ((i = 0; $i < ${#options[*]}; i += 2)); do
-    BUILD_OPTIONS+=" --build-arg ${options[$i]}=${options[$i + 1]}"
+    buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
   CONTAINER=$(getContainer data)
@@ -202,7 +192,7 @@ makeData() {
   MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
   PUBLISH=
 
-  make
+  make "$buildOptions"
 
 }
 
@@ -212,17 +202,18 @@ makeData() {
 #
 makeView() {
 
-  [ $CACHE -lt 2 ] && BUILD_OPTIONS='--no-cache' || BUILD_OPTIONS=''
+  local buildOptions=''
+  $CACHE || buildOptions='--no-cache'
 
   local options=(
     MW_ADMINISTRATOR "$DW_MW_ADMINISTRATOR"
     MW_PASSWORD "$DW_MW_PASSWORD"
-    MW_DB_DATABASE "$DW_DB_DATABASE"
+    MW_DB_DATABASE "$DW_DB_NAME"
     MW_DB_USER "$DW_DB_USER"
     MW_DB_PASSWORD "$DW_DB_PASSWORD"
   )
   for ((i = 0; $i < ${#options[*]}; i += 2)); do
-    BUILD_OPTIONS+=" --build-arg ${options[$i]}=${options[$i + 1]}"
+    buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
   CONTAINER=$(getContainer view)
@@ -232,12 +223,12 @@ makeView() {
   MOUNT=
   PUBLISH="--publish $DW_MW_PORTS"
 
-  make
+  make "$buildOptions"
 
   # No need to configure mediawiki if tearing everything down.
   ($CLEAN || $KLEAN) && return 0
 
-  # Database needs to be Running for maintenance/install.php to work.
+  # Database needs to be Running and Connectable to continue.
   waitForData
   if [ $? -ne 0 ]; then
     echo
@@ -262,9 +253,6 @@ makeView() {
 parseCommandLine() {
   for arg; do
     case "$arg" in
-    --cache)
-      CACHE=2 # cache both builds
-      ;;
     -c | --clean)
       CLEAN=true
       ;;
@@ -278,7 +266,7 @@ parseCommandLine() {
       KLEAN=true
       ;;
     --no-cache)
-      CACHE=0 # cache no build
+      CACHE=false
       ;;
     --no-decoration)
       DECORATE=false
@@ -292,7 +280,7 @@ parseCommandLine() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Emulate docker compose name decoration? 'view' => 'wiki-view-1'?
+#  Emulate docker compose name decoration: 'view' => 'wiki-view-1'?
 #
 rename() {
   if $DECORATE; then
@@ -304,7 +292,7 @@ rename() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Print usage summary when '--help' requested or program aborts.
+#  Summarize usage on request or when command line does not compute.
 #
 usage() {
   if [ -n "$*" ]; then
@@ -312,25 +300,20 @@ usage() {
   fi
   cat <<-EOT
 
-Usage: $(basename ${BASH_SOURCE[0]}) [BUILD_OPTIONS]
+Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
-Build and run this project using Docker files.
+Build and run parts or all of this project.
 
 Options:
-       --cache           Enable cache for all builds
-  -c | --clean           Remove built artifacts
+  -c | --clean           Remove project's containers and images
   -i | --interactive     Run interactively (1)
   -h | --help            Print this usage summary
-  -k | --klean           --clean plus remove volumes and network!
-       --no-cache        Disable cache for all builds
+  -k | --klean           --clean plus remove volumes and networks!
+       --no-cache        Do not use cache when building images
        --no-decoration   Disable composer-naming emulation
 
 Notes:
   1. "run -it" is out of order; STDOUT goes to Tahiti.
-  2. Default used to be "cache data build, not view build" so we ...
-    Dave, just remove all this noise, may it  be forgotten...
-  By default, data build is cached, view build is not (to avoid
-     caching secret key). Use --cache or --no-cache to override.
 EOT
   exit 1
 }
@@ -429,9 +412,8 @@ EOT
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Derrida suggested that philosophy is another form of literature.
-#  Sometimes it seems that software is like literature, a kind of
-#  mathematical poetry. </endWax>
-#
-#  <beginLLM>...
+#  Software can feel like that sometimes, a kind of mathematical poetry.
+#  </EndWax>
+#  <BeginLLM>...
 #
 main "$@"

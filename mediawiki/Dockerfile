@@ -1,7 +1,7 @@
 #
 #  idave2/mediawiki image generator
 #
-#  See '.env' for environment defaults.
+#  See '../.env' for environment defaults.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
