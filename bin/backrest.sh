@@ -8,12 +8,8 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-# https://stackoverflow.com/a/246128
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-
-source "${SCRIPT_DIR}/../.env"
-source "${USER_CONFIG}" 2>/dev/null
-source "${SCRIPT_DIR}/include.sh"
+source "${SCRIPT_DIR}/include.sh" # https://stackoverflow.com/a/246128
 
 # What to do.
 BACKUP=false
@@ -21,13 +17,9 @@ QUIET=true
 RESTORE=false
 
 # Where to do it.
-WORK_DIR=${TEMP_DIR}
-DATA_FILE="${WORK_DIR}/all-databases.sql"
-IMAGE_DIR="${WORK_DIR}/images"
-
-# Constants.
-# DATA_IMAGE_NAME() { echo mariadb; }
-# VIEW_IMAGE_NAME() { echo mediawiki; }
+WORK_DIR=$(getTempDir)
+DATA_FILE="$WORK_DIR/all-databases.sql"
+IMAGE_DIR="$WORK_DIR/images"
 
 ####-####+####-####+####-####+####-####+
 #
@@ -37,11 +29,29 @@ checkContainer() {
 
   local container=$1 hostName=$2 imageName=$3
 
-  local commandA="docker container inspect $container"
-  local commandB="jq --raw-output '.[0].Config.Hostname, .[0].Config.Image'"
-  xShow $commandA '|' $commandB
+  local inspect="docker container inspect X$container"
+  local jayQ="jq --raw-output"
+  local filter=".[0].Config.Hostname, .[0].Config.Image"
+  echo "filter is -${filter}-"
 
-  local errFile="${TEMP_DIR}/stderr"
+  xShow $inspect '|' $jayQ $filter
+
+  local out=$(xKute $inspect)
+  [ $? -ne 0 ] && abend "Error: failed to inspect '$container': $(getLastError)"
+  echo "Inspect successful!"
+  exit 1
+
+  local json='GOOD DUMP'
+  $inspect >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    abend "Error inspecting '$container': $json"
+  fi
+  echo -e "\nInspection OK? Here's the dump:\n--------------------\n$json"
+
+  # local stuff=$($inspect | $jayQ "$filter" 2>&1)
+  # declare -p stuff
+  exit 1
+  local errFile="$(getTempDir)/stderr"
   local inspect=$($commandA 2>$errFile) # docker $? always zero...
   local error=$(<$errFile)
   [ -n "$error" ] && usage $error
@@ -75,8 +85,8 @@ main() {
 
   mkdir $WORK_DIR $IMAGE_DIR 2>/dev/null
 
-  checkContainer "$DATA_CONTAINER" "$DATA_HOST" mariadb
-  checkContainer "$VIEW_CONTAINER" "$VIEW_HOST" mediawiki
+  checkContainer $(getContainer $DW_DATA_SERVICE) $DW_DATA_HOST mariadb
+  checkContainer $(getContainer $DW_VIEW_SERVICE) $DW_VIEW_HOST mediawiki
 
   if ! $QUIET; then
     echo
@@ -87,7 +97,7 @@ main() {
     echo "IMAGE_DIR = '$IMAGE_DIR'"
   fi
 
-echo && echo SKIPPING BACKUP/RESTORE TILL DAVE TESTS  ~/.DOCKERWIKI/.ENV && return 1
+  echo && echo SKIPPING BACKUP/RESTORE TILL DAVE TESTS ~/.DOCKERWIKI/.ENV && return 1
 
   if $BACKUP; then
 
@@ -135,6 +145,10 @@ parseCommandLine() {
     -h | --help)
       usage
       ;;
+    --no-decoration)
+      DECORATE=false
+      shift
+      ;;
     -r | --restore)
       RESTORE=true
       shift
@@ -181,6 +195,7 @@ Options:
   -b | --backup                   Backup database and images
   -d | --data-container  string   Override .env/DATA_CONTAINER
   -h | --help                     Print this usage summary
+       --no-decoration            Disable composer-naming emulation
   -r | --restore                  Restore database and images
   -v | --view-container  string   Override .env/VIEW_CONTAINER
   -w | --work-dir  string         Work area, overrides .env/TEMP_DIR

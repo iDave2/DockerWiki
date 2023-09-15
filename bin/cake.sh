@@ -15,8 +15,6 @@
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-source "${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
-source "$USER_CONFIG" 2>/dev/null
 source ${SCRIPT_DIR}/include.sh
 
 # Basename of working directory.
@@ -41,27 +39,6 @@ PUBLISH=
 DATA_VOLUME= # database volume name
 DATA_TARGET= # database volume mountpoint inside container
 NETWORK=     # network name for container chatter
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  Function returns container name of a given service name.
-#  For example, 'data' => 'wiki-data-1' unless --no-decoration.
-#
-getContainer() {
-  local service
-  case "$1" in
-  data)
-    service="$DW_DATA_SERVICE"
-    ;;
-  view)
-    service="$DW_VIEW_SERVICE"
-    ;;
-  *)
-    usage "getContainer: expected 'data' or 'view', not '$1'"
-    ;;
-  esac
-  echo $(rename "$service" "$DW_PROJECT" 'container')
-}
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -110,9 +87,9 @@ main() {
   parseCommandLine "$@"
 
   # Finish initializing parameters.
-  DATA_VOLUME=$(rename "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
+  DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
   DATA_TARGET=/var/lib/mysql
-  NETWORK=$(rename "$DW_NETWORK" "$DW_PROJECT" 'network')
+  NETWORK=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
 
   # Make one or both services.
   case $WHERE in
@@ -220,7 +197,7 @@ makeData() {
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
-  CONTAINER=$(getContainer data)
+  CONTAINER=$(getContainer $DW_DATA_SERVICE)
   HOST=$DW_DATA_HOST
   IMAGE=$DW_DID/mariadb
   MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
@@ -251,7 +228,7 @@ makeView() {
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
-  CONTAINER=$(getContainer view)
+  CONTAINER=$(getContainer $DW_VIEW_SERVICE)
   ENVIRONMENT=
   HOST=$DW_VIEW_HOST
   IMAGE=$DW_DID/mediawiki
@@ -266,7 +243,7 @@ makeView() {
   # Database needs to be Running and Connectable to continue.
   waitForData
   if [ $? -ne 0 ]; then
-    local error="Error: Cannot connect to data container '$(getContainer data)'; "
+    local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
     error+="unable to generate LocalSettings.php; "
     error+="browser may display web-based installer."
     echo -e "\n$error"
@@ -329,13 +306,13 @@ parseCommandLine() {
 #
 #  Emulate docker compose name decoration: 'view' => 'wiki-view-1'?
 #
-rename() {
-  if $DECORATE; then
-    echo $(decorate "$@")
-  else
-    echo "$1"
-  fi
-}
+# rename() {
+#   if $DECORATE; then
+#     echo $(decorate "$@")
+#   else
+#     echo "$1"
+#   fi
+# }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -377,8 +354,8 @@ EOT
 #
 waitForData() {
 
-  local dataContainer=$(getContainer data) dataState
-  local viewContainer=$(getContainer view) viewState
+  local dataContainer=$(getContainer $DW_DATA_SERVICE) dataState
+  local viewContainer=$(getContainer $DW_VIEW_SERVICE) viewState
 
   # Start the database.
   xCute docker start $dataContainer

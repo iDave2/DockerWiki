@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 #
-#  Helpers to be sourced (include environment first).
+#  Helpers to be sourced.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source "${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
+source "$USER_CONFIG" 2>/dev/null
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -26,7 +30,6 @@ cShow() {
 #
 #  Decorate generated artifact names; emulate docker compose.
 #
-DECORATE=true # cli option
 decorate() {
   local name="$1" project="$2" type="$3"
   local result=$name
@@ -41,6 +44,47 @@ decorate() {
     esac
   fi
   echo $result
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Function returns container name of a given service name.
+#  For example, 'data' => 'wiki-data-1' unless --no-decoration.
+#
+getContainer() {
+  local service
+  case "$1" in
+  data)
+    service="$DW_DATA_SERVICE"
+    ;;
+  view)
+    service="$DW_VIEW_SERVICE"
+    ;;
+  *)
+    usage "getContainer: expected 'data' or 'view', not '$1'"
+    ;;
+  esac
+  echo $(decorate "$service" "$DW_PROJECT" 'container')
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  I smell Windoze.
+#
+getLastError() {
+  [ -f "$errFile" ] && cat "$errFile" || echo
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  Rather than having everyone creating folders, how about,
+#
+getTempDir() {
+  if [ ! -d "$TEMP_DIR" ]; then
+    mkdir "$TEMP_DIR" && [ -d "$TEMP_DIR" ] ||
+      abend "Error: cannot create temporary directory, '$TEMP_DIR'!"
+  fi
+  echo $TEMP_DIR
 }
 
 ####-####+####-####+####-####+####-####+
@@ -78,7 +122,6 @@ xShow() {
 xCute() { # https://stackoverflow.com/a/32931403
   xShow "$@"
   IFS=$'\n' read -r -d '' -a LINES < <("$@" && printf '\0')
-  # Seriously though, that's worse than perl ... ;)
   printf "%s\n" "${LINES[@]}"
 }
 xIn() {
@@ -99,3 +142,21 @@ x2to1() { # Capture stderr for caller...
   xShow "$@"
   echo $("$@" 2>&1)
 }
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Earlier whining notwithstanding, docker appears to return stdout, stderr
+#  and $? normally. It can be tricky to separate and monitor all of them.
+#
+xKute() {
+  xShow "$@"
+  "$@" 2>"$errFile"
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Variable definitions down here as some require functions above.
+#  Let's try camel case for file scope hint, all uppercase for globals.
+#
+DECORATE=true # see --no-decoration
+errFile="$(getTempDir)/stderr"
