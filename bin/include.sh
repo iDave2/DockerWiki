@@ -17,30 +17,6 @@ abend() {
   exit 42
 }
 
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  command -a -bc --delta -efg ...
-#
-#  type 'help getopts' first
-#
-# args() {
-#   local newArgs=()
-#   while [[ $# -gt 0 ]]; do
-#     # if [[ "$1" =~ -[0-9_A-Za-z]{2,} ]]; then
-#     if [[ "$1" =~ -[_[:alnum:]]{2,} ]]; then
-#       for ((i = 1; i < ${#1}; ++i)); do
-#         newArgs+=(-${1:$i:1})
-#       done
-#     else
-#       newArgs+=("$1")
-#     fi
-#     shift
-#   done
-#   for ((i = 0; i < ${#newArgs[@]}; ++i)); do
-#     echo "$i: ${newArgs[$i]}"
-#   done
-# }
-
 ####-####+####-####+####-####+####-####+
 #
 #  Curly version of xShow, this pretty-prints comment + command.
@@ -97,6 +73,33 @@ getContainer() {
 #
 getLastError() { cat "$errFile"; }
 getLastOutput() { cat "$outFile"; }
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Apple getopt is clunky, gnu-getopt is great, but Apple warns we're all
+#  gonna die if gnu-getopt is in PATH, so...
+#
+#  Imitate a small but useful part of gnu-getopt: -abcd -> -a -b -c -d.
+#
+getOpt() {
+  local newArgs='' # modified options `n arguments
+  local space=''   # becomes real space after first use
+  while [[ $# -gt 0 ]]; do
+    # echo "getOpt: Checking '$1'"
+    if [[ "$1" =~ ^-[_[:alnum:]]{2,} ]]; then
+      # echo "  '$1' matches, is splittable"
+      for ((i = 1; i < ${#1}; ++i)); do
+        newArgs+="${space:= }-${1:$i:1}"
+      done
+    else
+      # echo "  '$1' does not match, keep as is"
+      newArgs+="${space:= }$1"
+    fi
+    shift
+  done
+  # echo "getOpt: newArgs = '$newArgs'"
+  echo $newArgs
+}
 
 ####-####+####-####+####-####+####-####+
 #

@@ -8,7 +8,7 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-set -o pipefail # pipe status is last-to-fail or zero if none fail
+set -euo pipefail # pipe status is last-to-fail or zero if none fail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${SCRIPT_DIR}/include.sh" # https://stackoverflow.com/a/246128
@@ -29,7 +29,7 @@ localSettings="$wikiRoot/LocalSettings.php"
 dataContainer=$(getContainer data)
 viewContainer=$(getContainer view)
 
-####-####+####-####+####-####+####-####+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Validate requested data and view containers.
 #
@@ -61,7 +61,7 @@ checkContainer() {
   fi
 }
 
-####-####+####-#'###+####-####+####-####+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  chatgpt://get/quote?keyword="main"&limit=1
 #
@@ -74,8 +74,11 @@ test() { # test getopts
 }
 main() {
 
-  # test "$@"
-  # return 2
+  # Test getOpt().
+  echo "main: incoming args: (" $(join ', ' "$@") ")"
+  set -- $(getOpt "$@")
+  echo "main: adjusted args: (" $(join ', ' "$@") ")"
+  return
 
   isDockerRunning ||
     abend "This program uses docker which appears to be down; aborting."
@@ -90,8 +93,7 @@ main() {
 
   if ! $QUIET; then
     echo
-    for name in dataContainer viewContainer hostRoot dataFile imageDir localSettings
-    do
+    for name in dataContainer viewContainer hostRoot dataFile imageDir localSettings; do
       printf "%13s = %s\n" $name ${!name}
     done
   fi
@@ -104,7 +106,7 @@ main() {
     local command="docker exec $dataContainer "
     command+="mariadb-dump --all-databases -uroot -p$DW_DB_ROOT_PASSWORD"
     xShow "$command | gzip > \"${dataFile}.gz\""
-    $command | gzip > "${dataFile}.gz"
+    $command | gzip >"${dataFile}.gz"
     [ $? -ne 0 ] && abend "Error backing up database; exit status '$?'."
 
     local commandA="docker exec $viewContainer tar -cC $wikiRoot/images ."
@@ -134,13 +136,25 @@ main() {
   fi
 }
 
-####-####+####-####+####-####+####-####+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  There are no more words.
 #
+parseCommandLineNew() {
+  local args=$(getopt '' $*)
+  [ $? -ne 0 ] && usage "syntax error"
+  set -- $args
+  while :; do # that ':' is bash's NOP. gotta have a NOP.
+    case "$1" in
+    --)
+      shift; break
+      ;;
+    esac
+  done
+}
 parseCommandLine() {
-  # https://stackoverflow.com/a/14203146
-  while [[ $# -gt 0 ]]; do
+  set -- $(getOpt "$@")
+  while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
     -b | --backup)
       BACKUP=true
@@ -185,15 +199,15 @@ parseCommandLine() {
   done
 }
 
-####-####+####-####+####-####+####-####+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  You have to say something.
 #
 usage() {
   if [ -n "$*" ]; then
-    echo -e "\n****  $*  ****"
+    echo >&2 -e "\n****  $*  ****"
   fi
-  cat <<-EOT
+  cat >&2 <<EOT
 
 Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
@@ -212,8 +226,18 @@ EOT
   exit 42
 }
 
-####-####+####-####+####-####+####-####+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Capua, shall I begin?
 #
 main "$@"
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Random notes, snippets, old items that we are scared to delete yet.
+#
+  # # Test getOpt().
+  # echo "main: incoming args: (" $(join ', ' "$@") ")"
+  # set -- $(getOpt "$@")
+  # echo "main: adjusted args: (" $(join ', ' "$@") ")"
+  # return
