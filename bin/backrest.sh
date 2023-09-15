@@ -8,6 +8,8 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
+set -o pipefail # pipe status is last-to-fail or zero if none fail
+
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${SCRIPT_DIR}/include.sh" # https://stackoverflow.com/a/246128
 
@@ -21,7 +23,7 @@ wikiRoot="/var/www/html" # docroot inside view container
 hostRoot="$(getTempDir)/backup-$(date '+%y%m%d-%H%M%S')"
 dataFile="$hostRoot/all-databases.sql"
 imageDir="$hostRoot/images"
-localSettings="/var/www/html/LocalSettings.php"
+localSettings="$wikiRoot/LocalSettings.php"
 
 # Defaults subject to change via command line options.
 dataContainer=$(getContainer data)
@@ -83,42 +85,38 @@ main() {
   ! $BACKUP && ! $RESTORE &&
     usage "Please specify --backup or --restore (or both FWIW)"
 
-  # xKute2 mkdir "$hostRoot" "$imageDir"
-  # local out=`mkdir /tmp`
-  # local stat=$?
-  # for name in foo DockerWiki; do
-  #   local out=$(xKute ls $name) stat=$?
-  #   echo -e "\nmain[$LINENO]: \$? = '$stat', out = '$out'"
-  # done
-  # return
-  # [ $? -ne 0 ] && abend "Error creating temporary folders: $(getLastError)"
-
   checkContainer $dataContainer $DW_DATA_HOST mariadb # $DW_DATA_IMAGE=mariadb?
   checkContainer $viewContainer $DW_VIEW_HOST mediawiki
 
   if ! $QUIET; then
     echo
-    for name in dataContainer viewContainer \
-      hostRoot dataFile imageDir localSettings; do
+    for name in dataContainer viewContainer hostRoot dataFile imageDir localSettings
+    do
       printf "%13s = %s\n" $name ${!name}
     done
   fi
+
+  xKute2 mkdir "$hostRoot" "$imageDir" # 1 second granularity
+  [ $? -ne 0 ] && abend "Unable to create directory '$hostRoot': $(getLastError)"
 
   if $BACKUP; then
 
     local command="docker exec $dataContainer "
     command+="mariadb-dump --all-databases -uroot -p$DW_DB_ROOT_PASSWORD"
     xShow "$command | gzip > \"${dataFile}.gz\""
-    $command | gzip > ${dataFile}.gz
+    $command | gzip > "${dataFile}.gz"
+    [ $? -ne 0 ] && abend "Error backing up database; exit status '$?'."
 
-    local commandA="docker exec $viewContainer tar -cC /var/www/html/images ."
+    local commandA="docker exec $viewContainer tar -cC $wikiRoot/images ."
     local commandB="tar -xC ${hostRoot}/images"
     xShow "$commandA | $commandB"
     $commandA | $commandB
+    [ $? -ne 0 ] && abend "Error backing up images; exit status '$?'."
 
-    xCute docker cp "$viewContainer:$localSettings" "$hostRoot/$(basename $localSettings)"
+    xKute2 docker cp "$viewContainer:$localSettings" "$hostRoot/$(basename $localSettings)"
+    [ $? -ne 0 ] && abend "Error backing up local settings: $(getLastError)"
 
-    echo "==> Wiki backup written to '$hostRoot' <=="
+    echo -e "\n==> Wiki backup written to '$hostRoot' <=="
 
   fi
 
@@ -127,7 +125,7 @@ main() {
     xIn "$dataFile" docker exec -i "$dataContainer" sh -c "exec mariadb -uroot -p$MARIADB_ROOT_PASSWORD"
 
     local commandA="tar -cC ${hostRoot}/images ."
-    local commandB="docker exec --interactive $viewContainer tar -xC /var/www/html/images"
+    local commandB="docker exec --interactive $viewContainer tar -xC $wikiRoot/images"
     xShow "$commandA | $commandB"
     $commandA | $commandB
 

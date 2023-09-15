@@ -194,6 +194,8 @@ x2to1() { # Capture stderr for caller...
 #  Use 'xKute' and 'xQute' going forward; 'xCute' will be deprecated away
 #  soon; xShow is straightforward and will remain.
 #
+#  TODO: PIPESTATUS?
+#
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 xKute() {
   xShow "$@"
