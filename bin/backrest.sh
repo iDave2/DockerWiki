@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 #  Backup and restore tools adapted from hub pages for official
-#  mediawiki and mariadb images,
-
+#  mediawiki and mariadb images.
+#
 #  This script passes cleartext passwords so is Not Secure.
 #  This script requires 'bash' and 'jq'.
 #
@@ -17,9 +17,15 @@ QUIET=true
 RESTORE=false
 
 # Where to do it.
-WORK_DIR=$(getTempDir)
-DATA_FILE="$WORK_DIR/all-databases.sql"
-IMAGE_DIR="$WORK_DIR/images"
+wikiRoot="/var/www/html" # docroot inside view container
+hostRoot="$(getTempDir)/backup-$(date '+%y%m%d-%H%M%S')"
+dataFile="$hostRoot/all-databases.sql"
+imageDir="$hostRoot/images"
+localSettings="/var/www/html/LocalSettings.php"
+
+# Defaults subject to change via command line options.
+dataContainer=$(getContainer data)
+viewContainer=$(getContainer view)
 
 ####-####+####-####+####-####+####-####+
 #
@@ -29,37 +35,21 @@ checkContainer() {
 
   local container=$1 hostName=$2 imageName=$3
 
-  local inspect="docker container inspect X$container"
+  local inspect="docker container inspect $container"
   local jayQ="jq --raw-output"
   local filter=".[0].Config.Hostname, .[0].Config.Image"
-  echo "filter is -${filter}-"
 
-  xShow $inspect '|' $jayQ $filter
+  xShow $inspect '|' $jayQ "'$filter'"
 
-  local out=$(xKute $inspect)
+  xQute12 $inspect
   [ $? -ne 0 ] && abend "Error: failed to inspect '$container': $(getLastError)"
-  echo "Inspect successful!"
-  exit 1
 
-  local json='GOOD DUMP'
-  $inspect >/dev/null 2>&1
-  if [ $? -ne 0 ]; then
-    abend "Error inspecting '$container': $json"
-  fi
-  echo -e "\nInspection OK? Here's the dump:\n--------------------\n$json"
-
-  # local stuff=$($inspect | $jayQ "$filter" 2>&1)
-  # declare -p stuff
-  exit 1
-  local errFile="$(getTempDir)/stderr"
-  local inspect=$($commandA 2>$errFile) # docker $? always zero...
-  local error=$(<$errFile)
-  [ -n "$error" ] && usage $error
-
-  local hostTest=$(echo "$inspect" | jq --raw-output '.[0].Config.Hostname')
-  local imageTest=$(echo "$inspect" | jq --raw-output '.[0].Config.Image')
-  # idave2/mariadb:0.2.0 => mariadb
+  local hostImage=$(echo $(getLastOutput | $jayQ "$filter"))
+  local hostTest=$(echo $hostImage | cut -w -f 1)
+  local imageTest=$(echo $hostImage | cut -w -f 2)
+  echo "$hostTest $imageTest"
   imageTest=$(echo $(basename $imageTest) | sed -e s/:.*//)
+  # idave2/mariadb:0.2.0 => mariadb
 
   if [ "$hostTest" != "$hostName" ]; then
     usage "Expected host name '$hostName' for container '$container'; found '$hostTest' instead"
@@ -73,7 +63,17 @@ checkContainer() {
 #
 #  chatgpt://get/quote?keyword="main"&limit=1
 #
+test() { # test getopts
+  optstring='bD:hrV:vw:'
+  echo "test[$LINENO]: optstring = '$optstring', \$# = '$#', \"\$@\" = ("$(join ', ' "$@")")"
+  while getopts 'bD:hrV:vw:' option; do
+    echo "option[$option], OPTIND[$OPTIND], OPTARG[$OPTARG]"
+  done
+}
 main() {
+
+  # test "$@"
+  # return 2
 
   isDockerRunning ||
     abend "This program uses docker which appears to be down; aborting."
@@ -83,45 +83,55 @@ main() {
   ! $BACKUP && ! $RESTORE &&
     usage "Please specify --backup or --restore (or both FWIW)"
 
-  mkdir $WORK_DIR $IMAGE_DIR 2>/dev/null
+  # xKute2 mkdir "$hostRoot" "$imageDir"
+  # local out=`mkdir /tmp`
+  # local stat=$?
+  # for name in foo DockerWiki; do
+  #   local out=$(xKute ls $name) stat=$?
+  #   echo -e "\nmain[$LINENO]: \$? = '$stat', out = '$out'"
+  # done
+  # return
+  # [ $? -ne 0 ] && abend "Error creating temporary folders: $(getLastError)"
 
-  checkContainer $(getContainer $DW_DATA_SERVICE) $DW_DATA_HOST mariadb
-  checkContainer $(getContainer $DW_VIEW_SERVICE) $DW_VIEW_HOST mediawiki
+  checkContainer $dataContainer $DW_DATA_HOST mariadb # $DW_DATA_IMAGE=mariadb?
+  checkContainer $viewContainer $DW_VIEW_HOST mediawiki
 
   if ! $QUIET; then
     echo
-    echo "DATA_CONTAINER = '$DATA_CONTAINER'"
-    echo "VIEW_CONTAINER = '$VIEW_CONTAINER'"
-    echo "WORK_DIR = '$WORK_DIR'"
-    echo "DATA_FILE = '$DATA_FILE'"
-    echo "IMAGE_DIR = '$IMAGE_DIR'"
+    for name in dataContainer viewContainer \
+      hostRoot dataFile imageDir localSettings; do
+      printf "%13s = %s\n" $name ${!name}
+    done
   fi
-
-  echo && echo SKIPPING BACKUP/RESTORE TILL DAVE TESTS ~/.DOCKERWIKI/.ENV && return 1
 
   if $BACKUP; then
 
-    xOut "$DATA_FILE" docker exec "$DATA_CONTAINER" sh -c "mariadb-dump --all-databases -uroot -p$MARIADB_ROOT_PASSWORD"
+    local command="docker exec $dataContainer "
+    command+="mariadb-dump --all-databases -uroot -p$DW_DB_ROOT_PASSWORD"
+    xShow "$command | gzip > \"${dataFile}.gz\""
+    $command | gzip > ${dataFile}.gz
 
-    local commandA="docker exec $VIEW_CONTAINER tar -cC /var/www/html/images ."
-    local commandB="tar -xC ${WORK_DIR}/images"
+    local commandA="docker exec $viewContainer tar -cC /var/www/html/images ."
+    local commandB="tar -xC ${hostRoot}/images"
     xShow "$commandA | $commandB"
     $commandA | $commandB
 
-    echo && echo "Wiki backup written to '$WORK_DIR'"
+    xCute docker cp "$viewContainer:$localSettings" "$hostRoot/$(basename $localSettings)"
+
+    echo "==> Wiki backup written to '$hostRoot' <=="
 
   fi
 
   if $RESTORE; then
 
-    xIn "$DATA_FILE" docker exec -i "$DATA_CONTAINER" sh -c "exec mariadb -uroot -p$MARIADB_ROOT_PASSWORD"
+    xIn "$dataFile" docker exec -i "$dataContainer" sh -c "exec mariadb -uroot -p$MARIADB_ROOT_PASSWORD"
 
-    local commandA="tar -cC ${WORK_DIR}/images ."
-    local commandB="docker exec --interactive $VIEW_CONTAINER tar -xC /var/www/html/images"
+    local commandA="tar -cC ${hostRoot}/images ."
+    local commandB="docker exec --interactive $viewContainer tar -xC /var/www/html/images"
     xShow "$commandA | $commandB"
     $commandA | $commandB
 
-    echo && echo "Wiki restored from '$WORK_DIR'"
+    echo && echo "==> Wiki restored from '$hostRoot' <=="
 
   fi
 }
@@ -138,8 +148,8 @@ parseCommandLine() {
       BACKUP=true
       shift
       ;;
-    -d | --data-container)
-      DATA_CONTAINER="$2"
+    -D | --data-container)
+      dataContainer="$2"
       shift 2
       ;;
     -h | --help)
@@ -153,19 +163,19 @@ parseCommandLine() {
       RESTORE=true
       shift
       ;;
-    -v | --view-container)
-      VIEW_CONTAINER="$2"
+    -V | --view-container)
+      viewContainer="$2"
       shift 2
       ;;
-    -w | --work-dir)
-      WORK_DIR="$2"
-      shift 2
-      DATA_FILE="${WORK_DIR}/all-databases.sql"
-      IMAGE_DIR="${WORK_DIR}/images"
-      ;;
-    -x | --xerbose)
+    -v | --verbose)
       QUIET=false
       shift
+      ;;
+    -w | --work-dir)
+      hostRoot="$2"
+      shift 2
+      dataFile="${hostRoot}/all-databases.sql"
+      imageDir="${hostRoot}/images"
       ;;
     -* | --*)
       usage unknown option \"$1\"
@@ -183,7 +193,7 @@ parseCommandLine() {
 #
 usage() {
   if [ -n "$*" ]; then
-    echo && echo "****  $*  ****"
+    echo -e "\n****  $*  ****"
   fi
   cat <<-EOT
 
@@ -193,13 +203,13 @@ Backup and restore a DockerWiki.
 
 Options:
   -b | --backup                   Backup database and images
-  -d | --data-container  string   Override .env/DATA_CONTAINER
+  -D | --data-container  string   Override \$(getContainer data)
   -h | --help                     Print this usage summary
        --no-decoration            Disable composer-naming emulation
   -r | --restore                  Restore database and images
-  -v | --view-container  string   Override .env/VIEW_CONTAINER
-  -w | --work-dir  string         Work area, overrides .env/TEMP_DIR
-  -x | --xerbose                  Verbose (sorry, -v was taken)
+  -V | --view-container  string   Override .env/VIEW_CONTAINER
+  -v | --verbose                  Verbose, displays some calculations
+  -w | --work-dir  string         Work area, overrides default /tmp area
 EOT
   exit 42
 }
