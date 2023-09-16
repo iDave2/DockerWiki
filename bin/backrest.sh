@@ -6,24 +6,27 @@
 #  This script passes cleartext passwords so is Not Secure.
 #  This script requires 'bash' and 'jq'.
 #
+#  Let's try camel case for file scope hint, uppercase for globals.
+#
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-set -euo pipefail # pipe status is last-to-fail or zero if none fail
+set -uo pipefail # pipe status is last-to-fail or zero if none fail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${SCRIPT_DIR}/include.sh" # https://stackoverflow.com/a/246128
 
 # What to do.
 BACKUP=false
+force=false
 QUIET=true
 RESTORE=false
 
 # Where to do it.
+hostRoot=                # see --from-to
 wikiRoot="/var/www/html" # docroot inside view container
-hostRoot="$(getTempDir)/backup-$(date '+%y%m%d-%H%M%S')"
-dataFile="$hostRoot/all-databases.sql"
-imageDir="$hostRoot/images"
-localSettings="$wikiRoot/LocalSettings.php"
+dataFile=all-databases.sql
+imageDir=images
+localSettings=LocalSettings.php
 
 # Defaults subject to change via command line options.
 dataContainer=$(getContainer data)
@@ -54,10 +57,10 @@ checkContainer() {
   # idave2/mariadb:0.2.0 => mariadb
 
   if [ "$hostTest" != "$hostName" ]; then
-    usage "Expected host name '$hostName' for container '$container'; found '$hostTest' instead"
+    usage "Expected host '$hostName' for container '$container'; found '$hostTest' instead"
   fi
   if [ "$imageTest" != "$imageName" ]; then
-    usage "Expected image name '$imageName' for container '$container'; found '$imageTest' instead"
+    usage "Expected image '$imageName' for container '$container'; found '$imageTest' instead"
   fi
 }
 
@@ -67,13 +70,38 @@ checkContainer() {
 #
 main() {
 
-  isDockerRunning ||
-    abend "This program uses docker which appears to be down; aborting."
+  isDockerRunning || abend "Is docker down? I cannot connect."
 
   parseCommandLine "$@"
 
-  ! $BACKUP && ! $RESTORE &&
-    usage "Please specify --backup or --restore (or both FWIW)"
+  # Precendence unclear And it seems to work...
+  ($BACKUP && $RESTORE) || (! $BACKUP && ! $RESTORE) &&
+    usage "Please specify either --backup or --restore"
+
+  if $BACKUP; then
+    [ -n "$hostRoot" ] || hostRoot="$(getTempDir)/backup-$(date '+%y%m%d-%H%M%S')"
+    for dir in "$hostRoot" "$hostRoot/$imageDir"; do
+      echo "dir is '$dir'"
+    done
+    # "br -b -w DockerWiki/foo --force" hangs when --force was added!
+    for dir in "$hostRoot" "$hostRoot/$imageDir"; do
+      :
+      # if [ -d "$dir" ]; then
+      #   echo HELLO 89 && exit 89
+      #   # if [ ! $force ]; then
+      #   #   usage "Use --force to reuse working dir '$dir'"
+      #   # fi
+      #   echo HELLO 87 && exit 87
+      # else
+      #   xKute2 mkdir "$dir"
+      #   [ $? -ne 0 ] && usage "Trouble creating '$dir': $(getLastError)"
+      # fi
+    done
+    echo BYE ${LINENO} && exit ${LINENO}
+  else
+    [ -n "$hostRoot" ] || usage "Please specify \"-w <from-dir>\" when running --restore"
+  fi
+  echo BYE ${LINENO} && exit ${LINENO}
 
   checkContainer $dataContainer $DW_DATA_HOST mariadb # $DW_DATA_IMAGE=mariadb?
   checkContainer $viewContainer $DW_VIEW_HOST mediawiki
@@ -85,38 +113,45 @@ main() {
     done
   fi
 
-  xKute2 mkdir "$hostRoot" "$imageDir" # 1 second granularity
-  [ $? -ne 0 ] && abend "Unable to create directory '$hostRoot': $(getLastError)"
+  if $BACKUP; then
 
-  if $BACKUP; then # save database, images, and local settings
-
-    local command="docker exec $dataContainer "
-    command+="mariadb-dump --all-databases -uroot -p$DW_DB_ROOT_PASSWORD"
-    xShow "$command | gzip > \"${dataFile}.gz\""
-    $command | gzip >"${dataFile}.gz"
+    local commandA="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DW_DB_ROOT_PASSWORD"
+    local file="${hostRoot}/${dataFile}.gz"
+    local commandB="gzip > $file"
+    xShow "$commandA >($commandB)"
+    #$command | gzip >"${hostRoot}/${dataFile}.gz"
+    $commandA >($commandB)
     [ $? -ne 0 ] && abend "Error backing up database; exit status '$?'."
 
-    local commandA="docker exec $viewContainer tar -cC $wikiRoot/images ."
-    local commandB="tar -xC ${hostRoot}/images"
+    local commandA="docker exec $viewContainer tar -cC $wikiRoot/$imageDir ."
+    local commandB="tar -xC $hostRoot/$imageDir"
     xShow "$commandA | $commandB"
     $commandA | $commandB
     [ $? -ne 0 ] && abend "Error backing up images; exit status '$?'."
 
-    xKute2 docker cp "$viewContainer:$localSettings" "$hostRoot/$(basename $localSettings)"
+    xKute2 docker cp "$viewContainer:$wikiRoot/$localSettings" "$hostRoot/$localSettings"
     [ $? -ne 0 ] && abend "Error backing up local settings: $(getLastError)"
 
     echo -e "\n==> Wiki backup written to '$hostRoot' <=="
 
   fi
 
-  if $RESTORE; then # restore database, images, and local settings
+  if $RESTORE; then
 
-    xIn "$dataFile" docker exec -i "$dataContainer" sh -c "exec mariadb -uroot -p$MARIADB_ROOT_PASSWORD"
+    # xIn "$dataFile" docker exec -i "$dataContainer" sh -c "exec mariadb -uroot -p$MARIADB_ROOT_PASSWORD"
+    local command="docker exec -i $dataContainer mariadb -uroot -p$DW_DB_ROOT_PASSWORD"
+    xShow "$command < $hostRoot/${dataFile}.gz"
+    $command <$hostRoot/${dataFile}.gz
+    [ $? -ne 0 ] && abend "Error restoring database!"
 
-    local commandA="tar -cC ${hostRoot}/images ."
-    local commandB="docker exec --interactive $viewContainer tar -xC $wikiRoot/images"
+    local commandA="tar -cC ${hostRoot}/$imageDir ."
+    local commandB="docker exec --interactive $viewContainer tar -xC $wikiRoot/$imageDir"
     xShow "$commandA | $commandB"
     $commandA | $commandB
+    [ $? -ne 0 ] && abend "Error restoring images: exit status '$?'"
+
+    xKute2 docker cp "$hostRoot/$localSettings" "$viewContainer:$wikiRoot/$localSettings"
+    [ $? -ne 0 ] && abend "Error backing up local settings: $(getLastError)"
 
     echo && echo "==> Wiki restored from '$hostRoot' <=="
 
@@ -131,13 +166,16 @@ parseCommandLine() {
   set -- $(getOpt "$@")
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
-    -b | --backup)
+    -b | --backup) # or one-liners?
       BACKUP=true
       shift
       ;;
     -D | --data-container)
       dataContainer="$2"
       shift 2
+      ;;
+    -f | --force)
+      force=true
       ;;
     -h | --help)
       usage
@@ -161,8 +199,6 @@ parseCommandLine() {
     -w | --work-dir)
       hostRoot="$2"
       shift 2
-      dataFile="${hostRoot}/all-databases.sql"
-      imageDir="${hostRoot}/images"
       ;;
     -* | --*)
       usage unknown option \"$1\"
@@ -179,24 +215,29 @@ parseCommandLine() {
 #  You have to say something.
 #
 usage() {
-  if [ -n "$*" ]; then
-    echo >&2 -e "\n****  $*  ****"
-  fi
+
+  [ -n "$*" ] && echo >&2 -e "\n****  $*  ****"
+
+  local moi=$(basename ${BASH_SOURCE[0]})
+
   cat >&2 <<EOT
 
-Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
+Usage:
+  $moi --backup [-w <to-dir>] [OPTIONS]
+  $moi --restore -w <from-dir> [OPTIONS]
 
 Backup and restore a DockerWiki.
 
 Options:
-  -b | --backup                   Backup database and images
-  -D | --data-container  string   Override \$(getContainer data)
-  -h | --help                     Print this usage summary
-       --no-decoration            Disable composer-naming emulation
-  -r | --restore                  Restore database and images
-  -V | --view-container  string   Override .env/VIEW_CONTAINER
-  -v | --verbose                  Verbose, displays some calculations
-  -w | --work-dir  string         Work area, overrides default /tmp area
+  -b | --backup                  Backup database, images, and local settings
+  -D | --data-container string   Override default '$(getContainer data)'
+  -h | --help                    Print this usage summary
+  -f | --force                   Allow backup to an existing location
+       --no-decoration           Disable composer-naming emulation
+  -r | --restore                 Restore database, images, and local settings
+  -V | --view-container string   Override default '$(getContainer view)'
+  -v | --verbose                 Display a few parameters
+  -w | --work-dir string         Host directory to backup to or restore from
 EOT
   exit 42
 }

@@ -146,24 +146,24 @@ xCute() { # https://stackoverflow.com/a/32931403
   IFS=$'\n' read -r -d '' -a LINES < <("$@" && printf '\0')
   printf "%s\n" "${LINES[@]}"
 }
-xIn() {
-  local in="$1"
-  shift
-  # echo xIn\( $(join ', ' "$@") \)
-  xShow "$@" "< $in"
-  "$@" <$in
-}
-xOut() {
-  local out="$1"
-  shift
-  # echo xOut\( $(join ', ' "$@") \)
-  xShow "$@" "> $out"
-  "$@" >$out
-}
-x2to1() { # Capture stderr for caller...
-  xShow "$@"
-  echo $("$@" 2>&1)
-}
+# xIn() {
+#   local in="$1"
+#   shift
+#   # echo xIn\( $(join ', ' "$@") \)
+#   xShow "$@" "< $in"
+#   "$@" <$in
+# }
+# xOut() {
+#   local out="$1"
+#   shift
+#   # echo xOut\( $(join ', ' "$@") \)
+#   xShow "$@" "> $out"
+#   "$@" >$out
+# }
+# x2to1() { # Capture stderr for caller...
+#   xShow "$@"
+#   echo $("$@" 2>&1)
+# }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
