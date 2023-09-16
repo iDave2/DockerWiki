@@ -54,14 +54,11 @@ decorate() {
 getContainer() {
   local service
   case "$1" in
-  data)
-    service="$DW_DATA_SERVICE"
-    ;;
-  view)
-    service="$DW_VIEW_SERVICE"
+  $DW_DATA_SERVICE | $DW_VIEW_SERVICE)
+    service="$1"
     ;;
   *)
-    usage "getContainer: expected 'data' or 'view', not '$1'"
+    usage "getContainer: expected '$DW_DATA_SERVICE' or '$DW_VIEW_SERVICE', not '$1'"
     ;;
   esac
   echo $(decorate "$service" "$DW_PROJECT" 'container')
@@ -83,17 +80,16 @@ getLastOutput() { cat "$outFile"; }
 #
 getOpt() {
   local newArgs='' # modified options `n arguments
-  local space=''   # becomes real space after first use
   while [[ $# -gt 0 ]]; do
     # echo "getOpt: Checking '$1'"
     if [[ "$1" =~ ^-[_[:alnum:]]{2,} ]]; then
       # echo "  '$1' matches, is splittable"
       for ((i = 1; i < ${#1}; ++i)); do
-        newArgs+="${space:= }-${1:$i:1}"
+        newArgs+=" -${1:$i:1}"
       done
     else
       # echo "  '$1' does not match, keep as is"
-      newArgs+="${space:= }$1"
+      newArgs+=" $1"
     fi
     shift
   done
@@ -173,7 +169,7 @@ x2to1() { # Capture stderr for caller...
 #
 #  Earlier whining notwithstanding, docker appears to return stdout, stderr
 #  and $? normally. It can be tricky to separate and monitor all of them.
-#  In particular, it is EASY to loose volatile $?, the status of last
+#  In particular, it is EASY to lose volatile $?, the status of last
 #  command run by these helpers. The following patterns work consistently:
 #
 #    local out=$(xKute stuff) status=$?

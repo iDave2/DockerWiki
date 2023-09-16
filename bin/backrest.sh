@@ -65,20 +65,7 @@ checkContainer() {
 #
 #  chatgpt://get/quote?keyword="main"&limit=1
 #
-test() { # test getopts
-  optstring='bD:hrV:vw:'
-  echo "test[$LINENO]: optstring = '$optstring', \$# = '$#', \"\$@\" = ("$(join ', ' "$@")")"
-  while getopts 'bD:hrV:vw:' option; do
-    echo "option[$option], OPTIND[$OPTIND], OPTARG[$OPTARG]"
-  done
-}
 main() {
-
-  # Test getOpt().
-  echo "main: incoming args: (" $(join ', ' "$@") ")"
-  set -- $(getOpt "$@")
-  echo "main: adjusted args: (" $(join ', ' "$@") ")"
-  return
 
   isDockerRunning ||
     abend "This program uses docker which appears to be down; aborting."
@@ -101,7 +88,7 @@ main() {
   xKute2 mkdir "$hostRoot" "$imageDir" # 1 second granularity
   [ $? -ne 0 ] && abend "Unable to create directory '$hostRoot': $(getLastError)"
 
-  if $BACKUP; then
+  if $BACKUP; then # save database, images, and local settings
 
     local command="docker exec $dataContainer "
     command+="mariadb-dump --all-databases -uroot -p$DW_DB_ROOT_PASSWORD"
@@ -122,7 +109,7 @@ main() {
 
   fi
 
-  if $RESTORE; then
+  if $RESTORE; then # restore database, images, and local settings
 
     xIn "$dataFile" docker exec -i "$dataContainer" sh -c "exec mariadb -uroot -p$MARIADB_ROOT_PASSWORD"
 
@@ -140,18 +127,6 @@ main() {
 #
 #  There are no more words.
 #
-parseCommandLineNew() {
-  local args=$(getopt '' $*)
-  [ $? -ne 0 ] && usage "syntax error"
-  set -- $args
-  while :; do # that ':' is bash's NOP. gotta have a NOP.
-    case "$1" in
-    --)
-      shift; break
-      ;;
-    esac
-  done
-}
 parseCommandLine() {
   set -- $(getOpt "$@")
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
@@ -234,10 +209,10 @@ main "$@"
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Random notes, snippets, old items that we are scared to delete yet.
+#  Old notes, snippets, unit tests, etc.
 #
-  # # Test getOpt().
-  # echo "main: incoming args: (" $(join ', ' "$@") ")"
-  # set -- $(getOpt "$@")
-  # echo "main: adjusted args: (" $(join ', ' "$@") ")"
-  # return
+# # Test getOpt().
+# echo "main: incoming args: (" $(join ', ' "$@") ")"
+# set -- $(getOpt "$@")
+# echo "main: adjusted args: (" $(join ', ' "$@") ")"
+# return

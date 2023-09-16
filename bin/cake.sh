@@ -263,6 +263,7 @@ makeView() {
 #  Lorem ipsum.
 #
 parseCommandLine() {
+  set -- $(getOpt "$@")
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
     -c | --clean)
