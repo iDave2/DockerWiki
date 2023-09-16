@@ -74,34 +74,24 @@ main() {
 
   parseCommandLine "$@"
 
-  # Precendence unclear And it seems to work...
+  # Precedence unclear and it seems to work...
   ($BACKUP && $RESTORE) || (! $BACKUP && ! $RESTORE) &&
     usage "Please specify either --backup or --restore"
 
   if $BACKUP; then
     [ -n "$hostRoot" ] || hostRoot="$(getTempDir)/backup-$(date '+%y%m%d-%H%M%S')"
     for dir in "$hostRoot" "$hostRoot/$imageDir"; do
-      echo "dir is '$dir'"
+      if [ -d "$dir" ]; then
+        $force || usage "Use --force to reuse working dir '$dir'"
+      else
+        xKute2 mkdir "$dir"
+        [ $? -ne 0 ] && usage "Trouble creating '$dir': $(getLastError)"
+      fi
     done
-    # "br -b -w DockerWiki/foo --force" hangs when --force was added!
-    for dir in "$hostRoot" "$hostRoot/$imageDir"; do
-      :
-      # if [ -d "$dir" ]; then
-      #   echo HELLO 89 && exit 89
-      #   # if [ ! $force ]; then
-      #   #   usage "Use --force to reuse working dir '$dir'"
-      #   # fi
-      #   echo HELLO 87 && exit 87
-      # else
-      #   xKute2 mkdir "$dir"
-      #   [ $? -ne 0 ] && usage "Trouble creating '$dir': $(getLastError)"
-      # fi
-    done
-    echo BYE ${LINENO} && exit ${LINENO}
   else
     [ -n "$hostRoot" ] || usage "Please specify \"-w <from-dir>\" when running --restore"
+    [ -d "$hostRoot" ] || usage "-w <$hostRoot> not found, nothing to restore"
   fi
-  echo BYE ${LINENO} && exit ${LINENO}
 
   checkContainer $dataContainer $DW_DATA_HOST mariadb # $DW_DATA_IMAGE=mariadb?
   checkContainer $viewContainer $DW_VIEW_HOST mediawiki
@@ -164,9 +154,10 @@ main() {
 #
 parseCommandLine() {
   set -- $(getOpt "$@")
+  # echo "parseCommandLine(" $(join ', ' "$@") ")"
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
-    -b | --backup) # or one-liners?
+    -b | --backup)
       BACKUP=true
       shift
       ;;
@@ -176,6 +167,7 @@ parseCommandLine() {
       ;;
     -f | --force)
       force=true
+      shift
       ;;
     -h | --help)
       usage
