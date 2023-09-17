@@ -4,9 +4,8 @@ This project is an implementation of the multi-container pattern outlined
 in Docker Docs'
 [Getting Started](https://docs.docker.com/get-started/07_multi_container/)
 guide.
-The audience might be developers or students learning Docker or researching
-this environment for, I don't know, for the next Mars expedition.
-If you want to use Docker + LAMP for business, please find similar projects
+It targets developers and students.
+To use Docker + LAMP for business, please find similar projects
 from [Bitnami](https://hub.docker.com/r/bitnami/mediawiki) or organizations
 whose context includes strong security, support, and all the things a
 business needs to run.
@@ -15,58 +14,34 @@ A summary of what is here:
 
 - `bin/actionAPI.sh`: MediaWiki (MW) action API tests
 - `bin/backrest.sh`: simple backup and restore starter kit
-- `bin/cake.sh`: build and run makefile for `docker`
+- `bin/cake.sh`: build script to *make* and unmake artifacts
 - `.env`: build and runtime configuration variables
-- `.envData`: just MariaDB runtime environment
-- `compose.yaml`: build and run makefile for `docker compose`
-- `config.yaml`: run-only compose file for Docker Hub launch
-- `setEnv.sh`: shortcuts to simplify development
-
-## Naming Conventions
-
-`compose.yaml` service names are invariant in the sense that you cannot
-replace them with a variable, like `${VIEW_SERVICE_NAME}`, without generating
-a validation error from `docker compose`:
-```
-name: wiki
-services:
-  view: ...
-  data: ...
-networks:
-  net:
-volumes:
-  data:
-```
-Given these names, `docker compose` then decorates them with project name
-and possibly an index if there can be multiple instances. So we get
-`wiki-view-1` and `wiki-data-1` for generated containers, `wiki_net` and
-`wiki_data` for generated network and volume.
-
-In order to simplify documentation and examples and hopefully recall, the
-Dockerfile builder `cake.sh` (which does not use `compose.yaml`) emulates
-this convention by default.
+- `compose.yaml`: `docker compose` launch instructions
+- `config.yaml`: to be deprecated away
+- `setEnv.sh`: shortcuts to simplify development and test
 
 ## Builds
 
-If you source `setEnv.sh`,
-```
-$ source setEnv.sh
-alias br="bin/backrest.sh"
-alias cake="bin/cake.sh"
-alias d=docker
+`source setEnv.sh` for a build script that runs anywhere,
+```bash
+alias cake="/absolute/path/to/bin/cake.sh"
 alias dc="docker compose"
 ```
-then you can build one or both images using Docker files,
+When run from mariadb or mediawiki directories, `cake` only builds that image.
+When run from the parent of those folders &ndash; that is, the project root
+&ndash; `cake` builds both images:
+```bash
+$ cake      # create everything
+$ cake -c   # destroy containers and images
+$ cake -cc  # also remove volumes and networks
 ```
-$ cake     # create everything
-$ cake -k  # destroy everything
-```
-or you can build and run their Docker Compose stack-of-images,
-```
-$ dc up -d [--build]      # create everything
+Build instructions were removed from `compose.yaml` when post-install steps
+became complex. `docker compose` still launches DockerWiki fine,
+```bash
+$ dc up -d                # create everything
 $ dc down -v --rmi local  # destroy almost everything
 ```
-Remember to backup new important data before (accidentally) blowing away its volume!
+Remember to backup important data before (accidentally) removing its volume!
 
 ## Backups
 

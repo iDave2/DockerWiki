@@ -2,8 +2,6 @@ name: wiki
 #
 #  Compose file for DockerWiki.
 #
-#  'docker compose' can run this project but no longer builds it.
-#
 services:
 
   view:

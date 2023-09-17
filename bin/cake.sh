@@ -24,7 +24,6 @@ WHERE=$(basename $(pwd -P))
 CACHE=true
 oClean=0
 INTERACTIVE=false
-KLEAN=false
 TIMEOUT=10
 
 # Container / runtime configuration.
@@ -99,7 +98,7 @@ main() {
   mediawiki) makeView ;;
   *)
     if [ -f compose.yaml -a -d mariadb -a -d mediawiki ]; then
-      if [ $oClean -ge 1  ]; then
+      if [ $oClean -ge 1 ]; then
         cd mediawiki && makeView && cd ..
         cd mariadb && makeData && cd ..
       else
@@ -267,7 +266,7 @@ parseCommandLine() {
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
     -c | --clean)
-      let oClean++;
+      let oClean++
       shift
       ;;
     -h | --help)
@@ -275,10 +274,6 @@ parseCommandLine() {
       ;;
     -i | --interactive)
       INTERACTIVE=true
-      shift
-      ;;
-    -k | --klean)
-      KLEAN=true
       shift
       ;;
     --no-cache)
@@ -296,8 +291,11 @@ parseCommandLine() {
         usage "--timeout 'seconds': expected a positive integer, found '$TIMEOUT'"
       fi
       ;;
+    -* | --*)
+      usage unknown option \"$1\"
+      ;;
     *)
-      usage unexpected command line token \"$arg\"
+      usage "unexpected argument '$1'"
       ;;
     esac
   done
@@ -321,7 +319,7 @@ parseCommandLine() {
 #
 usage() {
   if [ -n "$*" ]; then
-    echo && echo "***  $*"
+    echo && echo "***  $*  ***"
   fi
   cat <<-EOT
 
@@ -333,7 +331,6 @@ Options:
   -c | --clean             Remove project's containers and images
   -i | --interactive       Run interactively (1)
   -h | --help              Print this usage summary
-  -k | --klean             --clean plus remove volumes and networks!
        --no-cache          Do not use cache when building images
        --no-decoration     Disable composer-naming emulation
   -t | --timeout seconds   Seconds to retry DB connection before failing
