@@ -37,7 +37,8 @@ $ cake -cc  # also remove volumes and networks
 $ cake -h   # print usage summary
 ```
 Build instructions were removed from `compose.yaml` when post-install steps
-became complex. `docker compose` still launches DockerWiki fine,
+became complex. `docker compose` still launches DockerWiki fine provided it
+can find the requested images locally or on the hub,
 ```bash
 $ dc up -d                # create everything
 $ dc down -v --rmi local  # destroy almost everything
