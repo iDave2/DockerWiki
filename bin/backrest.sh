@@ -188,7 +188,7 @@ parseCommandLine() {
       shift
       ;;
     -w | --work-dir)
-      hostRoot="$2"
+      hostRoot="${2%/}" # remove any trailing '/'
       shift 2
       ;;
     -* | --*)
