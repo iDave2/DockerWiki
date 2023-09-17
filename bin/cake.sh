@@ -22,7 +22,7 @@ WHERE=$(basename $(pwd -P))
 
 # Initialize options.
 CACHE=true
-CLEAN=false
+oClean=0
 INTERACTIVE=false
 KLEAN=false
 TIMEOUT=10
@@ -85,6 +85,8 @@ main() {
     abend "This program uses docker which appears to be down; aborting."
 
   parseCommandLine "$@"
+  # echo "oClean = '$oClean'"
+  # echo "Bye ${LINENO}" && exit ${LINENO}
 
   # Finish initializing parameters.
   DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
@@ -97,7 +99,7 @@ main() {
   mediawiki) makeView ;;
   *)
     if [ -f compose.yaml -a -d mariadb -a -d mediawiki ]; then
-      if $CLEAN || $KLEAN; then
+      if [ $oClean -ge 1  ]; then
         cd mediawiki && makeView && cd ..
         cd mariadb && makeData && cd ..
       else
@@ -137,7 +139,7 @@ make() {
   fi
 
   # Remove volumes and networks if requested.
-  if $KLEAN; then
+  if [ $oClean -ge 2 ]; then
     xCute docker volume ls --filter name=$DATA_VOLUME
     if [[ $? && ${#LINES[@]} = 2 ]]; then
       xCute docker volume rm $DATA_VOLUME
@@ -149,9 +151,7 @@ make() {
   fi
 
   # Stop here if user only wants to clean up.
-  if $CLEAN || $KLEAN; then
-    return 0
-  fi
+  [ $oClean -ge 1 ] && return 0
 
   # Create a docker volume for the database and a network for chit chat.
   xCute docker volume ls --filter name=$DATA_VOLUME
@@ -238,7 +238,7 @@ makeView() {
   make "$buildOptions"
 
   # No need to configure mediawiki if tearing everything down.
-  ($CLEAN || $KLEAN) && return 0
+  [ $oClean -ge 1 ] && return 0
 
   # Database needs to be Running and Connectable to continue.
   waitForData
@@ -267,7 +267,7 @@ parseCommandLine() {
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
     -c | --clean)
-      CLEAN=true
+      let oClean++;
       shift
       ;;
     -h | --help)

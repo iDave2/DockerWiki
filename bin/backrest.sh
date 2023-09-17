@@ -6,7 +6,7 @@
 #  This script passes cleartext passwords so is Not Secure.
 #  This script requires 'bash' and 'jq'.
 #
-#  Let's try camel case for file scope hint, uppercase for globals.
+#  Try camel case for file scope hint, uppercase for globals?
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
@@ -22,7 +22,7 @@ QUIET=true
 RESTORE=false
 
 # Where to do it.
-hostRoot=                # see --from-to
+hostRoot=                # see --work-dir
 wikiRoot="/var/www/html" # docroot inside view container
 dataFile=all-databases.sql
 imageDir=images
@@ -105,12 +105,10 @@ main() {
 
   if $BACKUP; then
 
-    local commandA="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DW_DB_ROOT_PASSWORD"
+    local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DW_DB_ROOT_PASSWORD"
     local file="${hostRoot}/${dataFile}.gz"
-    local commandB="gzip > $file"
-    xShow "$commandA >($commandB)"
-    #$command | gzip >"${hostRoot}/${dataFile}.gz"
-    $commandA >($commandB)
+    xShow "$command | gzip > \"$file\""
+    $command | gzip > "$file"
     [ $? -ne 0 ] && abend "Error backing up database; exit status '$?'."
 
     local commandA="docker exec $viewContainer tar -cC $wikiRoot/$imageDir ."
@@ -130,8 +128,9 @@ main() {
 
     # xIn "$dataFile" docker exec -i "$dataContainer" sh -c "exec mariadb -uroot -p$MARIADB_ROOT_PASSWORD"
     local command="docker exec -i $dataContainer mariadb -uroot -p$DW_DB_ROOT_PASSWORD"
-    xShow "$command < $hostRoot/${dataFile}.gz"
-    $command <$hostRoot/${dataFile}.gz
+    local file=$hostRoot/${dataFile}.gz
+    xShow "gunzip \"$file\" | $command"
+    gunzip "$file" | $command
     [ $? -ne 0 ] && abend "Error restoring database!"
 
     local commandA="tar -cC ${hostRoot}/$imageDir ."
