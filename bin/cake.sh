@@ -303,18 +303,6 @@ parseCommandLine() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Emulate docker compose name decoration: 'view' => 'wiki-view-1'?
-#
-# rename() {
-#   if $DECORATE; then
-#     echo $(decorate "$@")
-#   else
-#     echo "$1"
-#   fi
-# }
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
 #  Summarize usage on request or when command line does not compute.
 #
 usage() {
