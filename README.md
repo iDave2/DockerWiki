@@ -64,55 +64,6 @@ $ br -bw ./my-git-backups/          # -> ./my-git-backups/
 $ br --restore -w ./my-git-backups  # <- ./my-git-backups/
 ```
 
-## Bash
-
-If you are new to scripting, I strongly recommend investing a week or two
-in *perl*; it will get you to Mars and back. Bash is ubiquitous so also
-good to learn, here are some thoughts on its usage in this program.
-
-When running a COMMAND, it can be tricky to keep track of three famous
-items: STDOUT, STDERR, and the exit status '\$?' of last COMMAND. A nice
-way to track '\$?' is to use Bash's own syntax,
-```bash
-if COMMANDS1; then
-  COMMANDS2; # if COMMANDS1 succeeded
-else
-  COMMANDS3; # if COMMANDS1 failed
-fi,
-```
-because the thing being tested in that *if condition* is precisely '\$?'.
-
-If you don't care about the details, if you just want the program to die
-when anyone's status is other than "all happy," there is the method
-used in many Dockerfiles,
-```bash
-set -e
-if COMMANDS1; then
-  COMMANDS2; # if COMMANDS1 succeeded
-fi
-```
-This causes a hard exit when COMMANDS1 fails, efficient if sometimes
-difficult to debug.
-
-If you don't care about STDOUT but want to catch errors, a brief notation
-works well,
-```bash
-COMMANDS1 || COMMANDS3
-```
-A potential downside here is that STDOUT is mixed with STDERR and COMMAND3
-cannot see STDERR, it can just report "something bad happened."
-
-Helper functions in `include.sh`,
-```bash
-xQute2() { "$@" 2>/tmp/errFile; }
-getLastError() { cat /tmp/errFile; }
-```
-lead to bash expressions like,
-```bash
-xQute2 COMMANDS1 || die "Not happy because: $(getLastError)"
-```
-Other interesting variations are possible.
-
 ---
 
 Latest images are pushed to [Docker Hub](https://hub.docker.com/u/idave2) and no CI is configured (yet).
