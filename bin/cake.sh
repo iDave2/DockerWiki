@@ -59,17 +59,17 @@ getState() {
 
   local inspect='docker inspect --format' goville='{{json .State.Status}}'
 
-  local container="$1" result="$2" more="$3" options
-  while [ -n "$container" -a -n "$result" ]; do
+  local container="$1" __result="$2" more="$3" options
+  while [ -n "$container" -a -n "$__result" ]; do
     shift 2
     [ -n "$more" ] && options="-en" || options="-e"
     xShow $options $inspect \"$goville\" $container
 
     local state=$(echo $($inspect "$goville" $container 2>&1))
     [ "${state:0:1}" = \" ] || state=\"$state\"
-    eval $result=$state
+    eval $__result=$state
 
-    container="$1" result="$2" more="$3"
+    container="$1" __result="$2" more="$3"
   done
 
   if [ -n "$1" ]; then # this would be internal nonsense
@@ -89,9 +89,9 @@ lsTo() {
   shift
   xShow "$@"
   local __ls=$(xQute2 "$@") || die "docker listing failed: $(getLastError)"
-  echo "$__ls" # silence requires another approach; one default here
+  echo "$__ls"                                  # silence requires another approach; one default here
   lastLineCount=$(echo $(echo "$__ls" | wc -l)) # trim excess space
-  eval $__outVarName="'$__ls'" # and if $__ls has apostrophe's ??'?
+  eval $__outVarName="'$__ls'"                  # and if $__ls has apostrophe's ??'?
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -142,7 +142,7 @@ make() {
   # Remove any existing CONTAINER.
   lsTo out docker container ls --all --filter name=$CONTAINER
   if [ $lastLineCount -gt 1 ]; then
-    xKute2 docker stop $CONTAINER && xKute2 docker rm $CONTAINER ||
+    xCute2 docker stop $CONTAINER && xCute2 docker rm $CONTAINER ||
       die "Error removing container '$CONTAINER': $(getLastError)"
   fi
 
@@ -150,50 +150,53 @@ make() {
   lsTo out docker image ls $IMAGE
   tags=$(join ',' $(echo "$out" | cut -w -f 2 | grep -v TAG))
   if [ -n "$tags" ]; then
-    xKute2 docker rmi $(eval echo "$IMAGE:"{$tags}) ||
+    xCute2 docker rmi $(eval echo "$IMAGE:"{$tags}) ||
       die "Error removing images: $(getLastError)"
   fi
-
-  # echo -e "\n----\nlastLineCount = '$lastLineCount'\nout = '$out'\n----"
-  # echo -e "\ntags = '$tags'"
 
   # Remove volumes and networks if requested. First time ignore "still in
   # use" errors; they should leave when second container is processed.
   if [ $oClean -gt 1 ]; then
 
     lsTo out docker volume ls --filter name=$DATA_VOLUME
-    [ $lastLineCount -gt 1 ] && xKute docker volume rm $DATA_VOLUME
+    [ $lastLineCount -gt 1 ] && xCute docker volume rm $DATA_VOLUME
 
     lsTo out docker network ls --filter name=$NETWORK
-    [ $lastLineCount -gt 1 ] && xKute docker network rm $NETWORK
+    [ $lastLineCount -gt 1 ] && xCute docker network rm $NETWORK
 
   fi
 
   # Stop here if user only wants to clean up.
   [ $oClean -gt 0 ] && return 0
 
-  # echo BYE $LINENO && exit $LINENO
-
   # Create a docker volume for the database and a network for chit chat.
   lsTo out docker volume ls --filter name=$DATA_VOLUME
-  [ $lastLineCount -eq 1 ] && xCute docker volume create $DATA_VOLUME
+  if [ $lastLineCount -eq 1 ]; then
+    xCute2 docker volume create $DATA_VOLUME ||
+      die "Error creating volume: $(getLastError)"
+  fi
   lsTo out docker network ls --filter name=$NETWORK
-  [ $lastLineCount -eq 1 ] && xCute docker network create $NETWORK
+  if [ $lastLineCount -eq 1 ]; then
+    xCute2 docker network create $NETWORK ||
+      die  "Error creating network: $(getLastError)"
+  fi
 
   # Build the image.
   command="docker build $buildOptions $(eval echo "'--tag $IMAGE:'"{$TAGS}) ."
-  xShow $command && xQute2 $command || die "Build failed: $(getLastError)"
+  xCute2 $command || die "Build failed: $(getLastError)"
 
   # Launch container with new image.
   if $oInteractive; then # --interactive needs work...
-    xCute docker run $ENVIRONMENT --interactive --rm --tty \
+    command=$(echo docker run $ENVIRONMENT --interactive --rm --tty \
       --network $NETWORK --name $CONTAINER --hostname $HOST \
-      --network-alias $HOST $MOUNT $PUBLISH $IMAGE
+      --network-alias $HOST $MOUNT $PUBLISH $IMAGE)
   else
-    xCute docker run --detach $ENVIRONMENT --network $NETWORK \
-      --name $CONTAINER --hostname $HOST --network-alias $HOST \
-      $MOUNT $PUBLISH $IMAGE
+    command=$(echo docker run --detach $ENVIRONMENT --network $NETWORK \
+      --name $CONTAINER --hostname $HOST --network-alias $HOST $MOUNT \
+      $PUBLISH $IMAGE)
   fi
+  xCute2 $command || die "Launch failed: $(getLastError)"
+
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -270,10 +273,12 @@ makeView() {
 
   # Install / configure mediawiki now that we have a mariadb network.
   # This creates MW DB tables and generates LocalSettings.php file.
-  xCute docker exec $CONTAINER maintenance/run CommandLineInstaller \
+  command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
     --dbtype=mysql --dbserver=data --dbname=mediawiki --dbuser=wikiDBA \
     --dbpassfile="$DW_SITE_NAME/dbpassfile" --passfile="$DW_SITE_NAME/passfile" \
-    --scriptpath='' --server='http://localhost:8080' $DW_SITE_NAME $DW_MW_ADMINISTRATOR
+    --scriptpath='' --server='http://localhost:8080' $DW_SITE_NAME $DW_MW_ADMINISTRATOR)
+  xCute2 $command || die "Error installing mediawiki: $(getLastError)"
+
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -326,9 +331,9 @@ parseCommandLine() {
 #
 usage() {
   if [ -n "$*" ]; then
-    echo && echo "***  $*  ***"
+    echo  -e "\n***  $*  ***" >&2
   fi
-  cat <<-EOT
+  >&2 cat <<EOT
 
 Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
@@ -363,10 +368,10 @@ waitForData() {
   local viewContainer=$(getContainer $DW_VIEW_SERVICE) viewState
 
   # Start the database.
-  xCute docker start $dataContainer
+  xCute2 docker start $dataContainer ||
+    die "Cannot start '$dataContainer': $(getLastError)"
 
   # Display issue as we build (status says "running" but cannot talk)...
-
   cat <<'EOT'
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -385,8 +390,7 @@ EOT
   local ac="show databases"
 
   for ((i = 0; i < $oTimeout; ++i)); do
-    xShow $dx "'$ac'" && $dx "$ac"
-    [ $? -eq 0 ] && break
+    xShow $dx "'$ac'" && $dx "$ac" && break
     sleep 1
   done
 
@@ -394,6 +398,7 @@ EOT
   echo -e "\n=> Container status: data is \"$dataState\", view is \"$viewState\"".
 
   [ "$dataState" = "running" ] && return 0 || return 1
+
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

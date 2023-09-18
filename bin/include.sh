@@ -135,83 +135,37 @@ join() { # https://stackoverflow.com/a/17841619
 #
 #  Pretty-print commands executed and save output in array LINES, sometimes.
 #
-LINES=()
-xShow() {
-  local options="$1"
-  [ "${options:0:1}" = "-" ] && shift || options="-e"
-  echo "$options" "\n[$(basename $(pwd))] \$ $*"
-}
-xCute() { # https://stackoverflow.com/a/32931403
-  xShow "$@"
-  IFS=$'\n' read -r -d '' -a LINES < <("$@" && printf '\0')
-  printf "%s\n" "${LINES[@]}"
-}
-# xIn() {
-#   local in="$1"
-#   shift
-#   # echo xIn\( $(join ', ' "$@") \)
-#   xShow "$@" "< $in"
-#   "$@" <$in
-# }
-# xOut() {
-#   local out="$1"
-#   shift
-#   # echo xOut\( $(join ', ' "$@") \)
-#   xShow "$@" "> $out"
-#   "$@" >$out
-# }
-# x2to1() { # Capture stderr for caller...
-#   xShow "$@"
-#   echo $("$@" 2>&1)
-# }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Earlier whining notwithstanding, docker appears to return stdout, stderr
-#  and $? normally. It can be tricky to separate and monitor all of them.
-#  In particular, it is EASY to lose volatile $?, the status of last
-#  command run by these helpers. The following patterns work consistently:
+#  On the never-ending effort to make code more readable, memorable,
+#  brief, blah blah blah, these helpers may be handy.
 #
-#    local out=$(xKute stuff) status=$?
-#    # check status, handle result
-#
-#  or
-#
-#    local out=$(xKute stuff)
-#    if [ $? -ne 0 ]; then ...
-#
-#  IOW, save or handle return status $? Immediately.
-#
-#  The xKute variants call xShow for a pretty display of what it will do
+#  The xCute variants call xShow for a pretty display of what it will do
 #  before it does it; xQute flavors are Quiet, they just run the command
 #  with any requested redirection.
 #
-#  The redirection notation -- xKute2, xQute12, etc. -- seems clear enough;
-#  redirected streams from most recent x[KQ]ute may be retrieved with
+#  The redirection notation -- xCute2, xQute12, etc. -- seems clear enough;
+#  redirected streams from most recent x[CQ]ute may be retrieved with
 #  $(getLastError) and $(getLastOutput).
-#
-#  Use 'xKute' and 'xQute' going forward; 'xCute' will be deprecated away
-#  soon; xShow is straightforward and will remain.
 #
 #  TODO: PIPESTATUS?
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-xKute() {
-  xShow "$@"
-  "$@"
+xShow() {
+  local options="$1"
+  if [ "${options:0:1}" = "-" ]; then
+    shift
+  else
+    options="-e"
+  fi
+  echo "$options" "\n[$(basename $(pwd))] \$ $*"
 }
-xKute1() {
-  xShow "$@"
-  "$@" 1>"$outFile"
-}
-xKute2() {
-  xShow "$@"
-  "$@" 2>"$errFile"
-}
-xKute12() {
-  xShow "$@"
-  "$@" 1>"$outFile" 2>"$errFile"
-}
+
+xCute() { xShow "$@"; "$@"; }
+xCute1() { xShow "$@"; "$@" 1>"$outFile"; }
+xCute2() { xShow "$@"; "$@" 2>"$errFile"; }
+xCute12() { xShow "$@"; "$@" 1>"$outFile" 2>"$errFile"; }
 
 xQute() { "$@"; }
 xQute1() { "$@" 1>"$outFile"; }

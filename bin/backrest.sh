@@ -84,7 +84,7 @@ main() {
       if [ -d "$dir" ]; then
         $force || usage "Use --force to reuse working dir '$dir'"
       else
-        xKute2 mkdir "$dir" || usage "Trouble creating '$dir': $(getLastError)"
+        xCute2 mkdir "$dir" || usage "Trouble creating '$dir': $(getLastError)"
       fi
     done
   else
@@ -116,7 +116,7 @@ main() {
     $commandA | $commandB
     [ $? -ne 0 ] && die "Error backing up images; exit status '$?'."
 
-    xKute2 docker cp "$viewContainer:$wikiRoot/$localSettings" "$hostRoot/$localSettings"
+    xCute2 docker cp "$viewContainer:$wikiRoot/$localSettings" "$hostRoot/$localSettings"
     [ $? -ne 0 ] && die "Error backing up local settings: $(getLastError)"
 
     echo -e "\n==> Wiki backup written to '$hostRoot' <=="
@@ -138,7 +138,7 @@ main() {
     $commandA | $commandB
     [ $? -ne 0 ] && die "Error restoring images: exit status '$?'"
 
-    xKute2 docker cp "$hostRoot/$localSettings" "$viewContainer:$wikiRoot/$localSettings"
+    xCute2 docker cp "$hostRoot/$localSettings" "$viewContainer:$wikiRoot/$localSettings"
     [ $? -ne 0 ] && die "Error backing up local settings: $(getLastError)"
 
     echo && echo "==> Wiki restored from '$hostRoot' <=="
