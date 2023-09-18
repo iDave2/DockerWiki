@@ -34,6 +34,9 @@ IMAGE=
 MOUNT=
 PUBLISH=
 
+# More file scoped stuff (naming please?).
+lastLineCount=0 # see list()
+
 # These names are initialized in main().
 DATA_VOLUME= # database volume name
 DATA_TARGET= # database volume mountpoint inside container
@@ -76,6 +79,23 @@ getState() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
+#  Common processing for "docker ls" commands using default 'table' format.
+#  One could also use JSON format and parse that but here we are.
+#
+#    Synopsis: list output-variable-name docker some-ls-command ...
+#
+lsTo() {
+  local __outVarName="$1"
+  shift
+  xShow "$@"
+  local __ls=$(xQute2 "$@") || die "docker listing failed: $(getLastError)"
+  echo "$__ls" # silence requires another approach; one default here
+  lastLineCount=$(echo $(echo "$__ls" | wc -l)) # trim excess space
+  eval $__outVarName="'$__ls'" # and if $__ls has apostrophe's ??'?
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
 #  Yet another entry point.
 #
 main() {
@@ -96,7 +116,7 @@ main() {
   mediawiki) makeView ;;
   *)
     if [ -f compose.yaml -a -d mariadb -a -d mediawiki ]; then
-      if [ $oClean -ge 1 ]; then
+      if [ $oClean -gt 0 ]; then
         cd mediawiki && makeView && cd ..
         cd mariadb && makeData && cd ..
       else
@@ -117,46 +137,35 @@ main() {
 make() {
 
   local buildOptions="$1"
-  local command out
+  local command out tags
 
   # Remove any existing CONTAINER.
-  command="docker container ls --all --filter name=$CONTAINER"
-  xShow $command && out=$(xQute2 $command) ||
-    die "Error listing containers: $(getLastError)"
-  echo "$out"                               # so user sees it
-  if [ $(echo "$out" | wc -l) -gt 1 ]; then # ignore sticky column headers
+  lsTo out docker container ls --all --filter name=$CONTAINER
+  if [ $lastLineCount -gt 1 ]; then
     xKute2 docker stop $CONTAINER && xKute2 docker rm $CONTAINER ||
       die "Error removing container '$CONTAINER': $(getLastError)"
   fi
 
   # Remove any existing IMAGE(s).
-  command="docker image ls $IMAGE"
-  xShow $command && out=$(xQute2 $command) ||
-    die "Error listing images: $(getLastError)"
-  echo "$out"
+  lsTo out docker image ls $IMAGE
   tags=$(join ',' $(echo "$out" | cut -w -f 2 | grep -v TAG))
   if [ -n "$tags" ]; then
     xKute2 docker rmi $(eval echo "$IMAGE:"{$tags}) ||
       die "Error removing images: $(getLastError)"
   fi
 
+  # echo -e "\n----\nlastLineCount = '$lastLineCount'\nout = '$out'\n----"
+  # echo -e "\ntags = '$tags'"
+
   # Remove volumes and networks if requested. First time ignore "still in
   # use" errors; they should leave when second container is processed.
   if [ $oClean -gt 1 ]; then
 
-    command="docker volume ls --filter name=$DATA_VOLUME"
-    xShow $command && out=$(xQute2 $command) ||
-      die "Error listing volumes: $(getLastError)" # don't ignore this
-    echo "$out"
-    [ $(echo "$out" | wc -l) -gt 1 ] &&
-      xKute docker volume rm $DATA_VOLUME # ignore this
+    lsTo out docker volume ls --filter name=$DATA_VOLUME
+    [ $lastLineCount -gt 1 ] && xKute docker volume rm $DATA_VOLUME
 
-    command="docker network ls --filter name=$NETWORK"
-    xShow $command && out=$(xQute2 $command) ||
-      die "Error listing networks: $(getLastError)"
-    echo "$out"
-    [ $(echo "$out" | wc -l) -gt 1 ] &&
-      xKute docker network rm $NETWORK
+    lsTo out docker network ls --filter name=$NETWORK
+    [ $lastLineCount -gt 1 ] && xKute docker network rm $NETWORK
 
   fi
 
@@ -166,17 +175,14 @@ make() {
   # echo BYE $LINENO && exit $LINENO
 
   # Create a docker volume for the database and a network for chit chat.
-  xCute docker volume ls --filter name=$DATA_VOLUME
-  if [[ ! $? || ${#LINES[@]} < 2 ]]; then
-    xCute docker volume create $DATA_VOLUME
-  fi
-  xCute docker network ls --filter name=$NETWORK
-  if [[ ! $? || ${#LINES[@]} < 2 ]]; then
-    xCute docker network create $NETWORK
-  fi
+  lsTo out docker volume ls --filter name=$DATA_VOLUME
+  [ $lastLineCount -eq 1 ] && xCute docker volume create $DATA_VOLUME
+  lsTo out docker network ls --filter name=$NETWORK
+  [ $lastLineCount -eq 1 ] && xCute docker network create $NETWORK
 
   # Build the image.
-  xCute docker build $buildOptions $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
+  command="docker build $buildOptions $(eval echo "'--tag $IMAGE:'"{$TAGS}) ."
+  xShow $command && xQute2 $command || die "Build failed: $(getLastError)"
 
   # Launch container with new image.
   if $oInteractive; then # --interactive needs work...
@@ -250,7 +256,7 @@ makeView() {
   make "$buildOptions"
 
   # No need to configure mediawiki if tearing everything down.
-  [ $oClean -ge 1 ] && return 0
+  [ $oClean -gt 0 ] && return 0
 
   # Database needs to be Running and Connectable to continue.
   waitForData
