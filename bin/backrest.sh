@@ -46,8 +46,8 @@ checkContainer() {
 
   xShow $inspect '|' $jayQ "'$filter'"
 
-  xQute12 $inspect
-  [ $? -ne 0 ] && abend "Error: failed to inspect '$container': $(getLastError)"
+  xQute12 $inspect ||
+    die "Error inspecting container '$container': $(getLastError)"
 
   local hostImage=$(echo $(getLastOutput | $jayQ "$filter"))
   local hostTest=$(echo $hostImage | cut -w -f 1)
@@ -70,7 +70,7 @@ checkContainer() {
 #
 main() {
 
-  isDockerRunning || abend "Is docker down? I cannot connect."
+  isDockerRunning || die "Is docker down? I cannot connect."
 
   parseCommandLine "$@"
 
@@ -84,8 +84,7 @@ main() {
       if [ -d "$dir" ]; then
         $force || usage "Use --force to reuse working dir '$dir'"
       else
-        xKute2 mkdir "$dir"
-        [ $? -ne 0 ] && usage "Trouble creating '$dir': $(getLastError)"
+        xKute2 mkdir "$dir" || usage "Trouble creating '$dir': $(getLastError)"
       fi
     done
   else
@@ -109,16 +108,16 @@ main() {
     local file="${hostRoot}/${dataFile}.gz"
     xShow "$command | gzip > \"$file\""
     $command | gzip > "$file"
-    [ $? -ne 0 ] && abend "Error backing up database; exit status '$?'."
+    [ $? -ne 0 ] && die "Error backing up database; exit status '$?'."
 
     local commandA="docker exec $viewContainer tar -cC $wikiRoot/$imageDir ."
     local commandB="tar -xC $hostRoot/$imageDir"
     xShow "$commandA | $commandB"
     $commandA | $commandB
-    [ $? -ne 0 ] && abend "Error backing up images; exit status '$?'."
+    [ $? -ne 0 ] && die "Error backing up images; exit status '$?'."
 
     xKute2 docker cp "$viewContainer:$wikiRoot/$localSettings" "$hostRoot/$localSettings"
-    [ $? -ne 0 ] && abend "Error backing up local settings: $(getLastError)"
+    [ $? -ne 0 ] && die "Error backing up local settings: $(getLastError)"
 
     echo -e "\n==> Wiki backup written to '$hostRoot' <=="
 
@@ -131,16 +130,16 @@ main() {
     local file=$hostRoot/${dataFile}.gz
     xShow "gunzip \"$file\" | $command"
     gunzip "$file" | $command
-    [ $? -ne 0 ] && abend "Error restoring database!"
+    [ $? -ne 0 ] && die "Error restoring database!"
 
     local commandA="tar -cC ${hostRoot}/$imageDir ."
     local commandB="docker exec --interactive $viewContainer tar -xC $wikiRoot/$imageDir"
     xShow "$commandA | $commandB"
     $commandA | $commandB
-    [ $? -ne 0 ] && abend "Error restoring images: exit status '$?'"
+    [ $? -ne 0 ] && die "Error restoring images: exit status '$?'"
 
     xKute2 docker cp "$hostRoot/$localSettings" "$viewContainer:$wikiRoot/$localSettings"
-    [ $? -ne 0 ] && abend "Error backing up local settings: $(getLastError)"
+    [ $? -ne 0 ] && die "Error backing up local settings: $(getLastError)"
 
     echo && echo "==> Wiki restored from '$hostRoot' <=="
 

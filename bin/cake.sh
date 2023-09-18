@@ -21,10 +21,10 @@ source ${SCRIPT_DIR}/include.sh
 WHERE=$(basename $(pwd -P))
 
 # Initialize options.
-CACHE=true
+oCache=true
 oClean=0
-INTERACTIVE=false
-TIMEOUT=10
+oInteractive=false
+oTimeout=10
 
 # Container / runtime configuration.
 CONTAINER=
@@ -70,7 +70,7 @@ getState() {
   done
 
   if [ -n "$1" ]; then # this would be internal nonsense
-    abend "Error: getState() requires an even number of arguments"
+    die "Error: getState() requires an even number of arguments"
   fi
 }
 
@@ -81,11 +81,9 @@ getState() {
 main() {
 
   isDockerRunning ||
-    abend "This program uses docker which appears to be down; aborting."
+    die "This program uses docker which appears to be down; aborting."
 
   parseCommandLine "$@"
-  # echo "oClean = '$oClean'"
-  # echo "Bye ${LINENO}" && exit ${LINENO}
 
   # Finish initializing parameters.
   DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
@@ -119,38 +117,53 @@ main() {
 make() {
 
   local buildOptions="$1"
+  local command out
 
   # Remove any existing CONTAINER.
-  xCute docker container ls --all --filter name=$CONTAINER
-  if [[ $? && ${#LINES[@]} > 1 ]]; then # ignore sticky column headers
-    xCute docker stop $CONTAINER
-    xCute docker rm $CONTAINER
+  command="docker container ls --all --filter name=$CONTAINER"
+  xShow $command && out=$(xQute2 $command) ||
+    die "Error listing containers: $(getLastError)"
+  echo "$out"                               # so user sees it
+  if [ $(echo "$out" | wc -l) -gt 1 ]; then # ignore sticky column headers
+    xKute2 docker stop $CONTAINER && xKute2 docker rm $CONTAINER ||
+      die "Error removing container '$CONTAINER': $(getLastError)"
   fi
 
   # Remove any existing IMAGE(s).
-  xCute docker image ls $IMAGE
-  if [[ $? && ${#LINES[@]} > 1 ]]; then
-    local images=()
-    for ((i = 1; i < ${#LINES[@]}; ++i)); do
-      images+=($IMAGE:$(echo ${LINES[i]} | cut -f 2 -w))
-    done # https://stackoverflow.com/a/1951523
-    xCute docker rmi "${images[@]}"
+  command="docker image ls $IMAGE"
+  xShow $command && out=$(xQute2 $command) ||
+    die "Error listing images: $(getLastError)"
+  echo "$out"
+  tags=$(join ',' $(echo "$out" | cut -w -f 2 | grep -v TAG))
+  if [ -n "$tags" ]; then
+    xKute2 docker rmi $(eval echo "$IMAGE:"{$tags}) ||
+      die "Error removing images: $(getLastError)"
   fi
 
-  # Remove volumes and networks if requested.
-  if [ $oClean -ge 2 ]; then
-    xCute docker volume ls --filter name=$DATA_VOLUME
-    if [[ $? && ${#LINES[@]} = 2 ]]; then
-      xCute docker volume rm $DATA_VOLUME
-    fi
-    xCute docker network ls --filter name=$NETWORK
-    if [[ $? && ${#LINES[@]} = 2 ]]; then
-      xCute docker network rm $NETWORK
-    fi
+  # Remove volumes and networks if requested. First time ignore "still in
+  # use" errors; they should leave when second container is processed.
+  if [ $oClean -gt 1 ]; then
+
+    command="docker volume ls --filter name=$DATA_VOLUME"
+    xShow $command && out=$(xQute2 $command) ||
+      die "Error listing volumes: $(getLastError)" # don't ignore this
+    echo "$out"
+    [ $(echo "$out" | wc -l) -gt 1 ] &&
+      xKute docker volume rm $DATA_VOLUME # ignore this
+
+    command="docker network ls --filter name=$NETWORK"
+    xShow $command && out=$(xQute2 $command) ||
+      die "Error listing networks: $(getLastError)"
+    echo "$out"
+    [ $(echo "$out" | wc -l) -gt 1 ] &&
+      xKute docker network rm $NETWORK
+
   fi
 
   # Stop here if user only wants to clean up.
-  [ $oClean -ge 1 ] && return 0
+  [ $oClean -gt 0 ] && return 0
+
+  # echo BYE $LINENO && exit $LINENO
 
   # Create a docker volume for the database and a network for chit chat.
   xCute docker volume ls --filter name=$DATA_VOLUME
@@ -166,7 +179,7 @@ make() {
   xCute docker build $buildOptions $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
 
   # Launch container with new image.
-  if $INTERACTIVE; then # --interactive needs work...
+  if $oInteractive; then # --interactive needs work...
     xCute docker run $ENVIRONMENT --interactive --rm --tty \
       --network $NETWORK --name $CONTAINER --hostname $HOST \
       --network-alias $HOST $MOUNT $PUBLISH $IMAGE
@@ -184,7 +197,7 @@ make() {
 makeData() {
 
   local buildOptions=''
-  $CACHE || buildOptions='--no-cache'
+  $oCache || buildOptions='--no-cache'
 
   local options=(
     MARIADB_ROOT_PASSWORD_HASH "$DW_DB_ROOT_PASSWORD_HASH"
@@ -213,7 +226,7 @@ makeData() {
 makeView() {
 
   local buildOptions=''
-  $CACHE || buildOptions='--no-cache'
+  $oCache || buildOptions='--no-cache'
 
   local options=(
     MW_SITE_NAME "$DW_SITE_NAME"
@@ -273,11 +286,11 @@ parseCommandLine() {
       usage
       ;;
     -i | --interactive)
-      INTERACTIVE=true
+      oInteractive=true
       shift
       ;;
     --no-cache)
-      CACHE=false
+      oCache=false
       shift
       ;;
     --no-decoration)
@@ -285,10 +298,10 @@ parseCommandLine() {
       shift
       ;;
     -t | --timeout)
-      TIMEOUT="$2"
+      oTimeout="$2"
       shift 2
-      if ! [[ $TIMEOUT =~ ^[+]?[1-9][0-9]*$ ]]; then
-        usage "--timeout 'seconds': expected a positive integer, found '$TIMEOUT'"
+      if ! [[ $oTimeout =~ ^[+]?[1-9][0-9]*$ ]]; then
+        usage "--timeout 'seconds': expected a positive integer, found '$oTimeout'"
       fi
       ;;
     -* | --*)
@@ -365,7 +378,7 @@ EOT
   local dx="docker exec $dataContainer mariadb -uroot -pchangeThis -e"
   local ac="show databases"
 
-  for ((i = 0; i < $TIMEOUT; ++i)); do
+  for ((i = 0; i < $oTimeout; ++i)); do
     xShow $dx "'$ac'" && $dx "$ac"
     [ $? -eq 0 ] && break
     sleep 1

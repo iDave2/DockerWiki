@@ -8,15 +8,6 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
 source "$USER_CONFIG" 2>/dev/null
 
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  Prints given message and dies. usage() is gentler.
-#
-abend() {
-  echo -e "\n$*"
-  exit 42
-}
-
 ####-####+####-####+####-####+####-####+
 #
 #  Curly version of xShow, this pretty-prints comment + command.
@@ -44,6 +35,15 @@ decorate() {
     esac
   fi
   echo $result
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Prints given message and dies. usage() is gentler.
+#
+die() {
+  echo -e "\n$*"
+  exit 42
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -224,8 +224,10 @@ xQute12() { "$@" 1>"$outFile" 2>"$errFile"; }
 #  Let's try camel case for file scope hint, uppercase for globals.
 #
 DECORATE=true # see --no-decoration
-errFile="$(getTempDir)/stderr"
-outFile="$(getTempDir)/stdout"
+readonly errFile="$(getTempDir)/stderr"
+getErrFile() { echo $errFile; }
+readonly outFile="$(getTempDir)/stdout"
+getOutFile() { echo $outFile; }
 
 # Make these always exist.
 cat </dev/null >"$errFile"
