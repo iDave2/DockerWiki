@@ -173,8 +173,8 @@ xQute12() { "$@" 1>"$outFile" 2>"$errFile"; }
 #  Let's try camel case for file scope hint, uppercase for globals?
 #
 DECORATE=true # see --no-decoration
-getErrFile() { echo $errFile; }
-getOutFile() { echo $outFile; }
+readonly errFile="$(getTempDir)/stderr"
+readonly outFile="$(getTempDir)/stdout"
 
 # Make these always exist.
 cat </dev/null >"$errFile"

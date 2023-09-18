@@ -104,20 +104,25 @@ main() {
 
   if $BACKUP; then
 
+    # Backup database.
     local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DW_DB_ROOT_PASSWORD"
     local file="${hostRoot}/${dataFile}.gz"
     xShow "$command | gzip > \"$file\""
-    $command | gzip > "$file"
+    $command | gzip >"$file"
     [ $? -ne 0 ] && die "Error backing up database; exit status '$?'."
 
+    # Backup images
     local commandA="docker exec $viewContainer tar -cC $wikiRoot/$imageDir ."
     local commandB="tar -xC $hostRoot/$imageDir"
     xShow "$commandA | $commandB"
     $commandA | $commandB
     [ $? -ne 0 ] && die "Error backing up images; exit status '$?'."
 
-    xCute2 docker cp "$viewContainer:$wikiRoot/$localSettings" "$hostRoot/$localSettings"
-    [ $? -ne 0 ] && die "Error backing up local settings: $(getLastError)"
+    # Save LocalSettings.php.
+    xCute2 docker cp \
+      "$viewContainer:$wikiRoot/$localSettings" \
+      "$hostRoot/$localSettings" ||
+      die "Error backing up local settings: $(getLastError)"
 
     echo -e "\n==> Wiki backup written to '$hostRoot' <=="
 
@@ -125,21 +130,25 @@ main() {
 
   if $RESTORE; then
 
-    # xIn "$dataFile" docker exec -i "$dataContainer" sh -c "exec mariadb -uroot -p$MARIADB_ROOT_PASSWORD"
+    # Restore database
     local command="docker exec -i $dataContainer mariadb -uroot -p$DW_DB_ROOT_PASSWORD"
     local file=$hostRoot/${dataFile}.gz
     xShow "gunzip \"$file\" | $command"
     gunzip "$file" | $command
     [ $? -ne 0 ] && die "Error restoring database!"
 
+    # Restore pics.
     local commandA="tar -cC ${hostRoot}/$imageDir ."
     local commandB="docker exec --interactive $viewContainer tar -xC $wikiRoot/$imageDir"
     xShow "$commandA | $commandB"
     $commandA | $commandB
     [ $? -ne 0 ] && die "Error restoring images: exit status '$?'"
 
-    xCute2 docker cp "$hostRoot/$localSettings" "$viewContainer:$wikiRoot/$localSettings"
-    [ $? -ne 0 ] && die "Error backing up local settings: $(getLastError)"
+    # Restore local settings / configuration.
+    xCute2 docker cp \
+      "$hostRoot/$localSettings" \
+      "$viewContainer:$wikiRoot/$localSettings" ||
+      die "Error backing up local settings: $(getLastError)"
 
     echo && echo "==> Wiki restored from '$hostRoot' <=="
 
@@ -152,7 +161,6 @@ main() {
 #
 parseCommandLine() {
   set -- $(getOpt "$@")
-  # echo "parseCommandLine(" $(join ', ' "$@") ")"
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
     -b | --backup)
