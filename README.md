@@ -17,7 +17,6 @@ A summary of what is here:
 - `bin/*API.sh`: test scripts for related projects
 - `.env`: build and runtime configuration variables
 - `compose.yaml`: launch instructions for `docker compose`
-- `config.yaml`: to be deprecated away
 - `setEnv.sh`: shortcuts to simplify development and test
 
 ## Builds
