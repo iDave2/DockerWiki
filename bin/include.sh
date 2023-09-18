@@ -131,15 +131,10 @@ join() { # https://stackoverflow.com/a/17841619
   echo $r
 }
 
-####-####+####-####+####-####+####-####+
-#
-#  Pretty-print commands executed and save output in array LINES, sometimes.
-#
-
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  On the never-ending effort to make code more readable, memorable,
-#  brief, blah blah blah, these helpers may be handy.
+#  On the never-ending quest to make code more readable, memorable, brief,
+#  blah blah blah, these helpers may be handy.
 #
 #  The xCute variants call xShow for a pretty display of what it will do
 #  before it does it; xQute flavors are Quiet, they just run the command
@@ -175,12 +170,10 @@ xQute12() { "$@" 1>"$outFile" 2>"$errFile"; }
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Variable definitions down here as some require functions above.
-#  Let's try camel case for file scope hint, uppercase for globals.
+#  Let's try camel case for file scope hint, uppercase for globals?
 #
 DECORATE=true # see --no-decoration
-readonly errFile="$(getTempDir)/stderr"
 getErrFile() { echo $errFile; }
-readonly outFile="$(getTempDir)/stdout"
 getOutFile() { echo $outFile; }
 
 # Make these always exist.
