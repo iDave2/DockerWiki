@@ -181,45 +181,18 @@ main() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Create or destroy an image and its container.
+#  Create or destroy an image and its container. Current context is
+#  mariadb/build or mediawiki/build.
 #
-make() { # context is mariadb or mediawiki folder
+make() {
 
   local buildOptions=${1:-''}
   local command out tags
 
-  # Remove any existing CONTAINER.
-  lsTo out docker container ls --all --filter name=$CONTAINER
-  if [ $lastLineCount -gt 1 ]; then
-    xCute2 docker stop $CONTAINER && xCute2 docker rm $CONTAINER ||
-      die "Error removing container '$CONTAINER': $(getLastError)"
-  fi
-
-  # Remove any existing IMAGE(s).
-  lsTo out docker image ls $IMAGE
-  tags=$(join ',' $(echo "$out" | cut -w -f 2 | grep -v TAG))
-  if [ -n "$tags" ]; then
-    xCute2 docker rmi $(eval echo "$IMAGE:"{$tags}) ||
-      die "Error removing images: $(getLastError)"
-  fi
-
-  # Clean up build directories.
-  [ $oClean -gt 0 -a -d build ] && xCute rm -fr build 2>/dev/null
-
-  # Remove volumes and networks if requested. First time ignore "still in
-  # use" errors; they should leave when second container is processed.
-  if [ $oClean -gt 1 ]; then
-
-    lsTo out docker volume ls --filter name=$DATA_VOLUME
-    [ $lastLineCount -gt 1 ] && xCute docker volume rm $DATA_VOLUME
-
-    lsTo out docker network ls --filter name=$NETWORK
-    [ $lastLineCount -gt 1 ] && xCute docker network rm $NETWORK
-
-  fi
+  makeClean
 
   # Stop here if user only wants to clean up.
-  [ $oClean -gt 0 ] && return 0
+  (( $oClean > 0 )) && return 0
 
   # Create a docker volume for the database and a network for chit chat.
   lsTo out docker volume ls --filter name=$DATA_VOLUME
@@ -248,6 +221,47 @@ make() { # context is mariadb or mediawiki folder
       $PUBLISH $IMAGE)
   fi
   xCute2 $command || die "Launch failed: $(getLastError)"
+
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Called from make() to clean up either by request or to rebuild
+#  something.
+#
+makeClean() {
+
+  # Always erase build directories (-c).
+  [ -d build ] && xCute rm -fr build
+
+  # Remove existing CONTAINER sometimes (-cc).
+  if (($oClean == 0 || $oClean > 1)); then
+    lsTo out docker container ls --all --filter name=$CONTAINER
+    if [ $lastLineCount -gt 1 ]; then
+      xCute2 docker stop $CONTAINER && xCute2 docker rm $CONTAINER ||
+        die "Error removing container '$CONTAINER': $(getLastError)"
+    fi
+  fi
+
+  # Remove existing IMAGE(s) sometimes (-ccc).
+  if (($oClean == 0 || $oClean > 2)); then
+    lsTo out docker image ls $IMAGE
+    tags=$(join ',' $(echo "$out" | cut -w -f 2 | grep -v TAG))
+    if [ -n "$tags" ]; then
+      xCute2 docker rmi $(eval echo "$IMAGE:"{$tags}) ||
+        die "Error removing images: $(getLastError)"
+    fi
+  fi
+
+  # Remove volumes and networks if requested (-cccc). "Still in use"
+  # errors can be ignored on first container; they leave when second
+  # container is removed, no longer using the resource.
+  if (($oClean == 0 || $oClean > 3)); then
+    lsTo out docker volume ls --filter name=$DATA_VOLUME
+    [ $lastLineCount -gt 1 ] && xCute docker volume rm $DATA_VOLUME
+    lsTo out docker network ls --filter name=$NETWORK
+    [ $lastLineCount -gt 1 ] && xCute docker network rm $NETWORK
+  fi
 
 }
 
@@ -347,7 +361,7 @@ makeView() {
   cli | debug) # use the CLI installer below
     :
     ;;
-  restore | web) # done, user finds restore system or browser wizard
+  restore | web) # done, user finds restored system or browser wizard
     return 0
     ;;
   esac

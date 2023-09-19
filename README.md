@@ -30,10 +30,15 @@ When run from mariadb or mediawiki directories, `cake` only builds that image.
 When run from the parent of those folders &ndash; that is, the project root
 &ndash; `cake` builds both images:
 ```bash
-$ cake      # create everything
-$ cake -c   # destroy containers and images
-$ cake -cc  # also remove volumes and networks
-$ cake -h   # print usage summary
+$ cake        # create everything
+$ cake -cccc  # destroy everything
+```
+The `--clean` option is so complex, it might function as a Turing machine:
+```bash
+$ cake -c     # Removes build folders,
+$ cake -cc    # and containers,
+$ cake -ccc   # and images,
+$ cake -cccc  # and volumes and networks.
 ```
 Build instructions were removed from `compose.yaml` when post-install steps
 became complex. `docker compose` still launches DockerWiki provided it can
