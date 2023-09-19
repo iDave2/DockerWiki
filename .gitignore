@@ -1,5 +1,3 @@
-.DS_Store
-.vscode
+build
 junk*
-tmp/
-backrest.rake
+tmp
