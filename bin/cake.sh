@@ -38,15 +38,16 @@ PUBLISH=
 
 # More file scoped stuff (naming please?).
 dockerFile=
-lastLineCount=0 # see list()
+lastLineCount=0 # see lsTo()
 DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
 DATA_TARGET=/var/lib/mysql
 NETWORK=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
+DW_SOURCE= # move to .env?
 
-# These names are initialized in main().
-# DATA_VOLUME= # database volume name
-# DATA_TARGET= # database volume mountpoint inside container
-# NETWORK=     # network name for container chatter
+# Contents of a backup directory (see backrest.sh).
+readonly gzDatabase=all-databases.sql.gz
+readonly imageDir=images
+readonly localSettings=LocalSettings.php
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -85,7 +86,7 @@ getState() {
 #  Common processing for "docker ls" commands using default 'table' format.
 #  One could also use JSON format and parse that but here we are.
 #
-#    Synopsis: list output-variable-name docker some-ls-command ...
+#    Synopsis: lsTo output-variable-name docker some-ls-command ...
 #
 lsTo() {
   local __outVarName="$1"
@@ -101,7 +102,22 @@ lsTo() {
 #
 #  Yet another entry point.
 #
+# test() {
+#   echo
+#   echo "test: CWD = $(pwd -P)"
+#   xCute pushd mariadb
+#   echo "test: CWD = $(pwd -P)"
+#   xCute pushd ../mediawiki
+#   echo "test: CWD = $(pwd -P)"
+#   popd
+#   echo "test: CWD = $(pwd -P)"
+#   popd
+#   echo "test: CWD = $(pwd -P)"
+# }
 main() {
+
+  # test
+  # echo BYE $LINENO && exit $LINENO
 
   isDockerRunning || die "Is docker offline? She's not responding."
 
@@ -114,13 +130,34 @@ main() {
   debug) # includes extra developer tools
     dockerFile=Docker/debug
     ;;
+  restore) # restore=path to a DockerWiki backup directory
+    local checks=( # It will help reader to spell these out if one is missing...
+      -d "$DW_SOURCE"
+      -f "$DW_SOURCE/$gzDatabase"
+      -f "$DW_SOURCE/$localSettings"
+      -d "$DW_SOURCE/$imageDir"
+    )
+    for ((i = 0; $i < ${#checks[*]}; i += 2)); do
+      local op=${checks[$i]} path=${checks[$i + 1]}
+      if ! [ $op $path ]; then
+        local what
+        [ $op == '-d' ] && what=directory || what=file
+        echo -e "\nError: $what '$path' not found"
+        usage "DockerWiki backup not found for --installer 'restore=$DW_SOURCE'"
+      fi
+    done
+    dockerFile=Docker/restore
+    ;;
   web) # leaves bare system for web installer
     dockerFile=Docker/initialize
     ;;
-  *) # path to a DockerWiki backup directory
-    dockerFile=Docker/restore
+  *) # boo-boos and butt-dials
+    usage "Unrecognized --installer '$oInstaller', please check usage"
     ;;
   esac
+
+  # echo "oInstaller = '$oInstaller', DW_SOURCE = '$DW_SOURCE'"
+  # echo BYE $LINENO && exit $LINENO
 
   # Make one or both services.
   case $WHERE in
@@ -129,11 +166,11 @@ main() {
   *)
     if [ -f compose.yaml -a -d mariadb -a -d mediawiki ]; then
       if [ $oClean -gt 0 ]; then
-        cd mediawiki && makeView && cd ..
-        cd mariadb && makeData && cd ..
+        xCute pushd mediawiki && makeView && xCute popd
+        xCute pushd mariadb && makeData && xCute popd
       else
-        cd mariadb && makeData && cd ..
-        cd mediawiki && makeView && cd ..
+        xCute pushd mariadb && makeData && xCute popd
+        xCute pushd mediawiki && makeView && xCute popd
       fi
     else
       usage Expected \$PWD in mariadb, mediawiki, or their parent folder, not \"$WHERE\".
@@ -146,9 +183,9 @@ main() {
 #
 #  Create or destroy an image and its container.
 #
-make() {
+make() { # context is mariadb or mediawiki folder
 
-  local buildOptions="$1"
+  local buildOptions=${1:-''}
   local command out tags
 
   # Remove any existing CONTAINER.
@@ -165,6 +202,9 @@ make() {
     xCute2 docker rmi $(eval echo "$IMAGE:"{$tags}) ||
       die "Error removing images: $(getLastError)"
   fi
+
+  # Clean up build directories.
+  [ $oClean -gt 0 -a -d build ] && xCute rm -fr build 2>/dev/null
 
   # Remove volumes and networks if requested. First time ignore "still in
   # use" errors; they should leave when second container is processed.
@@ -217,10 +257,11 @@ make() {
 #
 makeData() {
 
-  local buildOptions="-f $dockerFile"
-  $oCache || buildOptions+=' --no-cache'
+  local buildOptions=''
+  $oCache || buildOptions='--no-cache'
 
   local options=(
+    # DW_SOURCE "$DW_SOURCE"
     MARIADB_ROOT_PASSWORD_HASH "$DW_DB_ROOT_PASSWORD_HASH"
     MARIADB_DATABASE "$DW_DB_NAME"
     MARIADB_USER "$DW_DB_USER"
@@ -236,7 +277,21 @@ makeData() {
   MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
   PUBLISH=
 
-  make "$buildOptions"
+  if (($oClean > 0)); then
+    make
+  else
+    # Prepare build directory. We presently sit in mariadb folder.
+    [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
+    xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
+    xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
+    xCute2 cp "50-noop.sh" build/ || die "Copy failed: $(getLastError)"
+    if [ $oInstaller == 'restore' ]; then
+      xCute2 cp "$DW_SOURCE/$gzDatabase" "build/70-initdb.sql.gz" ||
+        die "Error copying file: $(getLastError)"
+    fi
+    # Move context into build subdirectory and fire up docker engine.
+    xCute pushd build && make "$buildOptions" && xCute popd
+  fi
 
 }
 
@@ -246,10 +301,11 @@ makeData() {
 #
 makeView() {
 
-  local buildOptions="-f $dockerFile"
+  local buildOptions=''
   $oCache || buildOptions='--no-cache'
 
   local options=(
+    # DW_SOURCE "$DW_SOURCE"
     MW_SITE_NAME "$DW_SITE_NAME"
     # MW_ADMINISTRATOR "$DW_MW_ADMINISTRATOR"
     MW_PASSWORD "$DW_MW_PASSWORD"
@@ -273,11 +329,24 @@ makeView() {
   # No need to configure mediawiki if tearing everything down.
   [ $oClean -gt 0 ] && return 0
 
+  # Are we done yet?
+  case $oInstaller in
+  cli | debug) # use the CLI installer below
+    :
+    ;;
+  web) # base images done, user will find browser wizard
+    return 0
+    ;;
+  *) # backup was restored in Dockerfile (Docker/restore)
+    return 0
+    ;;
+  esac
+
   # Database needs to be Running and Connectable to continue.
-  waitForData
-  if [ $? -ne 0 ]; then
+  # if [ $? -ne 0 ]; then
+  if ! waitForData; then
     local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
-    error+="unable to generate LocalSettings.php; "
+    error+="unable to generate $localSettings; "
     error+="browser may display web-based installer."
     echo -e "\n$error"
     return -42
@@ -308,11 +377,13 @@ parseCommandLine() {
     -h | --help)
       usage
       ;;
-    -i | --installer)
-      oInstaller=${2%/} # trim trailing '/'
+    -i | --installer) # bash ${p%%/} won't trim more than one '/' so,
+      oInstaller=$(perl -pwe 's|/+$||' <<<${2:-''})
       shift 2
-      [ -d "$oInstaller" ] ||
-        usage "DockerWiki backup not found for --installer '$oInstaller'"
+      if [ "${oInstaller:0:8}" = "restore=" -a ${#oInstaller} -gt 8 ]; then
+        DW_SOURCE=${oInstaller:8}
+        oInstaller=restore
+      fi
       ;;
     --no-cache)
       oCache=false
@@ -355,14 +426,11 @@ Build and run DockerWiki.
 
 Options:
   -c | --clean              Remove built artifacts
-  -i | --installer string   Web-based, cli (default), or filesystem path
+  -i | --installer string   cli (default), debug, web, or restore=pathToBackup
   -h | --help               Print this usage summary
        --no-cache           Do not use cache when building images
        --no-decoration      Disable composer-naming emulation
   -t | --timeout seconds    Seconds to retry DB connection before failing
-
-Notes:
-  1. "run -it" is out of order; STDOUT goes to Tahiti.
 EOT
   exit 1
 }

@@ -2,6 +2,9 @@
 
 Assorted development notes for future selves.
 
+Dave, put this on gist or erase. You could present it as little
+explore & learn bitesize thoughts if it still feels helpful in a month.
+
 ## Installation
 
 When you run the [official mediawiki image](https://hub.docker.com/_/mediawiki)

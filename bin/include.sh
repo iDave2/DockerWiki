@@ -8,6 +8,9 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
 source "$USER_CONFIG" 2>/dev/null
 
+# Additional variables declared at EOF after functions available.
+DECORATE=true # see --no-decoration and decorate()
+
 ####-####+####-####+####-####+####-####+
 #
 #  Curly version of xShow, this pretty-prints comment + command.
@@ -157,10 +160,22 @@ xShow() {
   echo "$options" "\n[$(basename $(pwd))] \$ $*"
 }
 
-xCute() { xShow "$@"; "$@"; }
-xCute1() { xShow "$@"; "$@" 1>"$outFile"; }
-xCute2() { xShow "$@"; "$@" 2>"$errFile"; }
-xCute12() { xShow "$@"; "$@" 1>"$outFile" 2>"$errFile"; }
+xCute() {
+  xShow "$@"
+  "$@"
+}
+xCute1() {
+  xShow "$@"
+  "$@" 1>"$outFile"
+}
+xCute2() {
+  xShow "$@"
+  "$@" 2>"$errFile"
+}
+xCute12() {
+  xShow "$@"
+  "$@" 1>"$outFile" 2>"$errFile"
+}
 
 xQute() { "$@"; }
 xQute1() { "$@" 1>"$outFile"; }
@@ -172,7 +187,6 @@ xQute12() { "$@" 1>"$outFile" 2>"$errFile"; }
 #  Variable definitions down here as some require functions above.
 #  Let's try camel case for file scope hint, uppercase for globals?
 #
-DECORATE=true # see --no-decoration
 readonly errFile="$(getTempDir)/stderr"
 readonly outFile="$(getTempDir)/stdout"
 
