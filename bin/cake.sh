@@ -273,6 +273,7 @@ makeData() {
   local options=(
     # DW_SOURCE "$DW_SOURCE"
     MARIADB_ROOT_PASSWORD_HASH "$DW_DB_ROOT_PASSWORD_HASH"
+    MARIADB_ROOT_HOST "$DW_DB_ROOT_HOST"
     MARIADB_DATABASE "$DW_DB_NAME"
     MARIADB_USER "$DW_DB_USER"
     MARIADB_PASSWORD_HASH "$DW_DB_PASSWORD_HASH"
@@ -389,7 +390,7 @@ parseCommandLine() {
       oInstaller=$(perl -pwe 's|/+$||' <<<${2:-''})
       shift 2
       if [ "${oInstaller:0:8}" = "restore=" -a ${#oInstaller} -gt 8 ]; then
-        DW_SOURCE=${oInstaller:8}
+        DW_SOURCE=$(realpath ${oInstaller:8})
         oInstaller=restore
       fi
       ;;
