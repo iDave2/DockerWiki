@@ -257,9 +257,19 @@ make() { # context is mariadb or mediawiki folder
 #
 makeData() {
 
+  CONTAINER=$(getContainer $DW_DATA_SERVICE)
+  HOST=$DW_DATA_HOST
+  IMAGE=$DW_DID/mariadb
+  MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
+  PUBLISH=
+
+  if (($oClean > 0)); then
+    make # just cleanup, no build & run
+    return
+  fi
+
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
-
   local options=(
     # DW_SOURCE "$DW_SOURCE"
     MARIADB_ROOT_PASSWORD_HASH "$DW_DB_ROOT_PASSWORD_HASH"
@@ -271,27 +281,18 @@ makeData() {
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
-  CONTAINER=$(getContainer $DW_DATA_SERVICE)
-  HOST=$DW_DATA_HOST
-  IMAGE=$DW_DID/mariadb
-  MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
-  PUBLISH=
-
-  if (($oClean > 0)); then
-    make
-  else
-    # Prepare build directory. We presently sit in mariadb folder.
-    [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
-    xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
-    xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
-    xCute2 cp "50-noop.sh" build/ || die "Copy failed: $(getLastError)"
-    if [ $oInstaller == 'restore' ]; then
-      xCute2 cp "$DW_SOURCE/$gzDatabase" "build/70-initdb.sql.gz" ||
-        die "Error copying file: $(getLastError)"
-    fi
-    # Move context into build subdirectory and fire up docker engine.
-    xCute pushd build && make "$buildOptions" && xCute popd
+  # Prepare build directory. We presently sit in mariadb folder.
+  [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
+  xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
+  xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
+  xCute2 cp "50-noop.sh" build/ || die "Copy failed: $(getLastError)"
+  if [ $oInstaller == 'restore' ]; then
+    xCute2 cp "$DW_SOURCE/$gzDatabase" "build/70-initdb.sql.gz" ||
+      die "Error copying file: $(getLastError)"
   fi
+
+  # Move context into build subdirectory and wake up docker engine.
+  xCute pushd build && make "$buildOptions" && xCute popd
 
 }
 
@@ -301,9 +302,20 @@ makeData() {
 #
 makeView() {
 
+  CONTAINER=$(getContainer $DW_VIEW_SERVICE)
+  ENVIRONMENT=
+  HOST=$DW_VIEW_HOST
+  IMAGE=$DW_DID/mediawiki
+  MOUNT=
+  PUBLISH="--publish $DW_MW_PORTS"
+
+  if (($oClean > 0)); then
+    make # just cleanup, no build & run
+    return
+  fi
+
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
-
   local options=(
     # DW_SOURCE "$DW_SOURCE"
     MW_SITE_NAME "$DW_SITE_NAME"
@@ -317,33 +329,29 @@ makeView() {
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
-  CONTAINER=$(getContainer $DW_VIEW_SERVICE)
-  ENVIRONMENT=
-  HOST=$DW_VIEW_HOST
-  IMAGE=$DW_DID/mediawiki
-  MOUNT=
-  PUBLISH="--publish $DW_MW_PORTS"
+  # Prepare build directory. We presently sit in mariadb folder.
+  [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
+  xCute2 mkdir build || die "mkdir mediawiki/build failed: $(getLastError)"
+  xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
+  if [ $oInstaller == 'restore' ]; then
+    xCute2 cp -R "$DW_SOURCE/$localSettings" "$DW_SOURCE/$imageDir" build/ ||
+      die "Error copying file: $(getLastError)"
+  fi
 
-  make "$buildOptions"
-
-  # No need to configure mediawiki if tearing everything down.
-  [ $oClean -gt 0 ] && return 0
+  # Move context into build subdirectory and wake up docker engine.
+  xCute pushd build && make "$buildOptions" && xCute popd
 
   # Are we done yet?
   case $oInstaller in
   cli | debug) # use the CLI installer below
     :
     ;;
-  web) # base images done, user will find browser wizard
-    return 0
-    ;;
-  *) # backup was restored in Dockerfile (Docker/restore)
+  restore | web) # done, user finds restore system or browser wizard
     return 0
     ;;
   esac
 
   # Database needs to be Running and Connectable to continue.
-  # if [ $? -ne 0 ]; then
   if ! waitForData; then
     local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
     error+="unable to generate $localSettings; "
