@@ -14,6 +14,8 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
+set -uo pipefail # pipe status is last-to-fail or zero if none fail
+
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source ${SCRIPT_DIR}/include.sh
 
@@ -23,7 +25,7 @@ WHERE=$(basename $(pwd -P))
 # Initialize options.
 oCache=true
 oClean=0
-oInteractive=false
+oInstaller=cli
 oTimeout=10
 
 # Container / runtime configuration.
@@ -35,12 +37,16 @@ MOUNT=
 PUBLISH=
 
 # More file scoped stuff (naming please?).
+dockerFile=
 lastLineCount=0 # see list()
+DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
+DATA_TARGET=/var/lib/mysql
+NETWORK=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
 
 # These names are initialized in main().
-DATA_VOLUME= # database volume name
-DATA_TARGET= # database volume mountpoint inside container
-NETWORK=     # network name for container chatter
+# DATA_VOLUME= # database volume name
+# DATA_TARGET= # database volume mountpoint inside container
+# NETWORK=     # network name for container chatter
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -57,24 +63,21 @@ NETWORK=     # network name for container chatter
 #
 getState() {
 
+  (($# >= 2 && $# % 2 == 0)) ||
+    die "Error: getState() requires an even number of arguments"
+
   local inspect='docker inspect --format' goville='{{json .State.Status}}'
 
-  local container="$1" __result="$2" more="$3" options
-  while [ -n "$container" -a -n "$__result" ]; do
-    shift 2
-    [ -n "$more" ] && options="-en" || options="-e"
+  for ((i = 1; i < $#; i += 2)); do
+    local j=$((i + 1))
+    local container="${!i}" __result="${!j}" options
+    ((i + 2 < $#)) && options="-en" || options="-e"
     xShow $options $inspect \"$goville\" $container
-
     local state=$(echo $($inspect "$goville" $container 2>&1))
     [ "${state:0:1}" = \" ] || state=\"$state\"
     eval $__result=$state
-
-    container="$1" __result="$2" more="$3"
   done
 
-  if [ -n "$1" ]; then # this would be internal nonsense
-    die "Error: getState() requires an even number of arguments"
-  fi
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -89,9 +92,9 @@ lsTo() {
   shift
   xShow "$@"
   local __ls=$(xQute2 "$@") || die "docker listing failed: $(getLastError)"
-  echo "$__ls"                                  # silence requires another approach; one default here
-  lastLineCount=$(echo $(echo "$__ls" | wc -l)) # trim excess space
-  eval $__outVarName="'$__ls'"                  # and if $__ls has apostrophe's ??'?
+  echo "$__ls" # silence requires another approach; one default here
+  lastLineCount=$(echo $(echo "$__ls" | wc -l))
+  eval $__outVarName="'$__ls'" # and if $__ls has apostrophe's ??'?
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -100,15 +103,24 @@ lsTo() {
 #
 main() {
 
-  isDockerRunning ||
-    die "This program uses docker which appears to be down; aborting."
+  isDockerRunning || die "Is docker offline? She's not responding."
 
   parseCommandLine "$@"
 
-  # Finish initializing parameters.
-  DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
-  DATA_TARGET=/var/lib/mysql
-  NETWORK=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
+  case "$oInstaller" in
+  cli) # the default, this runs php in container cli
+    dockerFile=Docker/initialize
+    ;;
+  debug) # includes extra developer tools
+    dockerFile=Docker/debug
+    ;;
+  web) # leaves bare system for web installer
+    dockerFile=Docker/initialize
+    ;;
+  *) # path to a DockerWiki backup directory
+    dockerFile=Docker/restore
+    ;;
+  esac
 
   # Make one or both services.
   case $WHERE in
@@ -178,7 +190,7 @@ make() {
   lsTo out docker network ls --filter name=$NETWORK
   if [ $lastLineCount -eq 1 ]; then
     xCute2 docker network create $NETWORK ||
-      die  "Error creating network: $(getLastError)"
+      die "Error creating network: $(getLastError)"
   fi
 
   # Build the image.
@@ -186,7 +198,7 @@ make() {
   xCute2 $command || die "Build failed: $(getLastError)"
 
   # Launch container with new image.
-  if $oInteractive; then # --interactive needs work...
+  if false; then # --interactive not used / needed, maybe delete?
     command=$(echo docker run $ENVIRONMENT --interactive --rm --tty \
       --network $NETWORK --name $CONTAINER --hostname $HOST \
       --network-alias $HOST $MOUNT $PUBLISH $IMAGE)
@@ -205,8 +217,8 @@ make() {
 #
 makeData() {
 
-  local buildOptions=''
-  $oCache || buildOptions='--no-cache'
+  local buildOptions="-f $dockerFile"
+  $oCache || buildOptions+=' --no-cache'
 
   local options=(
     MARIADB_ROOT_PASSWORD_HASH "$DW_DB_ROOT_PASSWORD_HASH"
@@ -234,7 +246,7 @@ makeData() {
 #
 makeView() {
 
-  local buildOptions=''
+  local buildOptions="-f $dockerFile"
   $oCache || buildOptions='--no-cache'
 
   local options=(
@@ -296,9 +308,11 @@ parseCommandLine() {
     -h | --help)
       usage
       ;;
-    -i | --interactive)
-      oInteractive=true
-      shift
+    -i | --installer)
+      oInstaller=${2%/} # trim trailing '/'
+      shift 2
+      [ -d "$oInstaller" ] ||
+        usage "DockerWiki backup not found for --installer '$oInstaller'"
       ;;
     --no-cache)
       oCache=false
@@ -331,21 +345,21 @@ parseCommandLine() {
 #
 usage() {
   if [ -n "$*" ]; then
-    echo  -e "\n***  $*  ***" >&2
+    echo -e "\n***  $*  ***" >&2
   fi
-  >&2 cat <<EOT
+  cat >&2 <<EOT
 
 Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
 Build and run DockerWiki.
 
 Options:
-  -c | --clean             Remove project's containers and images
-  -i | --interactive       Run interactively (1)
-  -h | --help              Print this usage summary
-       --no-cache          Do not use cache when building images
-       --no-decoration     Disable composer-naming emulation
-  -t | --timeout seconds   Seconds to retry DB connection before failing
+  -c | --clean              Remove built artifacts
+  -i | --installer string   Web-based, cli (default), or filesystem path
+  -h | --help               Print this usage summary
+       --no-cache           Do not use cache when building images
+       --no-decoration      Disable composer-naming emulation
+  -t | --timeout seconds    Seconds to retry DB connection before failing
 
 Notes:
   1. "run -it" is out of order; STDOUT goes to Tahiti.
