@@ -7,13 +7,14 @@
 
 FROM mediawiki:1.40 AS view
 
-# LocalSettings from a DockerWiki backup.
-COPY LocalSettings.php /var/www/html/
+WORKDIR /var/www/html
+
+COPY images images/
+COPY LocalSettings.php ./
 
 # Rewrite secret key if requested.
 RUN set -eu; \
   key=$(perl -we "print map { ('0'..'9','a'..'f')[int(rand(16))] } 1..64"); \
-  # echo KEY IS $key HAVE A NICE DAY; \
   perl -i.bak -pwe "s|%%wgSecretKey%%|$key|" LocalSettings.php
 
 #  Original MediaWiki entry point remains active.

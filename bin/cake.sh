@@ -330,7 +330,7 @@ makeView() {
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
-  # Prepare build directory. We presently sit in mariadb folder.
+  # Prepare build directory. We presently sit in mediawiki folder.
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mediawiki/build failed: $(getLastError)"
   xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
