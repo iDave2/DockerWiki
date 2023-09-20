@@ -37,9 +37,9 @@ $ cake -h     # display usage summary
 The `--clean` option is so complex, it might function as a Turing machine:
 ```bash
 $ cake -c     # Removes build folders,
-$ cake -cc    # and containers,
+$ cake -cc    # and containers and networks,
 $ cake -ccc   # and images,
-$ cake -cccc  # and volumes and networks.
+$ cake -cccc  # and volumes.
 ```
 Build instructions were removed from `compose.yaml` when post-install steps
 became complex. `docker compose` still launches DockerWiki provided it can

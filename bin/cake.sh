@@ -174,7 +174,7 @@ make() {
   makeClean
 
   # Stop here if user only wants to clean up.
-  (( $oClean > 0 )) && return 0
+  (($oClean > 0)) && return 0
 
   # Create a docker volume for the database and a network for chit chat.
   lsTo out docker volume ls --filter name=$DATA_VOLUME
@@ -213,10 +213,14 @@ make() {
 #
 makeClean() {
 
-  # Always erase build directories (-c).
-  [ -d build ] && xCute rm -fr build
+  # Build directories are created during builds before this cleaning
+  # step. So do not erase build directories when building!
+  # Erase build directories on request (-c).
+  if (($oClean > 0)); then
+    [ -d build ] && xCute rm -fr build
+  fi
 
-  # Remove existing CONTAINER sometimes (-cc).
+  # Remove existing CONTAINERs sometimes (-cc).
   if (($oClean == 0 || $oClean > 1)); then
     lsTo out docker container ls --all --filter name=$CONTAINER
     if [ $lastLineCount -gt 1 ]; then
@@ -225,7 +229,15 @@ makeClean() {
     fi
   fi
 
-  # Remove existing IMAGE(s) sometimes (-ccc).
+  # No need to remove NETWORKs during builds but they are removed
+  # by request (-cc). This means "cake -cc" removes just enough
+  # to test docker compose on the images remaining in Docker Desktop.
+  if (($oClean > 1)); then
+    lsTo out docker network ls --filter name=$NETWORK
+    [ $lastLineCount -gt 1 ] && xCute docker network rm $NETWORK
+  fi
+
+  # Remove existing IMAGEs sometimes (-ccc).
   if (($oClean == 0 || $oClean > 2)); then
     lsTo out docker image ls $IMAGE
     tags=$(join ',' $(echo "$out" | cut -w -f 2 | grep -v TAG))
@@ -235,14 +247,12 @@ makeClean() {
     fi
   fi
 
-  # Remove volumes and networks if requested (-cccc). "Still in use"
-  # errors can be ignored on first container; they leave when second
-  # container is removed, no longer using the resource.
+  # Remove volumes if requested (-cccc). "Still in use"
+  # errors can be ignored on first container; they leave when
+  # second container is removed, no longer using the resource.
   if (($oClean > 3)); then
     lsTo out docker volume ls --filter name=$DATA_VOLUME
     [ $lastLineCount -gt 1 ] && xCute docker volume rm $DATA_VOLUME
-    lsTo out docker network ls --filter name=$NETWORK
-    [ $lastLineCount -gt 1 ] && xCute docker network rm $NETWORK
   fi
 
 }
