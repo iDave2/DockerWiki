@@ -69,6 +69,31 @@ $ br -bw ./my-git-backups/          # -> ./my-git-backups/
 $ br --restore -w ./my-git-backups  # <- ./my-git-backups/
 ```
 
+# Installers
+
+In this context, *installer* refers to the method used to create MediaWiki's
+initial database and runtime configuration stored in `LocalSettings.php`.
+`cake` offers four choices:
+```bash
+$ cake -i web                # web-based installer
+$ cake --installer cli       # command-line installer
+$ cake -i debug              # same as cli but w/extra dev tools
+$ cake -i restore=my/backup  # Restore a backrest.sh backup
+```
+The first three methods create a database and local settings *after* the
+images are built and running in their containers, so if these containers
+(not images) were destroyed and recreated, they would again need to have
+a database and local settings created.
+
+In order for these important artifacts to end up in image layers rather
+than volatile container memory, we use a Dockerfile that copies them into
+the image from a folder previously created by `backrest.sh`:
+```bash
+$ cake --installer restore=./hub
+```
+This is how the Docker Hub images corresponding to this git repository
+were created.
+
 ---
 
 Latest images are pushed to [Docker Hub](https://hub.docker.com/u/idave2) and no CI is configured (yet).
