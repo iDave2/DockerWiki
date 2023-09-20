@@ -76,7 +76,7 @@ initial database and runtime configuration stored in `LocalSettings.php`.
 `cake` offers four choices:
 ```bash
 $ cake -i web                # web-based installer
-$ cake --installer cli       # command-line installer
+$ cake --installer cli       # command-line installer (default)
 $ cake -i debug              # same as cli but w/extra dev tools
 $ cake -i restore=my/backup  # Restore a backrest.sh backup
 ```
