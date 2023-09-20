@@ -27,11 +27,12 @@ alias cake="/absolute/path/to/bin/cake.sh"
 alias dc="docker compose"
 ```
 When run from mariadb or mediawiki directories, `cake` only builds that image.
-When run from the parent of those folders &ndash; that is, the project root
-&ndash; `cake` builds both images:
+When run from the parent of those folders &ndash; the project root &ndash;
+`cake` builds both images:
 ```bash
 $ cake        # create everything
 $ cake -cccc  # destroy everything
+$ cake -h     # display usage summary
 ```
 The `--clean` option is so complex, it might function as a Turing machine:
 ```bash

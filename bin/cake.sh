@@ -2,9 +2,9 @@
 #
 #  Something to build and run things:
 #
-#    $ ./cake.sh     # create everything
-#    $ ./cake.sh -k  # destroy everything
-#    $ ./cake.sh -h  # print usage summary
+#    $ ./cake.sh        # create everything
+#    $ ./cake.sh -cccc  # destroy everything
+#    $ ./cake.sh -h     # print usage summary
 #
 #  When run from mariadb or mediawiki folders, this only builds and runs
 #  that image. When run from their parent folder (i.e., the project root),
@@ -102,22 +102,7 @@ lsTo() {
 #
 #  Yet another entry point.
 #
-# test() {
-#   echo
-#   echo "test: CWD = $(pwd -P)"
-#   xCute pushd mariadb
-#   echo "test: CWD = $(pwd -P)"
-#   xCute pushd ../mediawiki
-#   echo "test: CWD = $(pwd -P)"
-#   popd
-#   echo "test: CWD = $(pwd -P)"
-#   popd
-#   echo "test: CWD = $(pwd -P)"
-# }
 main() {
-
-  # test
-  # echo BYE $LINENO && exit $LINENO
 
   isDockerRunning || die "Is docker offline? She's not responding."
 
@@ -155,9 +140,6 @@ main() {
     usage "Unrecognized --installer '$oInstaller', please check usage"
     ;;
   esac
-
-  # echo "oInstaller = '$oInstaller', DW_SOURCE = '$DW_SOURCE'"
-  # echo BYE $LINENO && exit $LINENO
 
   # Make one or both services.
   case $WHERE in
@@ -256,7 +238,7 @@ makeClean() {
   # Remove volumes and networks if requested (-cccc). "Still in use"
   # errors can be ignored on first container; they leave when second
   # container is removed, no longer using the resource.
-  if (($oClean == 0 || $oClean > 3)); then
+  if (($oClean > 3)); then
     lsTo out docker volume ls --filter name=$DATA_VOLUME
     [ $lastLineCount -gt 1 ] && xCute docker volume rm $DATA_VOLUME
     lsTo out docker network ls --filter name=$NETWORK
