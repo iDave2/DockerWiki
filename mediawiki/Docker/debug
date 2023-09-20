@@ -1,0 +1,24 @@
+#
+#  idave2/mediawiki image generator - debug
+#
+#  See '../.env' for environment defaults.
+#
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+
+FROM mediawiki:1.40 AS view
+
+# Configurable --build-arg's, not all used here.
+ARG MW_SITE_NAME
+ARG MW_ADMINISTRATOR MW_PASSWORD
+ARG MW_DB_NAME MW_DB_USER MW_DB_PASSWORD
+
+# Used by CLI installer.
+# TODO: this could use docker secrets instead of displaying passwords in logs.
+RUN set -eu && mkdir $MW_SITE_NAME; \
+    echo "$MW_DB_PASSWORD" > $MW_SITE_NAME/dbpassfile; \
+    echo "$MW_PASSWORD" > $MW_SITE_NAME/passfile;
+
+# Helpful tools. TODO: use netshoot...
+RUN set -eux && apt update && apt install -y less iputils-ping
+
+#  Original MediaWiki entry point remains active.

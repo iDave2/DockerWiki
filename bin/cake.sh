@@ -1,166 +1,508 @@
 #!/usr/bin/env bash
 #
-#  Something to build and run things (over and over and).
+#  Something to build and run things:
 #
-#  This only builds Dockerfiles. Use compose.yaml for music.
+#    $ ./cake.sh        # create everything
+#    $ ./cake.sh -cccc  # destroy everything
+#    $ ./cake.sh -h     # print usage summary
+#
+#  When run from mariadb or mediawiki folders, this only builds and runs
+#  that image. When run from their parent folder (i.e., the project root),
+#  this program builds and runs both images, aka DockerWiki.
+#
+#  TODO: Hide all the passwords echoed to logs (use secrets).
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
+set -uo pipefail # pipe status is last-to-fail or zero if none fail
+
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-ENV_FILE="${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
-
 source ${SCRIPT_DIR}/include.sh
-source "$ENV_FILE"
 
-# Simulate composer-generated names for volume 'data' and network 'net'
-# so we don't need to keep switching when changing builds.
-DATA_VOLUME=wiki_data
-DATA_TARGET=/var/lib/mysql
-# DOCS_VOLUME=wiki_docs  # Temporary, for debugging php
-# DOCS_TARGET=/var/www/html # Temporary, for debugging php
-NETWORK=wiki_net
+# Basename of working directory.
+WHERE=$(basename $(pwd -P))
 
-# Continue with Docker file build(s).
-CLEAN=false
+# Initialize options.
+oCache=true
+oClean=0
+oInstaller=cli
+oTimeout=10
+
+# Container / runtime configuration.
 CONTAINER=
-HERE=$(basename $(pwd -P))
+ENVIRONMENT=
+HOST=
 IMAGE=
-INTERACTIVE=false
-KLEAN=false
 MOUNT=
-NO_CACHE=false
-OPTIONS=
 PUBLISH=
 
-main() {
+# More file scoped stuff (naming please?).
+dockerFile=
+lastLineCount=0 # see lsTo()
+DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
+DATA_TARGET=/var/lib/mysql
+NETWORK=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
+DW_SOURCE= # move to .env?
 
-  # Parse command line.
-  for arg; do
-    case "$arg" in
-    -c | --clean) CLEAN=true ;;
-    -h | --help)
-      usage
-      return 1
-      ;;
-    -i | --interactive) INTERACTIVE=true ;;
-    -k | --klean) KLEAN=true ;;
-    -n | --no-cache) NO_CACHE=true ;;
-    *)
-      usage unexpected command line token \"$arg\"
-      return $?
-      ;;
-    esac
+# Contents of a backup directory (see backrest.sh).
+readonly gzDatabase=all-databases.sql.gz
+readonly imageDir=images
+readonly localSettings=LocalSettings.php
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Function returns the .State.Status of a given container. Returned
+#  status values have the form '"running"' where the double quotes are
+#  part of the string. Errors can be multiline so are collapsed into one
+#  line and quoted for simpler presentation.
+#
+#  From 'docker ps' dockumentation circa 2023, container status can be one
+#  of created, restarting, running, removing, paused, exited, or dead.
+#  See https://docs.docker.com/engine/reference/commandline/ps/.
+#
+#  Also see https://docs.docker.com/config/formatting/.
+#
+getState() {
+
+  (($# >= 2 && $# % 2 == 0)) ||
+    die "Error: getState() requires an even number of arguments"
+
+  local inspect='docker inspect --format' goville='{{json .State.Status}}'
+
+  for ((i = 1; i < $#; i += 2)); do
+    local j=$((i + 1))
+    local container="${!i}" __result="${!j}" options
+    ((i + 2 < $#)) && options="-en" || options="-e"
+    xShow $options $inspect \"$goville\" $container
+    local state=$(echo $($inspect "$goville" $container 2>&1))
+    [ "${state:0:1}" = \" ] || state=\"$state\"
+    eval $__result=$state
   done
 
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Common processing for "docker ls" commands using default 'table' format.
+#  One could also use JSON format and parse that but here we are.
+#
+#    Synopsis: lsTo output-variable-name docker some-ls-command ...
+#
+lsTo() {
+  local __outVarName="$1"
+  shift
+  xShow "$@"
+  local __ls=$(xQute2 "$@") || die "docker listing failed: $(getLastError)"
+  echo "$__ls" # silence requires another approach; one default here
+  lastLineCount=$(echo $(echo "$__ls" | wc -l))
+  eval $__outVarName="'$__ls'" # and if $__ls has apostrophe's ??'?
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Yet another entry point.
+#
+main() {
+
+  isDockerRunning || die "Is docker offline? She's not responding."
+
+  parseCommandLine "$@"
+
+  case "$oInstaller" in
+  cli) # the default, this runs php in container cli
+    dockerFile=Docker/initialize
+    ;;
+  debug) # includes extra developer tools
+    dockerFile=Docker/debug
+    ;;
+  restore) # restore=path to a DockerWiki backup directory
+    local checks=( # It will help reader to spell these out if one is missing...
+      -d "$DW_SOURCE"
+      -f "$DW_SOURCE/$gzDatabase"
+      -f "$DW_SOURCE/$localSettings"
+      -d "$DW_SOURCE/$imageDir"
+    )
+    for ((i = 0; $i < ${#checks[*]}; i += 2)); do
+      local op=${checks[$i]} path=${checks[$i + 1]}
+      if ! [ $op $path ]; then
+        local what
+        [ $op == '-d' ] && what=directory || what=file
+        echo -e "\nError: $what '$path' not found"
+        usage "DockerWiki backup not found for --installer 'restore=$DW_SOURCE'"
+      fi
+    done
+    dockerFile=Docker/restore
+    ;;
+  web) # leaves bare system for web installer
+    dockerFile=Docker/initialize
+    ;;
+  *) # boo-boos and butt-dials
+    usage "Unrecognized --installer '$oInstaller', please check usage"
+    ;;
+  esac
+
   # Make one or both services.
-  case $HERE in
+  case $WHERE in
   mariadb) makeData ;;
   mediawiki) makeView ;;
   *)
     if [ -f compose.yaml -a -d mariadb -a -d mediawiki ]; then
-      cd mariadb && makeData && cd ..
-      cd mediawiki && makeView && cd ..
+      if [ $oClean -gt 0 ]; then
+        xCute pushd mediawiki && makeView && xCute popd
+        xCute pushd mariadb && makeData && xCute popd
+      else
+        xCute pushd mariadb && makeData && xCute popd
+        xCute pushd mediawiki && makeView && xCute popd
+      fi
     else
-      usage Expected \$PWD in mariadb, mediawiki, or their parent folder, not \"$HERE\".
-      return 1
+      usage Expected \$PWD in mariadb, mediawiki, or their parent folder, not \"$WHERE\".
     fi
     ;;
   esac
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Create or destroy an image and its container. Current context is
+#  mariadb/build or mediawiki/build.
+#
 make() {
 
-  # OPTIONS is the same for any container.
-  $NO_CACHE && OPTIONS='--no-cache'
+  local buildOptions=${1:-''}
+  local command out tags
 
-  # Remove any existing CONTAINER.
-  xCute docker container ls --all --filter name=$CONTAINER
-  if [[ $? && ${#LINES[@]} > 1 ]]; then # ignore sticky column headers
-    xCute docker stop $CONTAINER
-    xCute docker rm $CONTAINER
-  fi
-
-  # Remove any existing IMAGE.
-  xCute docker image ls $IMAGE
-  if [[ $? && ${#LINES[@]} > 1 ]]; then
-    xCute docker rmi $(eval echo "$IMAGE:"{$TAGS})
-  fi
-
-  # Remove volumes and networks if requested.
-  if $KLEAN; then
-    xCute docker volume ls --filter name=$DATA_VOLUME
-    if [[ $? && ${#LINES[@]} = 2 ]]; then
-      xCute docker volume rm $DATA_VOLUME
-    fi
-    xCute docker network ls --filter name=$NETWORK
-    if [[ $? && ${#LINES[@]} = 2 ]]; then
-      xCute docker network rm $NETWORK
-    fi
-  fi
+  makeClean
 
   # Stop here if user only wants to clean up.
-  if $CLEAN || $KLEAN; then
-    return 0
-  fi
+  (($oClean > 0)) && return 0
 
   # Create a docker volume for the database and a network for chit chat.
-  xCute docker volume ls --filter name=$DATA_VOLUME
-  if [[ ! $? || ${#LINES[@]} < 2 ]]; then
-    xCute docker volume create $DATA_VOLUME
+  lsTo out docker volume ls --filter name=$DATA_VOLUME
+  if [ $lastLineCount -eq 1 ]; then
+    xCute2 docker volume create $DATA_VOLUME ||
+      die "Error creating volume: $(getLastError)"
   fi
-  xCute docker network ls --filter name=$NETWORK
-  if [[ ! $? || ${#LINES[@]} < 2 ]]; then
-    xCute docker network create $NETWORK
+  lsTo out docker network ls --filter name=$NETWORK
+  if [ $lastLineCount -eq 1 ]; then
+    xCute2 docker network create $NETWORK ||
+      die "Error creating network: $(getLastError)"
   fi
 
-  # Rebuild and rerun. Over and over and.
-  xCute docker build $OPTIONS $(eval echo "'--tag $IMAGE:'"{$TAGS}) .
-  if $INTERACTIVE; then # --interactive needs work...
-    xCute docker run --env-file $ENV_FILE --interactive --rm --tty \
-    --network $NETWORK --name $CONTAINER --hostname $CONTAINER \
-    --network-alias $CONTAINER $MOUNT $PUBLISH $IMAGE
+  # Build the image.
+  command="docker build $buildOptions $(eval echo "'--tag $IMAGE:'"{$TAGS}) ."
+  xCute2 $command || die "Build failed: $(getLastError)"
+
+  # Launch container with new image.
+  if false; then # --interactive not used / needed, maybe delete?
+    command=$(echo docker run $ENVIRONMENT --interactive --rm --tty \
+      --network $NETWORK --name $CONTAINER --hostname $HOST \
+      --network-alias $HOST $MOUNT $PUBLISH $IMAGE)
   else
-    xCute docker run --detach --env-file $ENV_FILE --network $NETWORK \
-    $(echo --{name,hostname,network-alias}" $CONTAINER") $MOUNT $PUBLISH $IMAGE
+    command=$(echo docker run --detach $ENVIRONMENT --network $NETWORK \
+      --name $CONTAINER --hostname $HOST --network-alias $HOST $MOUNT \
+      $PUBLISH $IMAGE)
   fi
+  xCute2 $command || die "Launch failed: $(getLastError)"
+
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Called from make() to clean up either by request or to rebuild
+#  something.
+#
+makeClean() {
+
+  # Build directories are created during builds before this cleaning
+  # step. So do not erase build directories when building!
+  # Erase build directories on request (-c).
+  if (($oClean > 0)); then
+    [ -d build ] && xCute rm -fr build
+  fi
+
+  # Remove existing CONTAINERs sometimes (-cc).
+  if (($oClean == 0 || $oClean > 1)); then
+    lsTo out docker container ls --all --filter name=$CONTAINER
+    if [ $lastLineCount -gt 1 ]; then
+      xCute2 docker stop $CONTAINER && xCute2 docker rm $CONTAINER ||
+        die "Error removing container '$CONTAINER': $(getLastError)"
+    fi
+  fi
+
+  # No need to remove NETWORKs during builds but they are removed
+  # by request (-cc). This means "cake -cc" removes just enough
+  # to test docker compose on the images remaining in Docker Desktop.
+  if (($oClean > 1)); then
+    lsTo out docker network ls --filter name=$NETWORK
+    [ $lastLineCount -gt 1 ] && xCute docker network rm $NETWORK
+  fi
+
+  # Remove existing IMAGEs sometimes (-ccc).
+  if (($oClean == 0 || $oClean > 2)); then
+    lsTo out docker image ls $IMAGE
+    tags=$(join ',' $(echo "$out" | cut -w -f 2 | grep -v TAG))
+    if [ -n "$tags" ]; then
+      xCute2 docker rmi $(eval echo "$IMAGE:"{$tags}) ||
+        die "Error removing images: $(getLastError)"
+    fi
+  fi
+
+  # Remove volumes if requested (-cccc). "Still in use"
+  # errors can be ignored on first container; they leave when
+  # second container is removed, no longer using the resource.
+  if (($oClean > 3)); then
+    lsTo out docker volume ls --filter name=$DATA_VOLUME
+    [ $lastLineCount -gt 1 ] && xCute docker volume rm $DATA_VOLUME
+  fi
+
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Configure make() to create or destroy a mariadb image.
+#
 makeData() {
-  CONTAINER=data
-  IMAGE=$DID/mariadb
+
+  CONTAINER=$(getContainer $DW_DATA_SERVICE)
+  HOST=$DW_DATA_HOST
+  IMAGE=$DW_DID/mariadb
   MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
   PUBLISH=
-  make
+
+  if (($oClean > 0)); then
+    make # just cleanup, no build & run
+    return
+  fi
+
+  local buildOptions=''
+  $oCache || buildOptions='--no-cache'
+  local options=(
+    # DW_SOURCE "$DW_SOURCE"
+    MARIADB_ROOT_PASSWORD_HASH "$DW_DB_ROOT_PASSWORD_HASH"
+    MARIADB_ROOT_HOST "$DW_DB_ROOT_HOST"
+    MARIADB_DATABASE "$DW_DB_NAME"
+    MARIADB_USER "$DW_DB_USER"
+    MARIADB_PASSWORD_HASH "$DW_DB_PASSWORD_HASH"
+  )
+  for ((i = 0; $i < ${#options[*]}; i += 2)); do
+    buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
+  done
+
+  # Prepare build directory. We presently sit in mariadb folder.
+  [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
+  xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
+  xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
+  xCute2 cp "50-noop.sh" build/ || die "Copy failed: $(getLastError)"
+  if [ $oInstaller == 'restore' ]; then
+    xCute2 cp "$DW_SOURCE/$gzDatabase" "build/70-initdb.sql.gz" ||
+      die "Error copying file: $(getLastError)"
+  fi
+
+  # Move context into build subdirectory and wake up docker engine.
+  xCute pushd build && make "$buildOptions" && xCute popd
+
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Configure make() to create or destroy a mediawiki image.
+#
 makeView() {
-  CONTAINER=view
-  IMAGE=$DID/mediawiki
+
+  CONTAINER=$(getContainer $DW_VIEW_SERVICE)
+  ENVIRONMENT=
+  HOST=$DW_VIEW_HOST
+  IMAGE=$DW_DID/mediawiki
   MOUNT=
-  PUBLISH="--publish $PORTS"
-  make
+  PUBLISH="--publish $DW_MW_PORTS"
+
+  if (($oClean > 0)); then
+    make # just cleanup, no build & run
+    return
+  fi
+
+  local buildOptions=''
+  $oCache || buildOptions='--no-cache'
+  local options=(
+    # DW_SOURCE "$DW_SOURCE"
+    MW_SITE_NAME "$DW_SITE_NAME"
+    # MW_ADMINISTRATOR "$DW_MW_ADMINISTRATOR"
+    MW_PASSWORD "$DW_MW_PASSWORD"
+    # MW_DB_NAME "$DW_DB_NAME"
+    # MW_DB_USER "$DW_DB_USER"
+    MW_DB_PASSWORD "$DW_DB_PASSWORD"
+  )
+  for ((i = 0; $i < ${#options[*]}; i += 2)); do
+    buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
+  done
+
+  # Prepare build directory. We presently sit in mediawiki folder.
+  [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
+  xCute2 mkdir build || die "mkdir mediawiki/build failed: $(getLastError)"
+  xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
+  if [ $oInstaller == 'restore' ]; then
+    xCute2 cp -R "$DW_SOURCE/$localSettings" "$DW_SOURCE/$imageDir" build/ ||
+      die "Error copying file: $(getLastError)"
+  fi
+
+  # Move context into build subdirectory and wake up docker engine.
+  xCute pushd build && make "$buildOptions" && xCute popd
+
+  # Are we done yet?
+  case $oInstaller in
+  cli | debug) # use the CLI installer below
+    :
+    ;;
+  restore | web) # done, user finds restored system or browser wizard
+    return 0
+    ;;
+  esac
+
+  # Database needs to be Running and Connectable to continue.
+  if ! waitForData; then
+    local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
+    error+="unable to generate $localSettings; "
+    error+="browser may display web-based installer."
+    echo -e "\n$error"
+    return -42
+  fi
+
+  # Install / configure mediawiki now that we have a mariadb network.
+  # This creates MW DB tables and generates LocalSettings.php file.
+  command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
+    --dbtype=mysql --dbserver=data --dbname=mediawiki --dbuser=wikiDBA \
+    --dbpassfile="$DW_SITE_NAME/dbpassfile" --passfile="$DW_SITE_NAME/passfile" \
+    --scriptpath='' --server='http://localhost:8080' $DW_SITE_NAME $DW_MW_ADMINISTRATOR)
+  xCute2 $command || die "Error installing mediawiki: $(getLastError)"
+
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Lorem ipsum.
+#
+parseCommandLine() {
+  set -- $(getOpt "$@")
+  while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
+    case "$1" in
+    -c | --clean)
+      let oClean++
+      shift
+      ;;
+    -h | --help)
+      usage
+      ;;
+    -i | --installer) # bash ${p%%/} won't trim more than one '/' so,
+      oInstaller=$(perl -pwe 's|/+$||' <<<${2:-''})
+      shift 2
+      if [ "${oInstaller:0:8}" = "restore=" -a ${#oInstaller} -gt 8 ]; then
+        DW_SOURCE=$(realpath ${oInstaller:8})
+        oInstaller=restore
+      fi
+      ;;
+    --no-cache)
+      oCache=false
+      shift
+      ;;
+    --no-decoration)
+      DECORATE=false
+      shift
+      ;;
+    -t | --timeout)
+      oTimeout="$2"
+      shift 2
+      if ! [[ $oTimeout =~ ^[+]?[1-9][0-9]*$ ]]; then
+        usage "--timeout 'seconds': expected a positive integer, found '$oTimeout'"
+      fi
+      ;;
+    -* | --*)
+      usage unknown option \"$1\"
+      ;;
+    *)
+      usage "unexpected argument '$1'"
+      ;;
+    esac
+  done
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Summarize usage on request or when command line does not compute.
+#
 usage() {
   if [ -n "$*" ]; then
-    echo && echo "** $*"
+    echo -e "\n***  $*  ***" >&2
   fi
-  cat <<-EOT
+  cat >&2 <<EOT
 
 Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
-Build and run this project using Docker files.
+Build and run DockerWiki.
 
 Options:
-  -c | --clean        Remove built artifacts
-  -i | --interactive  Run interactively (run -it)
-  -h | --help         Print this usage summary
-  -k | --klean        --clean plus remove volumes and network!
-  -n | --no-cache     Disable cache during builds
-
-Note: --interactive is out of order; STDOUT goes to Tahiti.
+  -c | --clean              Remove built artifacts
+  -i | --installer string   cli (default), debug, web, or restore=pathToBackup
+  -h | --help               Print this usage summary
+       --no-cache           Do not use cache when building images
+       --no-decoration      Disable composer-naming emulation
+  -t | --timeout seconds    Seconds to retry DB connection before failing
 EOT
-  return 1
+  exit 1
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  This emulates a "view depends_on data" when creating things without
+#  the help of docker compose (i.e., when running this script).
+#
+#  From 'docker ps' dockumentation circa 2023, container status can be one
+#  of created, restarting, running, removing, paused, exited, or dead.
+#  See https://docs.docker.com/engine/reference/commandline/ps/.
+#
+waitForData() {
+
+  local dataContainer=$(getContainer $DW_DATA_SERVICE) dataState
+  local viewContainer=$(getContainer $DW_VIEW_SERVICE) viewState
+
+  # Start the database.
+  xCute2 docker start $dataContainer ||
+    die "Cannot start '$dataContainer': $(getLastError)"
+
+  # Display issue as we build (status says "running" but cannot talk)...
+  cat <<'EOT'
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Note that while 'docker inspect' may show mariadb "running",
+#  it may not be "connectable" when initializing a new database.
+#
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+EOT
+
+  getState $dataContainer dataState $viewContainer viewState
+  echo -e "\n=> Container status: data is \"$dataState\", view is \"$viewState\"".
+
+  # Punt. This semaphore works albeit painfully.
+  local dx="docker exec $dataContainer mariadb -uroot -pchangeThis -e"
+  local ac="show databases"
+
+  for ((i = 0; i < $oTimeout; ++i)); do
+    xShow $dx "'$ac'" && $dx "$ac" && break
+    sleep 1
+  done
+
+  getState $dataContainer dataState $viewContainer viewState
+  echo -e "\n=> Container status: data is \"$dataState\", view is \"$viewState\"".
+
+  [ "$dataState" = "running" ] && return 0 || return 1
+
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Derrida suggested that philosophy is another form of literature.
+#  Software can feel like that sometimes, a kind of mathematical poetry.
+#  </EndWax>
+#  <BeginLLM>...
+#
 main "$@"

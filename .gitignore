@@ -1,7 +1,3 @@
-.DS_Store
-.vscode
+build
 junk*
-tmp/
-all-databases.sql
-out.docker
-out.compose
+tmp

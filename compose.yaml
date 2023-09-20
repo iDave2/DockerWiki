@@ -5,12 +5,7 @@ name: wiki
 services:
 
   view:
-    image: $DID/mediawiki:$TAG
-    build:
-      context: ./mediawiki
-      tags:
-        - "$DID/mediawiki:$TAG"
-        - "$DID/mediawiki:latest"
+    image: $DW_DID/mediawiki:$TAG
     depends_on:
       - data
     environment:
@@ -19,22 +14,10 @@ services:
     networks:
       - net
     ports:
-      - "${PORTS}"
+      - "${DW_MW_PORTS}"
 
   data:
-    image: $DID/mariadb:$TAG
-    build:
-      context: ./mariadb
-      tags:
-        - '$DID/mariadb:$TAG'
-        - '$DID/mariadb:latest'
-      args:
-        # https://stackoverflow.com/q/76229692
-        - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
-        - MARIADB_ROOT_HOST=${MARIADB_ROOT_HOST}
-        - MARIADB_DATABASE=${MARIADB_DATABASE}
-        - MARIADB_USER=${MARIADB_USER}
-        - MARIADB_PASSWORD_HASH=${MARIADB_PASSWORD_HASH}
+    image: $DW_DID/mariadb:$TAG
     environment:
       - TZ=${TZ}
     hostname: data

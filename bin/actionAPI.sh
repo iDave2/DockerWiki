@@ -21,7 +21,7 @@ DASHES='-----'
 # test scripts work "out of the box." Not even ChatGPT could figure
 # out how to create and destroy bots locally with the API. ;)
 BOT_NAME="WikiAdmin@Robot"
-BOT_PASS="8gskqe10rgglcocrdt89pqvq6sshkd42"
+BOT_PASS="1vc0csjjp4m4buaad8fa0uenfegvkl1u"
 
 WIKI="http://localhost:8080"
 API=api.php
