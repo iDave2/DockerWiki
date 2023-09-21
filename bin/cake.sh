@@ -39,9 +39,9 @@ PUBLISH=
 # More file scoped stuff (naming please?).
 dockerFile=
 lastLineCount=0 # see lsTo()
-DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$PROJECT" 'volume')
-DATA_TARGET=/var/lib/mysql
-NETWORK=$(decorate "$DW_NETWORK" "$PROJECT" 'network')
+dataVolume=$(decorate "$DATA_VOLUME" "$PROJECT" 'volume')
+dataTarget=/var/lib/mysql
+network=$(decorate "$NETWORK" "$PROJECT" 'network')
 DW_SOURCE= # move to .env?
 
 # Contents of a backup directory (see backrest.sh).
@@ -178,14 +178,14 @@ make() {
   (($oClean > 0)) && return 0
 
   # Create a docker volume for the database and a network for chit chat.
-  lsTo out docker volume ls --filter name=$DATA_VOLUME
+  lsTo out docker volume ls --filter name=$dataVolume
   if [ $lastLineCount -eq 1 ]; then
-    xCute2 docker volume create $DATA_VOLUME ||
+    xCute2 docker volume create $dataVolume ||
       die "Error creating volume: $(getLastError)"
   fi
-  lsTo out docker network ls --filter name=$NETWORK
+  lsTo out docker network ls --filter name=$network
   if [ $lastLineCount -eq 1 ]; then
-    xCute2 docker network create $NETWORK ||
+    xCute2 docker network create $network ||
       die "Error creating network: $(getLastError)"
   fi
 
@@ -200,10 +200,10 @@ make() {
   # Launch container with new image.
   if false; then # --interactive not used / needed, maybe delete?
     command=$(echo docker run $ENVIRONMENT --interactive --rm --tty \
-      --network $NETWORK --name $CONTAINER --hostname $HOST \
+      --network $network --name $CONTAINER --hostname $HOST \
       --network-alias $HOST $MOUNT $PUBLISH $IMAGE:$TAG)
   else
-    command=$(echo docker run --detach $ENVIRONMENT --network $NETWORK \
+    command=$(echo docker run --detach $ENVIRONMENT --network $network \
       --name $CONTAINER --hostname $HOST --network-alias $HOST $MOUNT \
       $PUBLISH $IMAGE:$TAG)
   fi
@@ -240,8 +240,8 @@ makeClean() {
   # by request (-cc). This means "cake -cc" removes just enough
   # to test docker compose on the images remaining in Docker Desktop.
   if (($oClean > 1)); then
-    lsTo out docker network ls --filter name=$NETWORK
-    [ $lastLineCount -gt 1 ] && xCute docker network rm $NETWORK
+    lsTo out docker network ls --filter name=$network
+    [ $lastLineCount -gt 1 ] && xCute docker network rm $network
   fi
 
   # Remove existing IMAGEs sometimes (-ccc).
@@ -259,8 +259,8 @@ makeClean() {
   # errors can be ignored on first container; they leave when
   # second container is removed, no longer using the resource.
   if (($oClean > 3)); then
-    lsTo out docker volume ls --filter name=$DATA_VOLUME
-    [ $lastLineCount -gt 1 ] && xCute docker volume rm $DATA_VOLUME
+    lsTo out docker volume ls --filter name=$dataVolume
+    [ $lastLineCount -gt 1 ] && xCute docker volume rm $dataVolume
   fi
 
 }
@@ -271,10 +271,10 @@ makeClean() {
 #
 makeData() {
 
-  CONTAINER=$(getContainer $DW_DATA_SERVICE)
-  HOST=$DW_DATA_HOST
+  CONTAINER=$(getContainer $DATA_SERVICE)
+  HOST=$DATA_HOST
   IMAGE=$DID/mariadb
-  MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
+  MOUNT="--mount type=volume,src=$dataVolume,dst=$dataTarget"
   PUBLISH=
 
   if (($oClean > 0)); then
@@ -316,9 +316,9 @@ makeData() {
 #
 makeView() {
 
-  CONTAINER=$(getContainer $DW_VIEW_SERVICE)
+  CONTAINER=$(getContainer $VIEW_SERVICE)
   ENVIRONMENT=
-  HOST=$DW_VIEW_HOST
+  HOST=$VIEW_HOST
   IMAGE=$DID/mediawiki
   MOUNT=
   PUBLISH="--publish $MW_PORTS"
@@ -367,7 +367,7 @@ makeView() {
 
   # Database needs to be Running and Connectable to continue.
   if ! waitForData; then
-    local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
+    local error="Error: Cannot connect to data container '$(getContainer $DATA_SERVICE)'; "
     error+="unable to generate $localSettings; "
     error+="browser may display web-based installer."
     echo -e "\n$error"
@@ -470,8 +470,8 @@ EOT
 #
 waitForData() {
 
-  local dataContainer=$(getContainer $DW_DATA_SERVICE) dataState
-  local viewContainer=$(getContainer $DW_VIEW_SERVICE) viewState
+  local dataContainer=$(getContainer $DATA_SERVICE) dataState
+  local viewContainer=$(getContainer $VIEW_SERVICE) viewState
 
   # Start the database.
   xCute2 docker start $dataContainer ||
