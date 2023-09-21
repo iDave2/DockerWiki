@@ -64,7 +64,7 @@ getContainer() {
     usage "getContainer: expected '$DW_DATA_SERVICE' or '$DW_VIEW_SERVICE', not '$1'"
     ;;
   esac
-  echo $(decorate "$service" "$DW_PROJECT" 'container')
+  echo $(decorate "$service" "$PROJECT" 'container')
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

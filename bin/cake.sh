@@ -39,9 +39,9 @@ PUBLISH=
 # More file scoped stuff (naming please?).
 dockerFile=
 lastLineCount=0 # see lsTo()
-DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
+DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$PROJECT" 'volume')
 DATA_TARGET=/var/lib/mysql
-NETWORK=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
+NETWORK=$(decorate "$DW_NETWORK" "$PROJECT" 'network')
 DW_SOURCE= # move to .env?
 
 # Contents of a backup directory (see backrest.sh).
@@ -322,7 +322,7 @@ makeView() {
   HOST=$DW_VIEW_HOST
   IMAGE=$DID/mediawiki
   MOUNT=
-  PUBLISH="--publish $DW_MW_PORTS"
+  PUBLISH="--publish $MW_PORTS"
 
   if (($oClean > 0)); then
     make # just cleanup, no build & run
@@ -333,7 +333,7 @@ makeView() {
   $oCache || buildOptions='--no-cache'
   local options=(
     # DW_SOURCE "$DW_SOURCE"
-    MW_SITE_NAME "$DW_SITE_NAME"
+    MW_SITE "$MW_SITE"
     # MW_ADMINISTRATOR "$DW_MW_ADMINISTRATOR"
     MW_PASSWORD "$DW_MW_PASSWORD"
     # MW_DB_NAME "$DW_DB_NAME"
@@ -377,10 +377,12 @@ makeView() {
 
   # Install / configure mediawiki now that we have a mariadb network.
   # This creates MW DB tables and generates LocalSettings.php file.
+  local port=${MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
+  port=${port##*:}          # 127.0.0.1:8080 -> 8080
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
     --dbtype=mysql --dbserver=data --dbname=mediawiki --dbuser=wikiDBA \
-    --dbpassfile="$DW_SITE_NAME/dbpassfile" --passfile="$DW_SITE_NAME/passfile" \
-    --scriptpath='' --server='http://localhost:8080' $DW_SITE_NAME $DW_MW_ADMINISTRATOR)
+    --dbpassfile="$MW_SITE/dbpassfile" --passfile="$MW_SITE/passfile" \
+    --scriptpath='' --server="http://localhost:$port" $MW_SITE $DW_MW_ADMINISTRATOR)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 
 }
