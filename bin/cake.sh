@@ -285,12 +285,11 @@ makeData() {
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
   local options=(
-    # DW_SOURCE "$DW_SOURCE"
-    MARIADB_ROOT_PASSWORD_HASH "$DW_DB_ROOT_PASSWORD_HASH"
-    MARIADB_ROOT_HOST "$DW_DB_ROOT_HOST"
-    MARIADB_DATABASE "$DW_DB_NAME"
-    MARIADB_USER "$DW_DB_USER"
-    MARIADB_PASSWORD_HASH "$DW_DB_PASSWORD_HASH"
+    MARIADB_ROOT_PASSWORD_HASH "$DB_ROOT_PASSWORD_HASH"
+    MARIADB_ROOT_HOST "$DB_ROOT_HOST"
+    MARIADB_DATABASE "$DB_NAME"
+    MARIADB_USER "$DB_USER"
+    MARIADB_PASSWORD_HASH "$DB_PASSWORD_HASH"
   )
   for ((i = 0; $i < ${#options[*]}; i += 2)); do
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
@@ -334,11 +333,11 @@ makeView() {
   local options=(
     # DW_SOURCE "$DW_SOURCE"
     MW_SITE "$MW_SITE"
-    # MW_ADMINISTRATOR "$DW_MW_ADMINISTRATOR"
-    MW_PASSWORD "$DW_MW_PASSWORD"
-    # MW_DB_NAME "$DW_DB_NAME"
-    # MW_DB_USER "$DW_DB_USER"
-    MW_DB_PASSWORD "$DW_DB_PASSWORD"
+    # MW_ADMIN "$MW_ADMIN"
+    MW_PASSWORD "$MW_PASSWORD"
+    # MW_DB_NAME "$DB_NAME"
+    # MW_DB_USER "$DB_USER"
+    MW_DB_PASSWORD "$DB_PASSWORD"
   )
   for ((i = 0; $i < ${#options[*]}; i += 2)); do
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
@@ -380,9 +379,9 @@ makeView() {
   local port=${MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
   port=${port##*:}          # 127.0.0.1:8080 -> 8080
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
-    --dbtype=mysql --dbserver=data --dbname=mediawiki --dbuser=wikiDBA \
+    --dbtype=mysql --dbserver=data --dbname=$DB_NAME --dbuser=$DB_USER \
     --dbpassfile="$MW_SITE/dbpassfile" --passfile="$MW_SITE/passfile" \
-    --scriptpath='' --server="http://localhost:$port" $MW_SITE $DW_MW_ADMINISTRATOR)
+    --scriptpath='' --server="http://localhost:$port" $MW_SITE $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 
 }
@@ -493,7 +492,7 @@ EOT
   echo -e "\n=> Container status: data is \"$dataState\", view is \"$viewState\"".
 
   # Punt. This semaphore works albeit painfully.
-  local dx="docker exec $dataContainer mariadb -uroot -pchangeThis -e"
+  local dx="docker exec $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD -e"
   local ac="show databases"
 
   for ((i = 0; i < $oTimeout; ++i)); do

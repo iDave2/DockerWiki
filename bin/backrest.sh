@@ -105,7 +105,7 @@ main() {
   if $BACKUP; then
 
     # Backup database.
-    local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DW_DB_ROOT_PASSWORD"
+    local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DB_ROOT_PASSWORD"
     local file="${hostRoot}/${dataFile}.gz"
     xShow "$command | gzip > \"$file\""
     $command | gzip >"$file"
@@ -131,7 +131,7 @@ main() {
   if $RESTORE; then
 
     # Restore database
-    local command="docker exec -i $dataContainer mariadb -uroot -p$DW_DB_ROOT_PASSWORD"
+    local command="docker exec -i $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD"
     local file=$hostRoot/${dataFile}.gz
     xShow "gunzip \"$file\" | $command"
     gunzip "$file" | $command

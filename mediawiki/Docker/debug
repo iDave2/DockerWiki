@@ -9,7 +9,7 @@ FROM mediawiki:1.40 AS view
 
 # Configurable --build-arg's, not all used here.
 ARG MW_SITE
-ARG MW_ADMINISTRATOR MW_PASSWORD
+ARG MW_ADMIN MW_PASSWORD
 ARG MW_DB_NAME MW_DB_USER MW_DB_PASSWORD
 
 # Used by CLI installer.
