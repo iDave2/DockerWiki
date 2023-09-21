@@ -5,7 +5,7 @@ name: wiki
 services:
 
   view:
-    image: $DW_DID/mediawiki:$TAG
+    image: $DID/mediawiki:$TAG
     depends_on:
       - data
     environment:
@@ -17,7 +17,7 @@ services:
       - "${DW_MW_PORTS}"
 
   data:
-    image: $DW_DID/mariadb:$TAG
+    image: $DID/mariadb:$TAG
     environment:
       - TZ=${TZ}
     hostname: data

@@ -169,7 +169,8 @@ main() {
 make() {
 
   local buildOptions=${1:-''}
-  local command out tags
+  local command out
+  # this local game may be hopeless - bash reports undefined usage, not unused vars
 
   makeClean
 
@@ -213,6 +214,8 @@ make() {
 #
 makeClean() {
 
+  local out
+
   # Build directories are created during builds before this cleaning
   # step. So do not erase build directories when building!
   # Erase build directories on request (-c).
@@ -240,9 +243,10 @@ makeClean() {
   # Remove existing IMAGEs sometimes (-ccc).
   if (($oClean == 0 || $oClean > 2)); then
     lsTo out docker image ls $IMAGE
-    tags=$(join ',' $(echo "$out" | cut -w -f 2 | grep -v TAG))
-    if [ -n "$tags" ]; then
-      xCute2 docker rmi $(eval echo "$IMAGE:"{$tags}) ||
+    local tags=($(echo "$out" | cut -w -f 2 | grep -v TAG))
+    if ((${#tags[*]} > 0)); then
+      local images=(${tags[@]/#/${IMAGE}:})
+      xCute2 docker rmi "${images[@]}" ||
         die "Error removing images: $(getLastError)"
     fi
   fi
@@ -265,7 +269,7 @@ makeData() {
 
   CONTAINER=$(getContainer $DW_DATA_SERVICE)
   HOST=$DW_DATA_HOST
-  IMAGE=$DW_DID/mariadb
+  IMAGE=$DID/mariadb
   MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
   PUBLISH=
 
@@ -312,7 +316,7 @@ makeView() {
   CONTAINER=$(getContainer $DW_VIEW_SERVICE)
   ENVIRONMENT=
   HOST=$DW_VIEW_HOST
-  IMAGE=$DW_DID/mediawiki
+  IMAGE=$DID/mediawiki
   MOUNT=
   PUBLISH="--publish $DW_MW_PORTS"
 
