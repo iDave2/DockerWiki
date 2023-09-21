@@ -190,18 +190,22 @@ make() {
   fi
 
   # Build the image.
-  command="docker build $buildOptions $(eval echo "'--tag $IMAGE:'"{$TAGS}) ."
+  command="docker build $buildOptions --tag $IMAGE:$TAG ."
   xCute2 $command || die "Build failed: $(getLastError)"
+  for ((i = 0; i < ${#EXTRA_TAGS[*]}; i++)); do
+    xCute2 docker image tag $IMAGE:$TAG $IMAGE:${EXTRA_TAGS[$i]} ||
+      die "Error tagging '$IMAGE:$TAG <- $IMAGE:${EXTRA_TAGS[$i]}'"
+  done
 
   # Launch container with new image.
   if false; then # --interactive not used / needed, maybe delete?
     command=$(echo docker run $ENVIRONMENT --interactive --rm --tty \
       --network $NETWORK --name $CONTAINER --hostname $HOST \
-      --network-alias $HOST $MOUNT $PUBLISH $IMAGE)
+      --network-alias $HOST $MOUNT $PUBLISH $IMAGE:$TAG)
   else
     command=$(echo docker run --detach $ENVIRONMENT --network $NETWORK \
       --name $CONTAINER --hostname $HOST --network-alias $HOST $MOUNT \
-      $PUBLISH $IMAGE)
+      $PUBLISH $IMAGE:$TAG)
   fi
   xCute2 $command || die "Launch failed: $(getLastError)"
 
@@ -244,7 +248,7 @@ makeClean() {
   if (($oClean == 0 || $oClean > 2)); then
     lsTo out docker image ls $IMAGE
     local tags=($(echo "$out" | cut -w -f 2 | grep -v TAG))
-    if ((${#tags[*]} > 0)); then
+    if ((${#tags[*]} > 0)); then # https://stackoverflow.com/a/13216833
       local images=(${tags[@]/#/${IMAGE}:})
       xCute2 docker rmi "${images[@]}" ||
         die "Error removing images: $(getLastError)"
