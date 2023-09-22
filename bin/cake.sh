@@ -332,7 +332,7 @@ makeView() {
   $oCache || buildOptions='--no-cache'
   local options=(
     # DW_SOURCE "$DW_SOURCE"
-    MW_SITE "$MW_SITE"
+    MW_SITE "$SITE"
     # MW_ADMIN "$MW_ADMIN"
     MW_PASSWORD "$MW_PASSWORD"
     # MW_DB_NAME "$DB_NAME"
@@ -380,8 +380,8 @@ makeView() {
   port=${port##*:}          # 127.0.0.1:8080 -> 8080
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
     --dbtype=mysql --dbserver=$DATA_HOST --dbname=$DB_NAME --dbuser=$DB_USER \
-    --dbpassfile="$MW_SITE/dbpassfile" --passfile="$MW_SITE/passfile" \
-    --scriptpath='' --server="http://localhost:$port" $MW_SITE $MW_ADMIN)
+    --dbpassfile="$SITE/dbpassfile" --passfile="$SITE/passfile" \
+    --scriptpath='' --server="http://localhost:$port" $SITE $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 
 }
