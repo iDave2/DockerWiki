@@ -104,7 +104,7 @@ lsTo() {
 #
 main() {
 
-  isDockerRunning || die "Is docker offline? She's not responding."
+  isDockerRunning || die "Please check docker, I cannot connect."
 
   parseCommandLine "$@"
 
