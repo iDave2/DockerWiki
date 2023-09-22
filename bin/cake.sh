@@ -379,7 +379,7 @@ makeView() {
   local port=${MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
   port=${port##*:}          # 127.0.0.1:8080 -> 8080
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
-    --dbtype=mysql --dbserver=data --dbname=$DB_NAME --dbuser=$DB_USER \
+    --dbtype=mysql --dbserver=$DATA_HOST --dbname=$DB_NAME --dbuser=$DB_USER \
     --dbpassfile="$MW_SITE/dbpassfile" --passfile="$MW_SITE/passfile" \
     --scriptpath='' --server="http://localhost:$port" $MW_SITE $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"

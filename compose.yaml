@@ -10,7 +10,7 @@ services:
       - data
     environment:
       - TZ=${TZ}
-    hostname: view
+    hostname: $VIEW_HOST
     networks:
       - net
     ports:
@@ -20,7 +20,7 @@ services:
     image: $DID/mariadb:$TAG
     environment:
       - TZ=${TZ}
-    hostname: data
+    hostname: $DATA_HOST
     networks:
       - net
     volumes:
