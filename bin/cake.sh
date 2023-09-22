@@ -39,9 +39,9 @@ PUBLISH=
 # More file scoped stuff (naming please?).
 dockerFile=
 lastLineCount=0 # see lsTo()
-DATA_VOLUME=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
-DATA_TARGET=/var/lib/mysql
-NETWORK=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
+dataVolume=$(decorate "$DATA_VOLUME" "$PROJECT" 'volume')
+dataTarget=/var/lib/mysql
+network=$(decorate "$NETWORK" "$PROJECT" 'network')
 DW_SOURCE= # move to .env?
 
 # Contents of a backup directory (see backrest.sh).
@@ -169,7 +169,8 @@ main() {
 make() {
 
   local buildOptions=${1:-''}
-  local command out tags
+  local command out
+  # this local game may be hopeless - bash reports undefined usage, not unused vars
 
   makeClean
 
@@ -177,30 +178,34 @@ make() {
   (($oClean > 0)) && return 0
 
   # Create a docker volume for the database and a network for chit chat.
-  lsTo out docker volume ls --filter name=$DATA_VOLUME
+  lsTo out docker volume ls --filter name=$dataVolume
   if [ $lastLineCount -eq 1 ]; then
-    xCute2 docker volume create $DATA_VOLUME ||
+    xCute2 docker volume create $dataVolume ||
       die "Error creating volume: $(getLastError)"
   fi
-  lsTo out docker network ls --filter name=$NETWORK
+  lsTo out docker network ls --filter name=$network
   if [ $lastLineCount -eq 1 ]; then
-    xCute2 docker network create $NETWORK ||
+    xCute2 docker network create $network ||
       die "Error creating network: $(getLastError)"
   fi
 
   # Build the image.
-  command="docker build $buildOptions $(eval echo "'--tag $IMAGE:'"{$TAGS}) ."
+  command="docker build $buildOptions --tag $IMAGE:$TAG ."
   xCute2 $command || die "Build failed: $(getLastError)"
+  for ((i = 0; i < ${#EXTRA_TAGS[*]}; i++)); do
+    xCute2 docker image tag $IMAGE:$TAG $IMAGE:${EXTRA_TAGS[$i]} ||
+      die "Error tagging '$IMAGE:$TAG <- $IMAGE:${EXTRA_TAGS[$i]}'"
+  done
 
   # Launch container with new image.
   if false; then # --interactive not used / needed, maybe delete?
     command=$(echo docker run $ENVIRONMENT --interactive --rm --tty \
-      --network $NETWORK --name $CONTAINER --hostname $HOST \
-      --network-alias $HOST $MOUNT $PUBLISH $IMAGE)
+      --network $network --name $CONTAINER --hostname $HOST \
+      --network-alias $HOST $MOUNT $PUBLISH $IMAGE:$TAG)
   else
-    command=$(echo docker run --detach $ENVIRONMENT --network $NETWORK \
+    command=$(echo docker run --detach $ENVIRONMENT --network $network \
       --name $CONTAINER --hostname $HOST --network-alias $HOST $MOUNT \
-      $PUBLISH $IMAGE)
+      $PUBLISH $IMAGE:$TAG)
   fi
   xCute2 $command || die "Launch failed: $(getLastError)"
 
@@ -212,6 +217,8 @@ make() {
 #  something.
 #
 makeClean() {
+
+  local out
 
   # Build directories are created during builds before this cleaning
   # step. So do not erase build directories when building!
@@ -233,16 +240,17 @@ makeClean() {
   # by request (-cc). This means "cake -cc" removes just enough
   # to test docker compose on the images remaining in Docker Desktop.
   if (($oClean > 1)); then
-    lsTo out docker network ls --filter name=$NETWORK
-    [ $lastLineCount -gt 1 ] && xCute docker network rm $NETWORK
+    lsTo out docker network ls --filter name=$network
+    [ $lastLineCount -gt 1 ] && xCute docker network rm $network
   fi
 
   # Remove existing IMAGEs sometimes (-ccc).
   if (($oClean == 0 || $oClean > 2)); then
     lsTo out docker image ls $IMAGE
-    tags=$(join ',' $(echo "$out" | cut -w -f 2 | grep -v TAG))
-    if [ -n "$tags" ]; then
-      xCute2 docker rmi $(eval echo "$IMAGE:"{$tags}) ||
+    local tags=($(echo "$out" | cut -w -f 2 | grep -v TAG))
+    if ((${#tags[*]} > 0)); then # https://stackoverflow.com/a/13216833
+      local images=(${tags[@]/#/${IMAGE}:})
+      xCute2 docker rmi "${images[@]}" ||
         die "Error removing images: $(getLastError)"
     fi
   fi
@@ -251,8 +259,8 @@ makeClean() {
   # errors can be ignored on first container; they leave when
   # second container is removed, no longer using the resource.
   if (($oClean > 3)); then
-    lsTo out docker volume ls --filter name=$DATA_VOLUME
-    [ $lastLineCount -gt 1 ] && xCute docker volume rm $DATA_VOLUME
+    lsTo out docker volume ls --filter name=$dataVolume
+    [ $lastLineCount -gt 1 ] && xCute docker volume rm $dataVolume
   fi
 
 }
@@ -263,10 +271,10 @@ makeClean() {
 #
 makeData() {
 
-  CONTAINER=$(getContainer $DW_DATA_SERVICE)
-  HOST=$DW_DATA_HOST
-  IMAGE=$DW_DID/mariadb
-  MOUNT="--mount type=volume,src=$DATA_VOLUME,dst=$DATA_TARGET"
+  CONTAINER=$(getContainer $DATA_SERVICE)
+  HOST=$DATA_HOST
+  IMAGE=$DID/mariadb
+  MOUNT="--mount type=volume,src=$dataVolume,dst=$dataTarget"
   PUBLISH=
 
   if (($oClean > 0)); then
@@ -277,12 +285,11 @@ makeData() {
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
   local options=(
-    # DW_SOURCE "$DW_SOURCE"
-    MARIADB_ROOT_PASSWORD_HASH "$DW_DB_ROOT_PASSWORD_HASH"
-    MARIADB_ROOT_HOST "$DW_DB_ROOT_HOST"
-    MARIADB_DATABASE "$DW_DB_NAME"
-    MARIADB_USER "$DW_DB_USER"
-    MARIADB_PASSWORD_HASH "$DW_DB_PASSWORD_HASH"
+    MARIADB_ROOT_PASSWORD_HASH "$DB_ROOT_PASSWORD_HASH"
+    MARIADB_ROOT_HOST "$DB_ROOT_HOST"
+    MARIADB_DATABASE "$DB_NAME"
+    MARIADB_USER "$DB_USER"
+    MARIADB_PASSWORD_HASH "$DB_PASSWORD_HASH"
   )
   for ((i = 0; $i < ${#options[*]}; i += 2)); do
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
@@ -309,12 +316,12 @@ makeData() {
 #
 makeView() {
 
-  CONTAINER=$(getContainer $DW_VIEW_SERVICE)
+  CONTAINER=$(getContainer $VIEW_SERVICE)
   ENVIRONMENT=
-  HOST=$DW_VIEW_HOST
-  IMAGE=$DW_DID/mediawiki
+  HOST=$VIEW_HOST
+  IMAGE=$DID/mediawiki
   MOUNT=
-  PUBLISH="--publish $DW_MW_PORTS"
+  PUBLISH="--publish $MW_PORTS"
 
   if (($oClean > 0)); then
     make # just cleanup, no build & run
@@ -325,12 +332,12 @@ makeView() {
   $oCache || buildOptions='--no-cache'
   local options=(
     # DW_SOURCE "$DW_SOURCE"
-    MW_SITE_NAME "$DW_SITE_NAME"
-    # MW_ADMINISTRATOR "$DW_MW_ADMINISTRATOR"
-    MW_PASSWORD "$DW_MW_PASSWORD"
-    # MW_DB_NAME "$DW_DB_NAME"
-    # MW_DB_USER "$DW_DB_USER"
-    MW_DB_PASSWORD "$DW_DB_PASSWORD"
+    MW_SITE "$SITE"
+    # MW_ADMIN "$MW_ADMIN"
+    MW_PASSWORD "$MW_PASSWORD"
+    # MW_DB_NAME "$DB_NAME"
+    # MW_DB_USER "$DB_USER"
+    MW_DB_PASSWORD "$DB_PASSWORD"
   )
   for ((i = 0; $i < ${#options[*]}; i += 2)); do
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
@@ -360,7 +367,7 @@ makeView() {
 
   # Database needs to be Running and Connectable to continue.
   if ! waitForData; then
-    local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
+    local error="Error: Cannot connect to data container '$(getContainer $DATA_SERVICE)'; "
     error+="unable to generate $localSettings; "
     error+="browser may display web-based installer."
     echo -e "\n$error"
@@ -369,10 +376,12 @@ makeView() {
 
   # Install / configure mediawiki now that we have a mariadb network.
   # This creates MW DB tables and generates LocalSettings.php file.
+  local port=${MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
+  port=${port##*:}          # 127.0.0.1:8080 -> 8080
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
-    --dbtype=mysql --dbserver=data --dbname=mediawiki --dbuser=wikiDBA \
-    --dbpassfile="$DW_SITE_NAME/dbpassfile" --passfile="$DW_SITE_NAME/passfile" \
-    --scriptpath='' --server='http://localhost:8080' $DW_SITE_NAME $DW_MW_ADMINISTRATOR)
+    --dbtype=mysql --dbserver=$DATA_HOST --dbname=$DB_NAME --dbuser=$DB_USER \
+    --dbpassfile="$SITE/dbpassfile" --passfile="$SITE/passfile" \
+    --scriptpath='' --server="http://localhost:$port" $SITE $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 
 }
@@ -461,8 +470,8 @@ EOT
 #
 waitForData() {
 
-  local dataContainer=$(getContainer $DW_DATA_SERVICE) dataState
-  local viewContainer=$(getContainer $DW_VIEW_SERVICE) viewState
+  local dataContainer=$(getContainer $DATA_SERVICE) dataState
+  local viewContainer=$(getContainer $VIEW_SERVICE) viewState
 
   # Start the database.
   xCute2 docker start $dataContainer ||
@@ -479,20 +488,21 @@ waitForData() {
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 EOT
 
+  local format="\n=> Container status: %s is \"%s\", %s is \"%s\"\n"
+
   getState $dataContainer dataState $viewContainer viewState
-  echo -e "\n=> Container status: data is \"$dataState\", view is \"$viewState\"".
+  printf "$format" $dataContainer $dataState $viewContainer $viewState
 
   # Punt. This semaphore works albeit painfully.
-  local dx="docker exec $dataContainer mariadb -uroot -pchangeThis -e"
+  local dx="docker exec $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD -e"
   local ac="show databases"
-
   for ((i = 0; i < $oTimeout; ++i)); do
     xShow $dx "'$ac'" && $dx "$ac" && break
     sleep 1
   done
 
   getState $dataContainer dataState $viewContainer viewState
-  echo -e "\n=> Container status: data is \"$dataState\", view is \"$viewState\"".
+  printf "$format" $dataContainer $dataState $viewContainer $viewState
 
   [ "$dataState" = "running" ] && return 0 || return 1
 

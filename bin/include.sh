@@ -57,14 +57,14 @@ die() {
 getContainer() {
   local service
   case "$1" in
-  $DW_DATA_SERVICE | $DW_VIEW_SERVICE)
+  $DATA_SERVICE | $VIEW_SERVICE)
     service="$1"
     ;;
   *)
-    usage "getContainer: expected '$DW_DATA_SERVICE' or '$DW_VIEW_SERVICE', not '$1'"
+    usage "getContainer: expected '$DATA_SERVICE' or '$VIEW_SERVICE', not '$1'"
     ;;
   esac
-  echo $(decorate "$service" "$DW_PROJECT" 'container')
+  echo $(decorate "$service" "$PROJECT" 'container')
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
