@@ -29,8 +29,8 @@ imageDir=images
 localSettings=LocalSettings.php
 
 # Defaults subject to change via command line options.
-dataContainer=$(getContainer data)
-viewContainer=$(getContainer view)
+dataContainer=$(getContainer $DATA_SERVICE)
+viewContainer=$(getContainer $VIEW_SERVICE)
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #

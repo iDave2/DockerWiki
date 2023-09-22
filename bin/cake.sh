@@ -488,20 +488,21 @@ waitForData() {
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 EOT
 
+  local format="\n=> Container status: %s is \"%s\", %s is \"%s\"\n"
+
   getState $dataContainer dataState $viewContainer viewState
-  echo -e "\n=> Container status: data is \"$dataState\", view is \"$viewState\"".
+  printf "$format" $dataContainer $dataState $viewContainer $viewState
 
   # Punt. This semaphore works albeit painfully.
   local dx="docker exec $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD -e"
   local ac="show databases"
-
   for ((i = 0; i < $oTimeout; ++i)); do
     xShow $dx "'$ac'" && $dx "$ac" && break
     sleep 1
   done
 
   getState $dataContainer dataState $viewContainer viewState
-  echo -e "\n=> Container status: data is \"$dataState\", view is \"$viewState\"".
+  printf "$format" $dataContainer $dataState $viewContainer $viewState
 
   [ "$dataState" = "running" ] && return 0 || return 1
 
