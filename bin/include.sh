@@ -4,6 +4,8 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
+set -uo pipefail # pipe status is last-to-fail or zero if none fail
+
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
 source "$USER_CONFIG" 2>/dev/null
@@ -107,7 +109,7 @@ getOpt() {
 getTempDir() {
   if [ ! -d "$TEMP_DIR" ]; then
     mkdir "$TEMP_DIR" && [ -d "$TEMP_DIR" ] ||
-      abend "Error: cannot create temporary directory, '$TEMP_DIR'!"
+      die "Error: cannot create temporary directory, '$TEMP_DIR'!"
   fi
   echo $TEMP_DIR
 }
