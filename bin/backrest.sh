@@ -124,6 +124,9 @@ main() {
       "$hostRoot/$localSettings" ||
       die "Error backing up local settings: $(getLastError)"
 
+    # Make backups read-only.
+    xCute2 chmod -R -w "$hostRoot" || die "Trouble making backup read-only: $(getLastError)"
+
     echo -e "\n==> Wiki backup written to '$hostRoot' <=="
 
   fi
@@ -133,8 +136,8 @@ main() {
     # Restore database
     local command="docker exec -i $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD"
     local file=$hostRoot/${dataFile}.gz
-    xShow "gunzip \"$file\" | $command"
-    gunzip "$file" | $command
+    xShow "gzcat \"$file\" | $command"
+    gzcat "$file" | $command
     [ $? -ne 0 ] && die "Error restoring database!"
 
     # Restore pics.

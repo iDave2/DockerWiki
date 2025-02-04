@@ -5,7 +5,7 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-FROM mediawiki:1.40 AS view
+FROM mediawiki:1.43 AS view
 
 WORKDIR /var/www/html
 

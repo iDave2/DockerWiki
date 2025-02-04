@@ -3,7 +3,7 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-FROM mariadb:10.11 AS data
+FROM mariadb:11.6 AS data
 
 ARG MARIADB_ROOT_PASSWORD_HASH
 ENV MARIADB_ROOT_PASSWORD_HASH=$MARIADB_ROOT_PASSWORD_HASH
