@@ -10,6 +10,9 @@
 #    https://www.mediawiki.org/wiki/Manual:Creating_a_bot
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+set -uo pipefail
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source ${SCRIPT_DIR}/include.sh
 
 # Tokens are required for most write operations.
 # LOGIN_TOKEN=
@@ -17,21 +20,34 @@ EDIT_TOKEN=
 
 DASHES='-----'
 
-# The following credentials are wired into initial database so that
-# test scripts work "out of the box." Not even ChatGPT could figure
-# out how to create and destroy bots locally with the API. ;)
+# Bot account and password.
 BOT_NAME="WikiAdmin@Robot"
-BOT_PASS="1vc0csjjp4m4buaad8fa0uenfegvkl1u"
+BOT_PASS="aj5t487olv708lveukaheqj5etqf5e1h"
 
-WIKI="http://localhost:8080"
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Whether we use 'localhost' or '127.0.0.1' for SERVER hostname, curl
+#  always starts with this disturbing message:
+#
+#    * URL rejected: Bad hostname
+#    * Closing connection -1
+#    curl: (3) URL rejected: Bad hostname
+#    *   Trying 127.0.0.1:8080...
+#    * Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)
+#
+#  Leaving SERVER as is, debug this another day.
+#
+SERVER="http://localhost:8080"
 API=api.php
-WIKI_API="${WIKI}/${API}"
+WIKI_API="${SERVER}/${API}"
 
 WORK_DIR="/tmp/wiki"
 [ -d "$WORK_DIR" ] && rm -f ${WORK_DIR}/{cj,tk}'*' || mkdir "$WORK_DIR"
 
+FORM=() # See makeForm.
+
 PAGE="Title of an article"
-PAGE_TEXT="{{nocat|2017|01|31}} "
+PAGE_TEXT="{{nocat|2017|01|31}}-"
 
 IMAGE_DIR="${WORK_DIR}/images"
 [ -d "$IMAGE_DIR" ] || mkdir "$IMAGE_DIR"
@@ -47,6 +63,28 @@ cookie_jar="${WORK_DIR}/cjInit"
 [ -e "$cookie_jar" ] && rm $cookie_jar
 cookie_jar_login="${WORK_DIR}/cjLogin"
 [ -e "$cookie_jar_login" ] && rm $cookie_jar_login
+
+####-####+
+#
+#  --compressed: not needed for local testing
+#  --keepalive: enabled by default
+#  --user-agent curl/8.1.2: default beats "Curl Shell Script"
+#
+#  --form: used with POST, not GET
+#
+hCore=(
+  --keepalive-time 10 # default 60 seconds
+  --location          # -L, follow redirects
+  --no-progress-meter # switch off progress meter only
+  -H "Accept-Language: en-us"
+)
+hRetry=( # used by getLoginToken() & showBotRights()
+  --retry 2       # default is to never retry
+  --retry-delay 5 # disables exponential backoff algorithm
+)
+
+# echo "hCore is ${hCore[*]}, hRetry is ${hRetry[@]}"
+# echo BYE $LINENO && exit $LINENO
 
 ####-####+####-####+####-####+####-####+
 #
@@ -64,14 +102,15 @@ abort() {
 #  Banners help with reading output and recalling what life means.
 #
 banner() {
+  local method=${1:-''} url=${2:-''}
   cat <<-END
 
 
 ####-####+####-####+
 #
-#  ${FUNCNAME[1]}(): $1
+#  ${FUNCNAME[1]}(): $method
 END
-  [ -n "$2" ] && echo "#  $2"
+  [ -n "$url" ] && echo "#  $url"
 }
 
 ####-####+####-####+####-####+####-####+
@@ -83,29 +122,22 @@ edit() {
   local token
   getEditToken token || abort 2 "getEditToken() failed"
 
-  # Represent POST as URL query for ease of reading.
-  local query=$(qURL action=edit format=json title="${PAGE}" appendtext="${PAGE_TEXT}" token="${token}")
-  banner "POST $API?$query"
+  local query=$(qURL "action=edit" "format=json" "title=${PAGE}" "appendtext=${PAGE_TEXT}" "token=${token}")
+  banner "POST $API?$query" # Something readable for POST operations.
 
-  local cr=$(curl --no-progress-meter --show-error \
-    --location --compressed \
-    --keepalive-time 60 \
-    --cookie $cookie_jar_login \
-    --user-agent "Curl Shell Script" \
-    --header "Accept-Language: en-us" --header "Connection: keep-alive" \
-    --form "action=edit" \
-    --form "format=json" \
-    --form "title=${PAGE}" \
-    --form "appendtext=${PAGE_TEXT}" \
-    --form "token=${token}" \
-    --request "POST" "${WIKI_API}")
+  makeForm "action=edit" "title=${PAGE}" "appendtext=${PAGE_TEXT}" "token=${token}" "format=json"
+
+  # local cr=$(curl "${hCore[@]}" --cookie $cookie_jar_login "${FORM[@]}" "${WIKI_API}")
+  xCute12 curl "${hCore[@]}" --cookie $cookie_jar_login "${FORM[@]}" "${WIKI_API}" ||
+    die "Edit failed: $(getLastError)"
+  local cr=$(getLastOutput)
 
   echo "$cr" | jq .
 
   [ "$(echo $cr | jq '.error')" != "null" ] && return 2
   [ "$(echo $cr | jq '.warnings')" != "null" ] && return 1
   [ "$(echo $cr | jq '.edit.result')" == *"Success"* ] && return 0
-  return 42
+  return 42 # intentional failure test, evidently...
 }
 
 ####-####+####-####+####-####+####-####+
@@ -236,10 +268,26 @@ main() {
 
 ####-####+####-####+####-####+####-####+
 #
+#  For easier reading, copies args into FORM array with each preceeded by
+#  "--form". Then give "${FORM[@]}" (with quotes) to curl during POST. E.g.,
+#
+#    makeForm "action=edit" "title=Title has spaces" "text=more space"
+#
+makeForm() {
+  FORM=()
+  for option in "$@"; do
+    FORM+=(--form "$option")
+  done
+}
+####-####+####-####+####-####+####-####+
+#
 #  For ease reading URL's, "qURL n1=v1 n2=v2  n3=v3" --> "n1=v1&n2=v2&n3=v3"
 #
+#  (Simply another 'echo' seems to remove extra white, another bash interpolation..)
+#
 qURL() { # https://stackoverflow.com/a/12973694
-  echo "$@" | xargs | tr ' ' '&'
+  # echo "$@" | xargs | tr ' ' '&'
+  join '&' "$@"
 }
 
 ####-####+####-####+####-####+####-####+
