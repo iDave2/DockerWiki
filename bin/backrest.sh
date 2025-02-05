@@ -79,7 +79,7 @@ main() {
     usage "Please specify either --backup or --restore"
 
   if $BACKUP; then
-    [ -n "$hostRoot" ] || hostRoot="$(getTempDir)/backup-$(date '+%y%m%d-%H%M%S')"
+    [ -n "$hostRoot" ] || hostRoot="$(getTempDir)/backup.$(date '+%y%m%d.%H%M%S')"
     for dir in "$hostRoot" "$hostRoot/$imageDir"; do
       if [ -d "$dir" ]; then
         $force || usage "Use --force to reuse working dir '$dir'"
@@ -124,8 +124,9 @@ main() {
       "$hostRoot/$localSettings" ||
       die "Error backing up local settings: $(getLastError)"
 
-    # Make backups read-only.
-    xCute2 chmod -R -w "$hostRoot" || die "Trouble making backup read-only: $(getLastError)"
+    # Make backups mostly read-only.
+    command="find $hostRoot -type f -exec chmod -w {} ;"
+    xCute2 $command || die "Trouble making backup mostly read-only: $(getLastError)"
 
     echo -e "\n==> Wiki backup written to '$hostRoot' <=="
 
