@@ -95,7 +95,7 @@ lsTo() {
   local __ls=$(xQute2 "$@") || die "docker listing failed: $(getLastError)"
   echo "$__ls" # silence requires another approach; one default here
   lastLineCount=$(echo $(echo "$__ls" | wc -l))
-  eval $__outVarName="'$__ls'" # and if $__ls has apostrophe's ??'?
+  eval $__outVarName="'$__ls'" # and if $__ls has apostrophe's ??'?'
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -110,10 +110,10 @@ main() {
 
   case "$oInstaller" in
   cli) # the default, this runs php in container cli
-    dockerFile=Docker/initialize
+    dockerFile=Dockerfiles/initialize
     ;;
   debug) # includes extra developer tools
-    dockerFile=Docker/debug
+    dockerFile=Dockerfiles/debug
     ;;
   restore) # restore=path to a DockerWiki backup directory
     local checks=( # It will help reader to spell these out if one is missing...
@@ -131,10 +131,10 @@ main() {
         usage "DockerWiki backup not found for --installer 'restore=$DW_SOURCE'"
       fi
     done
-    dockerFile=Docker/restore
+    dockerFile=Dockerfiles/restore
     ;;
   web) # leaves bare system for web installer
-    dockerFile=Docker/initialize
+    dockerFile=Dockerfiles/initialize
     ;;
   *) # boo-boos and butt-dials
     usage "Unrecognized --installer '$oInstaller', please check usage"
@@ -285,21 +285,28 @@ makeData() {
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
   local options=(
-    MARIADB_ROOT_PASSWORD_HASH "$DB_ROOT_PASSWORD_HASH"
+    # MARIADB_ROOT_PASSWORD_HASH "$DB_ROOT_PASSWORD_HASH"
     MARIADB_ROOT_HOST "$DB_ROOT_HOST"
     MARIADB_DATABASE "$DB_NAME"
     MARIADB_USER "$DB_USER"
-    MARIADB_PASSWORD_HASH "$DB_PASSWORD_HASH"
+    # MARIADB_PASSWORD_HASH "$DB_PASSWORD_HASH"
+    #SITE "$SITE"
   )
   for ((i = 0; $i < ${#options[*]}; i += 2)); do
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
+  buildOptions+=" --secret id=mariadb-root-password-file,src=root-password-file"
+  buildOptions+=" --secret id=mariadb-password-file,src=password-file"
+
   # Prepare build directory. We presently sit in mariadb folder.
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
   xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
-  xCute2 cp "50-noop.sh" build/ || die "Copy failed: $(getLastError)"
+  #xCute2 cp "20-noop.sh" build/ || die "Copy failed: $(getLastError)"
+  #xCute2 cp "50-environment.sh" build/ || die "Copy failed: $(getLastError)"
+  xCute2 cp 20-noop.sh password-file root-password-file build/ ||
+      die "Copy failed: $(getLastError)"
   if [ $oInstaller == 'restore' ]; then
     xCute2 cp "$DW_SOURCE/$gzDatabase" "build/70-initdb.sql.gz" ||
       die "Error copying file: $(getLastError)"
@@ -494,6 +501,8 @@ EOT
   printf "$format" $dataContainer $dataState $viewContainer $viewState
 
   # Punt. This semaphore works albeit painfully.
+  # TODO: Try "if ! $(mariadb --verbose --help 2>&1 >/dev/null)" here; it
+  # would be a passwordless test... See docker-entrypoint.sh#mysql_check_config.
   local dx="docker exec $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD -e"
   local ac="show databases"
   for ((i = 0; i < $oTimeout; ++i)); do
