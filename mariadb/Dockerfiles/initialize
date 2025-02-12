@@ -1,7 +1,11 @@
+#  syntax = docker/dockerfile:1
+#  check  = skip=SecretsUsedInArgOrEnv
 #
-#  idave2/mariadb Dockerfile - initialize
+#  The check triggers on text "PASSWORD".
+#  Probably needs an LLM to work real good.
 #
 #  Also see:
+#    https://stackoverflow.com/a/79156231
 #    https://hub.docker.com/_/mariadb/;
 #    https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/;
 #
@@ -9,9 +13,14 @@
 
 FROM mariadb:11.6 AS data
 
-# Limit root to local access?
+# I just met a girl.
+ARG MARIA=/root
+
+# Root localhost-only? and her password.
 ARG MARIADB_ROOT_HOST
 ENV MARIADB_ROOT_HOST=$MARIADB_ROOT_HOST
+ENV MARIADB_ROOT_PASSWORD_FILE="$MARIA/mariadb-root-password-file"
+COPY root-password-file $MARIA/mariadb-root-password-file
 
 # MariaDB kindly sets up a user and database for us.
 # Configure something for MediaWiki.
@@ -19,19 +28,11 @@ ARG MARIADB_DATABASE
 ENV MARIADB_DATABASE=$MARIADB_DATABASE
 ARG MARIADB_USER
 ENV MARIADB_USER=$MARIADB_USER
+ENV MARIADB_PASSWORD_FILE="$MARIA/mariadb-password-file"
+COPY password-file $MARIA/mariadb-password-file
 
 # Place custom initialization steps inside /docker-entrypoint-initdb.d.
 # See backrest.sh --restore for practical use of this convenient feature.
 COPY ./20-noop.sh /docker-entrypoint-initdb.d/
-
-# Copy secret passwords into container's /root for DB initialization.
-ARG HOME=/root
-RUN --mount=type=secret,id=mariadb-root-password-file \
-    --mount=type=secret,id=mariadb-password-file \
-    set -eu && \
-    cp /run/secrets/mariadb-root-password-file "$HOME/mariadb-root-password-file" && \
-    cp /run/secrets/mariadb-password-file "$HOME/mariadb-password-file"
-ENV MARIADB_ROOT_PASSWORD_FILE="$HOME/mariadb-root-password-file"
-ENV MARIADB_PASSWORD_FILE="$HOME/mariadb-password-file"
 
 # Original MariaDB entry point remains active.

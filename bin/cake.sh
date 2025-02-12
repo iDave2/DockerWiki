@@ -285,26 +285,18 @@ makeData() {
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
   local options=(
-    # MARIADB_ROOT_PASSWORD_HASH "$DB_ROOT_PASSWORD_HASH"
     MARIADB_ROOT_HOST "$DB_ROOT_HOST"
     MARIADB_DATABASE "$DB_NAME"
     MARIADB_USER "$DB_USER"
-    # MARIADB_PASSWORD_HASH "$DB_PASSWORD_HASH"
-    #SITE "$SITE"
   )
   for ((i = 0; $i < ${#options[*]}; i += 2)); do
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
   done
 
-  buildOptions+=" --secret id=mariadb-root-password-file,src=root-password-file"
-  buildOptions+=" --secret id=mariadb-password-file,src=password-file"
-
   # Prepare build directory. We presently sit in mariadb folder.
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
   xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
-  #xCute2 cp "20-noop.sh" build/ || die "Copy failed: $(getLastError)"
-  #xCute2 cp "50-environment.sh" build/ || die "Copy failed: $(getLastError)"
   xCute2 cp 20-noop.sh password-file root-password-file build/ ||
       die "Copy failed: $(getLastError)"
   if [ $oInstaller == 'restore' ]; then
