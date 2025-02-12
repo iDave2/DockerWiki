@@ -391,7 +391,7 @@ makeView() {
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
     --dbtype=mysql --dbserver=$DATA_HOST --dbname=$DB_NAME --dbuser=$DB_USER \
     --dbpassfile="$TONY/dbpassfile" --passfile="$TONY/passfile" \
-    --scriptpath='' --server="http://localhost:$port" $TONY $MW_ADMIN)
+    --scriptpath='' --server="http://localhost:$port" $SITE $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 
 }

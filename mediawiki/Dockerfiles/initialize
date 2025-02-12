@@ -1,11 +1,18 @@
 #  syntax = docker/dockerfile:1
 #
+#  FAQ: Does restore fail if passwords changed?
+#    Maybe not if our password-files-in-root-folder are only used for
+#    original initialization steps.
+#
 #  Also see:
 #    https://stackoverflow.com/a/79156231;
 #    https://hub.docker.com/_/mediawiki;
 #    https://www.mediawiki.org/wiki/Manual:Install.php.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+
+# Bravo: https://stackoverflow.com/a/60820156.
+ARG VERSION=default
 
 FROM mediawiki:1.43 AS view
 

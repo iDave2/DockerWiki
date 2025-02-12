@@ -1,8 +1,11 @@
 #  syntax = docker/dockerfile:1
 #  check  = skip=SecretsUsedInArgOrEnv
 #
-#  The check triggers on text "PASSWORD".
-#  Probably needs an LLM to work real good.
+#  The check triggers on "password", "password_file", etc...
+#
+#  FAQ: Does restore fail if passwords changed?
+#    Maybe not if our password-files-in-root-folder are only used for
+#    original initialization steps.
 #
 #  Also see:
 #    https://stackoverflow.com/a/79156231
@@ -10,6 +13,9 @@
 #    https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/;
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+
+# Bravo: https://stackoverflow.com/a/60820156.
+ARG VERSION=default
 
 FROM mariadb:11.6 AS data
 
@@ -30,12 +36,13 @@ ENV MARIADB_USER=$MARIADB_USER
 ENV MARIADB_PASSWORD_FILE="$MARIA/mariadb-password-file"
 
 # Place custom initialization steps inside /docker-entrypoint-initdb.d.
-# See backrest.sh --restore for practical use of this convenient feature.
+# Copy passwords to a safe place (/root).
 COPY ./20-noop.sh /docker-entrypoint-initdb.d/
 COPY --chmod=400 mariadb-root-password-file mariadb-password-file $MARIA/
 
 # Dave, see https://stackoverflow.com/a/43656644.
 # Don't repeat all of this in separate file(s); use --build-arg's.
 # Do this after mediawiki dockerfile done. (Then you can test restore.)
+# Best: https://stackoverflow.com/a/60820156.
 
 # Original MariaDB entry point remains active.
