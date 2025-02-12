@@ -11,13 +11,52 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-# Bravo: https://stackoverflow.com/a/60820156.
 ARG VERSION=default
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  See https://stackoverflow.com/a/60820156.
+#
 FROM mediawiki:1.43 AS view
 
-# Maria's boyfriend.
+# Tony is Maria's boyfriend.
 ARG TONY=/root
+
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Default image requires passwords for the new wiki & database.
+#  These files are used by wiki's command-line installer.
+#
+FROM view AS view-branch-default
 COPY --chmod=400 dbpassfile passfile $TONY/
+
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Restored images require an existing wiki, a backup.
+#
+FROM view AS view-branch-restore
+WORKDIR /var/www/html
+COPY images images/
+COPY LocalSettings.php ./
+
+# Rewrite secret key if requested.
+# TODO: Is this still needed? LocalSettings also has clear passwords...
+RUN set -eu; \
+  key=$(perl -we "print map { ('0'..'9','a'..'f')[int(rand(16))] } 1..64"); \
+  perl -i.bak -pwe "s|%%wgSecretKey%%|$key|" LocalSettings.php
+
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Select final image from choices above. Very nice.
+#
+FROM view-branch-${VERSION} AS final
+
+# Dave, see https://stackoverflow.com/a/43656644.
+# Don't repeat all of this in separate file(s); use --build-arg's.
+# Do this after mediawiki dockerfile done. (Then you can test restore.)
+# Best: https://stackoverflow.com/a/60820156.
 
 #  Original MediaWiki entry point remains active.

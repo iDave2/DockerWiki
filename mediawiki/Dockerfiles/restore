@@ -13,6 +13,7 @@ COPY images images/
 COPY LocalSettings.php ./
 
 # Rewrite secret key if requested.
+# TODO: Is this still needed? LocalSettings also has clear passwords...
 RUN set -eu; \
   key=$(perl -we "print map { ('0'..'9','a'..'f')[int(rand(16))] } 1..64"); \
   perl -i.bak -pwe "s|%%wgSecretKey%%|$key|" LocalSettings.php

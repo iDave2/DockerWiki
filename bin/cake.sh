@@ -110,7 +110,7 @@ main() {
 
   case "$oInstaller" in
   cli) # the default, this runs php in container cli
-    dockerFile=Dockerfiles/initialize
+    dockerFile=Dockerfiles/default
     ;;
   debug) # includes extra developer tools
     dockerFile=Dockerfiles/debug
@@ -134,7 +134,7 @@ main() {
     dockerFile=Dockerfiles/restore
     ;;
   web) # leaves bare system for web installer
-    dockerFile=Dockerfiles/initialize
+    dockerFile=Dockerfiles/default
     ;;
   *) # boo-boos and butt-dials
     usage "Unrecognized --installer '$oInstaller', please check usage"
