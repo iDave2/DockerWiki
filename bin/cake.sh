@@ -337,19 +337,6 @@ makeView() {
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg TONY=$TONY"
-  # local options=(
-  #   # DW_SOURCE "$DW_SOURCE"
-  #   TONY $TONY
-  #   # MW_ADMIN "$MW_ADMIN"
-  #   # MW_PASSWORD "$MW_PASSWORD"
-  #   # MW_DB_NAME "$DB_NAME"
-  #   # MW_DB_USER "$DB_USER"
-  #   # MW_DB_PASSWORD "$DB_PASSWORD"
-  # )
-  # for ((i = 0; $i < ${#options[*]}; i += 2)); do
-  #   buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
-  # done
-
   if [ $oInstaller != 'restore' ]; then
     xCute2 cp dbpassfile passfile build/ || die "Copy failed: $(getLastError)"
   else
