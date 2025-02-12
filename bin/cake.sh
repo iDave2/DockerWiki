@@ -37,7 +37,7 @@ MOUNT=
 PUBLISH=
 
 # More file scoped stuff (naming please?).
-dockerFile=
+dockerFile=Dockerfile
 lastLineCount=0 # see lsTo()
 dataVolume=$(decorate "$DATA_VOLUME" "$PROJECT" 'volume')
 dataTarget=/var/lib/mysql
@@ -110,10 +110,10 @@ main() {
 
   case "$oInstaller" in
   cli) # the default, this runs php in container cli
-    dockerFile=Dockerfiles/default
+    # dockerFile=Dockerfiles/default
     ;;
   debug) # going away, use separate netshoot
-    dockerFile=Dockerfiles/default
+    # dockerFile=Dockerfiles/default
     ;;
   restore) # restore=path to a DockerWiki backup directory
     local checks=( # It will help reader to spell these out if one is missing...
@@ -131,10 +131,10 @@ main() {
         usage "DockerWiki backup not found for --installer 'restore=$DW_SOURCE'"
       fi
     done
-    dockerFile=Dockerfiles/default # needs --build-arg VERSION=restore
+    # dockerFile=Dockerfiles/default # needs --build-arg VERSION=restore
     ;;
   web) # leaves bare system for web installer
-    dockerFile=Dockerfiles/default
+    # dockerFile=Dockerfiles/default
     ;;
   *) # boo-boos and butt-dials
     usage "Unrecognized --installer '$oInstaller', please check usage"
