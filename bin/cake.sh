@@ -296,9 +296,18 @@ makeData() {
   # Prepare build directory. We presently sit in mariadb folder.
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
-  xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
-  xCute2 cp 20-noop.sh password-file root-password-file build/ ||
+
+  local files=( # ./source -> build/destination
+    "$dockerFile" Dockerfile
+    20-noop.sh 20-noop.sh
+    password-file mariadb-password-file
+    root-password-file mariadb-root-password-file
+  )
+  for ((i = 0; $i < ${#files[*]}; i += 2)); do
+    xCute2 cp ${files[$i]} build/${files[$i + 1]} ||
       die "Copy failed: $(getLastError)"
+  done
+
   if [ $oInstaller == 'restore' ]; then
     xCute2 cp "$DW_SOURCE/$gzDatabase" "build/70-initdb.sql.gz" ||
       die "Error copying file: $(getLastError)"
@@ -321,6 +330,7 @@ makeView() {
   IMAGE=$DID/mediawiki
   MOUNT=
   PUBLISH="--publish $MW_PORTS"
+  TONY=/root # Maria's boyfriend.
 
   if (($oClean > 0)); then
     make # just cleanup, no build & run
@@ -331,12 +341,12 @@ makeView() {
   $oCache || buildOptions='--no-cache'
   local options=(
     # DW_SOURCE "$DW_SOURCE"
-    MW_SITE "$SITE"
+    TONY $TONY
     # MW_ADMIN "$MW_ADMIN"
-    MW_PASSWORD "$MW_PASSWORD"
+    # MW_PASSWORD "$MW_PASSWORD"
     # MW_DB_NAME "$DB_NAME"
     # MW_DB_USER "$DB_USER"
-    MW_DB_PASSWORD "$DB_PASSWORD"
+    # MW_DB_PASSWORD "$DB_PASSWORD"
   )
   for ((i = 0; $i < ${#options[*]}; i += 2)); do
     buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
@@ -346,6 +356,7 @@ makeView() {
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mediawiki/build failed: $(getLastError)"
   xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
+  xCute2 cp dbpassfile passfile build/ || die "Copy failed: $(getLastError)"
   if [ $oInstaller == 'restore' ]; then
     xCute2 cp -R "$DW_SOURCE/$localSettings" "$DW_SOURCE/$imageDir" build/ ||
       die "Error copying file: $(getLastError)"
@@ -379,8 +390,8 @@ makeView() {
   port=${port##*:}          # 127.0.0.1:8080 -> 8080
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
     --dbtype=mysql --dbserver=$DATA_HOST --dbname=$DB_NAME --dbuser=$DB_USER \
-    --dbpassfile="$SITE/dbpassfile" --passfile="$SITE/passfile" \
-    --scriptpath='' --server="http://localhost:$port" $SITE $MW_ADMIN)
+    --dbpassfile="$TONY/dbpassfile" --passfile="$TONY/passfile" \
+    --scriptpath='' --server="http://localhost:$port" $TONY $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 
 }

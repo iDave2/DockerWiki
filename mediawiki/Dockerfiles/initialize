@@ -1,21 +1,16 @@
+#  syntax = docker/dockerfile:1
 #
-#  idave2/mediawiki image generator - initialize
-#
-#  See '../.env' for environment defaults.
+#  Also see:
+#    https://stackoverflow.com/a/79156231;
+#    https://hub.docker.com/_/mediawiki;
+#    https://www.mediawiki.org/wiki/Manual:Install.php.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
 FROM mediawiki:1.43 AS view
 
-# Configurable --build-arg's, not all used here.
-ARG MW_SITE
-ARG MW_ADMIN MW_PASSWORD
-ARG MW_DB_NAME MW_DB_USER MW_DB_PASSWORD
-
-# Used by CLI installer.
-# TODO: this could use docker secrets instead of displaying passwords in logs.
-RUN set -eu && mkdir $MW_SITE; \
-    echo "$MW_DB_PASSWORD" > $MW_SITE/dbpassfile; \
-    echo "$MW_PASSWORD" > $MW_SITE/passfile;
+# Maria's boyfriend.
+ARG TONY=/root
+COPY --chmod=400 dbpassfile passfile $TONY/
 
 #  Original MediaWiki entry point remains active.
