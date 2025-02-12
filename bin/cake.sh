@@ -112,8 +112,8 @@ main() {
   cli) # the default, this runs php in container cli
     dockerFile=Dockerfiles/default
     ;;
-  debug) # includes extra developer tools
-    dockerFile=Dockerfiles/debug
+  debug) # going away, use separate netshoot
+    dockerFile=Dockerfiles/default
     ;;
   restore) # restore=path to a DockerWiki backup directory
     local checks=( # It will help reader to spell these out if one is missing...
@@ -131,7 +131,7 @@ main() {
         usage "DockerWiki backup not found for --installer 'restore=$DW_SOURCE'"
       fi
     done
-    dockerFile=Dockerfiles/restore
+    dockerFile=Dockerfiles/default # needs --build-arg VERSION=restore
     ;;
   web) # leaves bare system for web installer
     dockerFile=Dockerfiles/default
@@ -282,35 +282,26 @@ makeData() {
     return
   fi
 
-  local buildOptions=''
-  $oCache || buildOptions='--no-cache'
-  local options=(
-    MARIADB_ROOT_HOST "$DB_ROOT_HOST"
-    MARIADB_DATABASE "$DB_NAME"
-    MARIADB_USER "$DB_USER"
-  )
-  for ((i = 0; $i < ${#options[*]}; i += 2)); do
-    buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
-  done
-
   # Prepare build directory. We presently sit in mariadb folder.
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
-
-  local files=( # ./source -> build/destination
-    "$dockerFile" Dockerfile
-    20-noop.sh 20-noop.sh
-    password-file mariadb-password-file
-    root-password-file mariadb-root-password-file
-  )
-  for ((i = 0; $i < ${#files[*]}; i += 2)); do
-    xCute2 cp ${files[$i]} build/${files[$i + 1]} ||
+  xCute2 cp "$dockerFile" build/Dockerfile &&
+      cp 20-noop.sh build/20-noop.sh ||
       die "Copy failed: $(getLastError)"
-  done
 
-  if [ $oInstaller == 'restore' ]; then
-    xCute2 cp "$DW_SOURCE/$gzDatabase" "build/70-initdb.sql.gz" ||
-      die "Error copying file: $(getLastError)"
+  # Prepare build command line and gather inputs.
+  local buildOptions=''
+  $oCache || buildOptions='--no-cache'
+  if [ $oInstaller != 'restore' ]; then
+    xCute2 cp password-file build/mariadb-password-file &&
+        cp root-password-file build/mariadb-root-password-file ||
+        die "Copy failed: $(getLastError)"
+    buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DB_ROOT_HOST"
+    buildOptions+=" --build-arg MARIADB_DATABASE=$DB_NAME"
+    buildOptions+=" --build-arg MARIADB_USER=$DB_USER"
+  else
+    xCute2 cp "$DW_SOURCE/$gzDatabase" build/ || die "Copy failed: $(getLastError)"
+    buildOptions+=" --build-arg VERSION=restore"
   fi
 
   # Move context into build subdirectory and wake up docker engine.
@@ -337,27 +328,31 @@ makeView() {
     return
   fi
 
-  local buildOptions=''
-  $oCache || buildOptions='--no-cache'
-  local options=(
-    # DW_SOURCE "$DW_SOURCE"
-    TONY $TONY
-    # MW_ADMIN "$MW_ADMIN"
-    # MW_PASSWORD "$MW_PASSWORD"
-    # MW_DB_NAME "$DB_NAME"
-    # MW_DB_USER "$DB_USER"
-    # MW_DB_PASSWORD "$DB_PASSWORD"
-  )
-  for ((i = 0; $i < ${#options[*]}; i += 2)); do
-    buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
-  done
-
   # Prepare build directory. We presently sit in mediawiki folder.
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mediawiki/build failed: $(getLastError)"
   xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
-  xCute2 cp dbpassfile passfile build/ || die "Copy failed: $(getLastError)"
-  if [ $oInstaller == 'restore' ]; then
+
+  # Prepare build command line and gather inputs.
+  local buildOptions=''
+  $oCache || buildOptions='--no-cache'
+  buildOptions+=" --build-arg TONY=$TONY"
+  # local options=(
+  #   # DW_SOURCE "$DW_SOURCE"
+  #   TONY $TONY
+  #   # MW_ADMIN "$MW_ADMIN"
+  #   # MW_PASSWORD "$MW_PASSWORD"
+  #   # MW_DB_NAME "$DB_NAME"
+  #   # MW_DB_USER "$DB_USER"
+  #   # MW_DB_PASSWORD "$DB_PASSWORD"
+  # )
+  # for ((i = 0; $i < ${#options[*]}; i += 2)); do
+  #   buildOptions+=" --build-arg ${options[$i]}=${options[$i + 1]}"
+  # done
+
+  if [ $oInstaller != 'restore' ]; then
+    xCute2 cp dbpassfile passfile build/ || die "Copy failed: $(getLastError)"
+  else
     xCute2 cp -R "$DW_SOURCE/$localSettings" "$DW_SOURCE/$imageDir" build/ ||
       die "Error copying file: $(getLastError)"
   fi

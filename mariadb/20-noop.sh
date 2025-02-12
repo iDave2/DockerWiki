@@ -10,6 +10,6 @@ _join() { # https://stackoverflow.com/a/17841619
   echo $r
 }
 
-echo my-entry-point: [ $(_join ', ' "$0" "$@") ]
+echo "\n  my entry point args:" [ $(_join ', ' "$0" "$@") ]
 
 # bash
