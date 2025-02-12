@@ -286,16 +286,16 @@ makeData() {
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
   xCute2 cp "$dockerFile" build/Dockerfile &&
-      cp 20-noop.sh build/20-noop.sh ||
-      die "Copy failed: $(getLastError)"
+    cp 20-noop.sh build/20-noop.sh &&
+    cp root-password-file build/mariadb-root-password-file ||
+    die "Copy failed: $(getLastError)"
 
   # Prepare build command line and gather inputs.
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
   if [ $oInstaller != 'restore' ]; then
-    xCute2 cp password-file build/mariadb-password-file &&
-        cp root-password-file build/mariadb-root-password-file ||
-        die "Copy failed: $(getLastError)"
+    xCute2 cp password-file build/mariadb-password-file ||
+      die "Copy failed: $(getLastError)"
     buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DB_ROOT_HOST"
     buildOptions+=" --build-arg MARIADB_DATABASE=$DB_NAME"
     buildOptions+=" --build-arg MARIADB_USER=$DB_USER"
@@ -355,6 +355,7 @@ makeView() {
   else
     xCute2 cp -R "$DW_SOURCE/$localSettings" "$DW_SOURCE/$imageDir" build/ ||
       die "Error copying file: $(getLastError)"
+    buildOptions+=" --build-arg VERSION=restore"
   fi
 
   # Move context into build subdirectory and wake up docker engine.

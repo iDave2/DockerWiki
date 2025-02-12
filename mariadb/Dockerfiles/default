@@ -3,10 +3,6 @@
 #
 #  The check triggers on "password", "password_file", etc...
 #
-#  FAQ: Does restore fail if passwords changed?
-#    Maybe not if our password-files-in-root-folder are only used for
-#    original initialization steps.
-#
 #  Also see:
 #    https://stackoverflow.com/a/79156231
 #    https://hub.docker.com/_/mariadb/;
@@ -18,7 +14,7 @@ ARG VERSION=default
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  See https://stackoverflow.com/a/60820156.
+#  See https://stackoverflow.com/a/60820156. Mahvelous.
 #
 FROM mariadb:11.6 AS data
 
@@ -39,15 +35,18 @@ ENV MARIADB_USER=$MARIADB_USER
 # Place custom initialization steps inside /docker-entrypoint-initdb.d.
 COPY ./20-noop.sh /docker-entrypoint-initdb.d/
 
+# Restore from scratch (at least) needs a root password.
+ENV MARIADB_ROOT_PASSWORD_FILE="$MARIA/mariadb-root-password-file"
+COPY --chmod=400 mariadb-root-password-file $MARIA/
+
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Default image requires passwords for the new database.
 #
 FROM data AS data-branch-default
-ENV MARIADB_ROOT_PASSWORD_FILE="$MARIA/mariadb-root-password-file"
 ENV MARIADB_PASSWORD_FILE="$MARIA/mariadb-password-file"
-COPY --chmod=400 mariadb-root-password-file mariadb-password-file $MARIA/
+COPY --chmod=400 mariadb-password-file $MARIA/
 
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -55,12 +54,12 @@ COPY --chmod=400 mariadb-root-password-file mariadb-password-file $MARIA/
 #  Restored images require an existing database, a backup.
 #
 FROM data AS data-branch-restore
-COPY 70-initdb.sql.gz /docker-entrypoint-initdb.d/
+COPY all-databases.sql.gz /docker-entrypoint-initdb.d/
 
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Select final image from choices above. Very nice.
+#  Select final image from choices above.
 #
 FROM data-branch-${VERSION} AS final
 
