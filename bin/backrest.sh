@@ -92,7 +92,7 @@ main() {
     [ -d "$hostRoot" ] || usage "-w <$hostRoot> not found, nothing to restore"
   fi
 
-  checkContainer $dataContainer $DATA_HOST mariadb # $DW_DATA_IMAGE=mariadb?
+  checkContainer $dataContainer $DATA_HOST mariadb
   checkContainer $viewContainer $VIEW_HOST mediawiki
 
   if ! $QUIET; then

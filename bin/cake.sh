@@ -42,7 +42,7 @@ lastLineCount=0 # see lsTo()
 dataVolume=$(decorate "$DATA_VOLUME" "$PROJECT" 'volume')
 dataTarget=/var/lib/mysql
 network=$(decorate "$NETWORK" "$PROJECT" 'network')
-DW_SOURCE= # move to .env?
+BACKUP= # --installer restore=BACKUP (i.e, the backup directory)
 
 # Contents of a backup directory (see backrest.sh).
 readonly gzDatabase=all-databases.sql.gz
@@ -117,10 +117,10 @@ main() {
     ;;
   restore) # restore=path to a DockerWiki backup directory
     local checks=( # It will help reader to spell these out if one is missing...
-      -d "$DW_SOURCE"
-      -f "$DW_SOURCE/$gzDatabase"
-      -f "$DW_SOURCE/$localSettings"
-      -d "$DW_SOURCE/$imageDir"
+      -d "$BACKUP"
+      -f "$BACKUP/$gzDatabase"
+      -f "$BACKUP/$localSettings"
+      -d "$BACKUP/$imageDir"
     )
     for ((i = 0; $i < ${#checks[*]}; i += 2)); do
       local op=${checks[$i]} path=${checks[$i + 1]}
@@ -128,7 +128,7 @@ main() {
         local what
         [ $op == '-d' ] && what=directory || what=file
         echo -e "\nError: $what '$path' not found"
-        usage "DockerWiki backup not found for --installer 'restore=$DW_SOURCE'"
+        usage "DockerWiki backup not found for --installer 'restore=$BACKUP'"
       fi
     done
     # dockerFile=Dockerfiles/default # needs --build-arg VERSION=restore
@@ -300,7 +300,7 @@ makeData() {
     buildOptions+=" --build-arg MARIADB_DATABASE=$DB_NAME"
     buildOptions+=" --build-arg MARIADB_USER=$DB_USER"
   else
-    xCute2 cp "$DW_SOURCE/$gzDatabase" build/ || die "Copy failed: $(getLastError)"
+    xCute2 cp "$BACKUP/$gzDatabase" build/ || die "Copy failed: $(getLastError)"
     buildOptions+=" --build-arg VERSION=restore"
   fi
 
@@ -340,7 +340,7 @@ makeView() {
   if [ $oInstaller != 'restore' ]; then
     xCute2 cp dbpassfile passfile build/ || die "Copy failed: $(getLastError)"
   else
-    xCute2 cp -R "$DW_SOURCE/$localSettings" "$DW_SOURCE/$imageDir" build/ ||
+    xCute2 cp -R "$BACKUP/$localSettings" "$BACKUP/$imageDir" build/ ||
       die "Error copying file: $(getLastError)"
     buildOptions+=" --build-arg VERSION=restore"
   fi
@@ -398,7 +398,7 @@ parseCommandLine() {
       oInstaller=$(perl -pwe 's|/+$||' <<<${2:-''})
       shift 2
       if [ "${oInstaller:0:8}" = "restore=" -a ${#oInstaller} -gt 8 ]; then
-        DW_SOURCE=$(realpath ${oInstaller:8})
+        BACKUP=$(realpath ${oInstaller:8})
         oInstaller=restore
       fi
       ;;
