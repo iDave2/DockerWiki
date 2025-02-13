@@ -38,6 +38,7 @@ COPY ./20-noop.sh /docker-entrypoint-initdb.d/
 # Restore from scratch (at least) needs a root password.
 ENV MARIADB_ROOT_PASSWORD_FILE="$MARIA/mariadb-root-password-file"
 COPY --chmod=400 mariadb-root-password-file $MARIA/
+COPY --chmod=500 mariadb-show-databases $MARIA/
 
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

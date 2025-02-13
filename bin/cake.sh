@@ -287,7 +287,8 @@ makeData() {
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
   xCute2 cp "$dockerFile" build/Dockerfile &&
     cp 20-noop.sh build/20-noop.sh &&
-    cp root-password-file build/mariadb-root-password-file ||
+    cp root-password-file build/mariadb-root-password-file &&
+    cp mariadb-show-databases build/ ||
     die "Copy failed: $(getLastError)"
 
   # Prepare build command line and gather inputs.
@@ -486,14 +487,10 @@ EOT
   getState $dataContainer dataState $viewContainer viewState
   printf "$format" $dataContainer $dataState $viewContainer $viewState
 
-  # Punt. This semaphore works albeit painfully.
-  # TODO: Try "if ! $(mariadb --verbose --help 2>&1 >/dev/null)" here; it
-  # would be a passwordless test... See docker-entrypoint.sh#mysql_check_config.
-  local dx="docker exec $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD -e"
-  local ac="show databases"
+  # Punt. Here's a semaphore.
   for ((i = 0; i < $oTimeout; ++i)); do
-    xShow $dx "'$ac'" && $dx "$ac" && break
-    sleep 1
+    xCute docker exec $dataContainer /root/mariadb-show-databases && break
+    sleep 2
   done
 
   getState $dataContainer dataState $viewContainer viewState

@@ -23,7 +23,7 @@ ARG VERSION=default
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  See https://stackoverflow.com/a/60820156. Very nice.
+#  See https://stackoverflow.com/a/60820156.
 #
 FROM mediawiki:1.43 AS view
 

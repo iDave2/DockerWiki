@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+#  A script to answer the question "Can I connect to mariadb yet?"
+#  without passing clear passwords around.
+#
+#  usage:
+#    docker exec <container> /root/mariadb-show-databases &&
+#      echo "OK to connect" || echo "Not ready, keep waiting"
+#
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
+password=`cat $SCRIPT_DIR/mariadb-root-password-file`
+
+mariadb -p$password -e 'show databases'
