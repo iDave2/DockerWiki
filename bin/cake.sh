@@ -288,7 +288,7 @@ makeData() {
   xCute2 cp "$dockerFile" build/Dockerfile &&
     cp 20-noop.sh build/20-noop.sh &&
     cp root-password-file build/mariadb-root-password-file &&
-    cp mariadb-show-databases build/ ||
+    cp show-databases build/mariadb-show-databases ||
     die "Copy failed: $(getLastError)"
 
   # Prepare build command line and gather inputs.
