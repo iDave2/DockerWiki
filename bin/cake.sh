@@ -39,9 +39,9 @@ PUBLISH=
 # More file scoped stuff (naming please?).
 dockerFile=Dockerfile
 lastLineCount=0 # see lsTo()
-dataVolume=$(decorate "$DATA_VOLUME" "$PROJECT" 'volume')
+dataVolume=$(decorate "$DATA_VOLUME" "$DW_PROJECT" 'volume')
 dataTarget=/var/lib/mysql
-network=$(decorate "$NETWORK" "$PROJECT" 'network')
+network=$(decorate "$NETWORK" "$DW_PROJECT" 'network')
 BACKUP= # --installer restore=BACKUP (i.e, the backup directory)
 
 # Contents of a backup directory (see backrest.sh).
@@ -190,22 +190,22 @@ make() {
   fi
 
   # Build the image.
-  command="docker build $buildOptions --tag $IMAGE:$TAG ."
+  command="docker build $buildOptions --tag $IMAGE:$DW_TAG ."
   xCute2 $command || die "Build failed: $(getLastError)"
-  for ((i = 0; i < ${#EXTRA_TAGS[*]}; i++)); do
-    xCute2 docker image tag $IMAGE:$TAG $IMAGE:${EXTRA_TAGS[$i]} ||
-      die "Error tagging '$IMAGE:$TAG <- $IMAGE:${EXTRA_TAGS[$i]}'"
+  for ((i = 0; i < ${#DW_EXTRA_TAGS[*]}; i++)); do
+    xCute2 docker image tag $IMAGE:$DW_TAG $IMAGE:${DW_EXTRA_TAGS[$i]} ||
+      die "Error tagging '$IMAGE:$DW_TAG <- $IMAGE:${DW_EXTRA_TAGS[$i]}'"
   done
 
   # Launch container with new image.
   if false; then # --interactive not used / needed, maybe delete?
     command=$(echo docker run $ENVIRONMENT --interactive --rm --tty \
       --network $network --name $CONTAINER --hostname $HOST \
-      --network-alias $HOST $MOUNT $PUBLISH $IMAGE:$TAG)
+      --network-alias $HOST $MOUNT $PUBLISH $IMAGE:$DW_TAG)
   else
     command=$(echo docker run --detach $ENVIRONMENT --network $network \
       --name $CONTAINER --hostname $HOST --network-alias $HOST $MOUNT \
-      $PUBLISH $IMAGE:$TAG)
+      $PUBLISH $IMAGE:$DW_TAG)
   fi
   xCute2 $command || die "Launch failed: $(getLastError)"
 
@@ -247,7 +247,7 @@ makeClean() {
   # Remove existing IMAGEs sometimes (-ccc).
   if (($oClean == 0 || $oClean > 2)); then
     lsTo out docker image ls $IMAGE
-    local tags=($(echo "$out" | cut -w -f 2 | grep -v TAG))
+    local tags=($(echo "$out" | cut -w -f 2 | grep -v DW_TAG))
     if ((${#tags[*]} > 0)); then # https://stackoverflow.com/a/13216833
       local images=(${tags[@]/#/${IMAGE}:})
       xCute2 docker rmi "${images[@]}" ||
@@ -273,7 +273,7 @@ makeData() {
 
   CONTAINER=$(getContainer $DATA_SERVICE)
   HOST=$DATA_HOST
-  IMAGE=$DID/mariadb
+  IMAGE=$DW_HID/mariadb
   MOUNT="--mount type=volume,src=$dataVolume,dst=$dataTarget"
   PUBLISH=
 
@@ -319,7 +319,7 @@ makeView() {
   CONTAINER=$(getContainer $VIEW_SERVICE)
   ENVIRONMENT=
   HOST=$VIEW_HOST
-  IMAGE=$DID/mediawiki
+  IMAGE=$DW_HID/mediawiki
   MOUNT=
   PUBLISH="--publish $MW_PORTS"
   TONY=/root # Maria's boyfriend.
@@ -375,7 +375,7 @@ makeView() {
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
     --dbtype=mysql --dbserver=$DATA_HOST --dbname=$DB_NAME --dbuser=$DB_USER \
     --dbpassfile="$TONY/dbpassfile" --passfile="$TONY/passfile" \
-    --scriptpath='' --server="http://localhost:$port" $SITE $MW_ADMIN)
+    --scriptpath='' --server="http://localhost:$port" $DW_SITE $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 
 }

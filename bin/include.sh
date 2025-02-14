@@ -6,9 +6,11 @@
 
 set -uo pipefail # pipe status is last-to-fail or zero if none fail
 
+# https://stackoverflow.com/a/246128
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-source "${SCRIPT_DIR}/../.env" # https://stackoverflow.com/a/246128
-source "$USER_CONFIG" 2>/dev/null
+
+source "$DW_USER_CONFIG" 2>/dev/null
+source "${SCRIPT_DIR}/../.env"
 
 # Additional variables declared at EOF after functions available.
 DECORATE=true # see --no-decoration and decorate()
@@ -66,7 +68,7 @@ getContainer() {
     usage "getContainer: expected '$DATA_SERVICE' or '$VIEW_SERVICE', not '$1'"
     ;;
   esac
-  echo $(decorate "$service" "$PROJECT" 'container')
+  echo $(decorate "$service" "$DW_PROJECT" 'container')
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

@@ -5,11 +5,11 @@ name: wiki
 services:
 
   view:
-    image: $DID/mediawiki:$TAG
+    image: $DW_HID/mediawiki:$DW_TAG
     depends_on:
       - data
     environment:
-      - TZ=${TZ}
+      - DW_TZ=${DW_TZ}
     hostname: $VIEW_HOST
     networks:
       - net
@@ -17,9 +17,9 @@ services:
       - "${MW_PORTS}"
 
   data:
-    image: $DID/mariadb:$TAG
+    image: $DW_HID/mariadb:$DW_TAG
     environment:
-      - TZ=${TZ}
+      - DW_TZ=${DW_TZ}
     hostname: $DATA_HOST
     networks:
       - net

@@ -8,7 +8,7 @@ name: wiki
 services:
   data:
     environment:
-      TZ: UTC
+      DW_TZ: UTC
     hostname: data
     image: idave2/mariadb:1.0.0
     networks:
@@ -24,7 +24,7 @@ services:
         condition: service_started
         required: true
     environment:
-      TZ: UTC
+      DW_TZ: UTC
     hostname: view
     image: idave2/mediawiki:1.0.0
     networks:

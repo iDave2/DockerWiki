@@ -1,12 +1,41 @@
 #!/usr/bin/env bash
 #
-#  Backup and restore tools adapted from hub pages for official
-#  mediawiki and mariadb images.
+#  This script backs up and restores three things:
+#    - The MariaDB database -- named 'mediawiki' of all things --
+#      that contains all MediaWiki database records;
+#    - MediaWiki images, /var/www/html/images/**;
+#    - /var/www/html/LocalSettings.php, the MediaWiki configuration.
+#
+#  MediaWiki always has at least two accounts defined:
+#    - the MediaWiki administrator (MWA) account;
+#    - the MediaWiki database administrator (DBA) account;
+#
+#  MariaDB also has at least two accounts defined:
+#    - root;
+#    - the MediaWiki database administrator (DBA) account;
+#
+#  This script performs container operations using the DBA account
+#  so, as a Backup Operator, you only need to know DBA credentials.
+#
+#  TODO: Write somewhere how to change account names and/or passwords
+#  on a live system, then saved to backup.
+#
 #
 #  This script passes cleartext passwords so is Not Secure.
 #  This script requires 'bash' and 'jq'.
 #
 #  Try camel case for file scope hint, uppercase for globals?
+#
+#  Mention JQ up front. This uses a jq tool c/o i forget.
+#
+#  TODO: Dave, rather than suffer headaches with root passwords here,
+#  perhaps you could just backup and restore mediawiki stuff, not all of
+#  mariadb. Then WikiDBA, rather than root, might be sufficient (and a
+#  more appropriate secret for the Backup Operator, an ancient role of
+#  the Windoze ideology). It might also be easier to change DB accounts:
+#  restore base system (with whatever accounts desired), then restore
+#  mediawiki data, then modify any credentials in LocalSettings as
+#  needed, then back that up until next time.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
@@ -24,7 +53,7 @@ RESTORE=false
 # Where to do it.
 hostRoot=                # see --work-dir
 wikiRoot="/var/www/html" # docroot inside view container
-dataFile=all-databases.sql
+dataFile=mediawiki.sql
 imageDir=images
 localSettings=LocalSettings.php
 
@@ -105,7 +134,8 @@ main() {
   if $BACKUP; then
 
     # Backup database.
-    local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DB_ROOT_PASSWORD"
+    #  local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DB_ROOT_PASSWORD"
+    local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p"
     local file="${hostRoot}/${dataFile}.gz"
     xShow "$command | gzip > \"$file\""
     $command | gzip >"$file"
@@ -135,7 +165,8 @@ main() {
   if $RESTORE; then
 
     # Restore database
-    local command="docker exec -i $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD"
+    # local command="docker exec -i $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD"
+    local command="docker exec -i $dataContainer mariadb -uroot -p"
     local file=$hostRoot/${dataFile}.gz
     xShow "gzcat \"$file\" | $command"
     gzcat "$file" | $command
@@ -236,6 +267,7 @@ Options:
   -h | --help                    Print this usage summary
   -f | --force                   Allow backup to an existing location
        --no-decoration           Disable composer-naming emulation
+  -p | --password                MediaWiki DBA password
   -r | --restore                 Restore database, images, and local settings
   -V | --view-container string   Override default '$(getContainer view)'
   -v | --verbose                 Display a few parameters
@@ -249,13 +281,3 @@ EOT
 #  Capua, shall I begin?
 #
 main "$@"
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  Old notes, snippets, unit tests, etc.
-#
-# # Test getOpt().
-# echo "main: incoming args: (" $(join ', ' "$@") ")"
-# set -- $(getOpt "$@")
-# echo "main: adjusted args: (" $(join ', ' "$@") ")"
-# return
