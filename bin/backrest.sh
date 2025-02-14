@@ -62,7 +62,7 @@ dataContainer=$(getContainer $DATA_SERVICE)
 viewContainer=$(getContainer $VIEW_SERVICE)
 
 # Wiki DBA credentials.
-password=${DB_USER_PASSWORD:-''}
+#password=${DW_DB_USER_PASSWORD:-''}
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -106,7 +106,8 @@ main() {
 
   parseCommandLine "$@"
 
-  # Precedence unclear and it seems to work...
+  # Validate request excessively.
+
   ($BACKUP && $RESTORE) || (! $BACKUP && ! $RESTORE) &&
     usage "Please specify either --backup or --restore"
 
@@ -134,18 +135,20 @@ main() {
     done
   fi
 
+  # Verify credentials extensively.
+
   # Use may define DW_DB_USER_PASSWORD or use command line --password=xyz.
   # Else, we prompt.
-  while [ -z "$password" ]; do
+  while [ -z "$DW_DB_USER_PASSWORD" ]; do
     echo
-    read -sp "Please enter password for user $DB_USER: " password
+    read -sp "Please enter password for user $DW_DB_USER: " DW_DB_USER_PASSWORD
   done
 
   if $BACKUP; then
 
     # Backup database.
     #  local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DB_ROOT_PASSWORD"
-    local command="docker exec $dataContainer mariadb-dump $DB_NAME -u$DB_USER -p$password"
+    local command="docker exec $dataContainer mariadb-dump $DW_DB_NAME -u$DW_DB_USER -p$password"
     local file="${hostRoot}/${dataFile}.gz"
     xShow "$command | gzip > \"$file\""
     $command | gzip >"$file"
@@ -176,7 +179,7 @@ main() {
 
     # Restore database
     # local command="docker exec -i $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD"
-    local command="docker exec -i $dataContainer mariadb -u$DB_USER -p$password"
+    local command="docker exec -i $dataContainer mariadb -u$DW_DB_USER -p$password"
     local file=$hostRoot/${dataFile}.gz
     xShow "gzcat \"$file\" | $command"
     gzcat "$file" | $command
@@ -228,7 +231,7 @@ parseCommandLine() {
       shift
       ;;
     -p | --password)
-      password=$2
+      DW_DB_USER_PASSWORD=$2
       shift 2
       ;;
     -r | --restore)

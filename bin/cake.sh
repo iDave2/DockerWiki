@@ -14,6 +14,8 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
+STOP() { die BYE from ${FUNCNAME[1]}:${BASH_LINENO[0]}; }
+
 set -uo pipefail # pipe status is last-to-fail or zero if none fail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -218,7 +220,7 @@ make() {
 #
 makeClean() {
 
-  local out
+  local command out
 
   # Build directories are created during builds before this cleaning
   # step. So do not erase build directories when building!
@@ -229,7 +231,12 @@ makeClean() {
 
   # Remove existing CONTAINERs sometimes (-cc).
   if (($oClean == 0 || $oClean > 1)); then
-    lsTo out docker container ls --all --filter name=$CONTAINER
+    # lsTo out docker container ls --all --filter name=$CONTAINER
+    command="docker container ls --all --filter name=$CONTAINER"
+    out=(xCute $command)
+    #echo out as array is "${out[@]}"
+    echo HELLO
+    die alpha beta
     if [ $lastLineCount -gt 1 ]; then
       xCute2 docker stop $CONTAINER && xCute2 docker rm $CONTAINER ||
         die "Error removing container '$CONTAINER': $(getLastError)"
@@ -297,9 +304,9 @@ makeData() {
   if [ $oInstaller != 'restore' ]; then
     xCute2 cp password-file build/mariadb-password-file ||
       die "Copy failed: $(getLastError)"
-    buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DB_ROOT_HOST"
-    buildOptions+=" --build-arg MARIADB_DATABASE=$DB_NAME"
-    buildOptions+=" --build-arg MARIADB_USER=$DB_USER"
+    buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
+    buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
+    buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
   else
     xCute2 cp "$BACKUP/$gzDatabase" build/ || die "Copy failed: $(getLastError)"
     buildOptions+=" --build-arg VERSION=restore"
@@ -321,7 +328,7 @@ makeView() {
   HOST=$VIEW_HOST
   IMAGE=$DW_HID/mediawiki
   MOUNT=
-  PUBLISH="--publish $MW_PORTS"
+  PUBLISH="--publish $DW_MW_PORTS"
   TONY=/root # Maria's boyfriend.
 
   if (($oClean > 0)); then
@@ -370,12 +377,12 @@ makeView() {
 
   # Install / configure mediawiki now that we have a mariadb network.
   # This creates MW DB tables and generates LocalSettings.php file.
-  local port=${MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
-  port=${port##*:}          # 127.0.0.1:8080 -> 8080
+  local port=${DW_MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
+  port=${port##*:}             # 127.0.0.1:8080 -> 8080
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
-    --dbtype=mysql --dbserver=$DATA_HOST --dbname=$DB_NAME --dbuser=$DB_USER \
+    --dbtype=mysql --dbserver=$DATA_HOST --dbname=$DW_DB_NAME --dbuser=$DW_DB_USER \
     --dbpassfile="$TONY/dbpassfile" --passfile="$TONY/passfile" \
-    --scriptpath='' --server="http://localhost:$port" $DW_SITE $MW_ADMIN)
+    --scriptpath='' --server="http://localhost:$port" $DW_SITE $DW_MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 
 }

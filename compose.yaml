@@ -14,7 +14,7 @@ services:
     networks:
       - net
     ports:
-      - "${MW_PORTS}"
+      - "${DW_MW_PORTS}"
 
   data:
     image: $DW_HID/mariadb:$DW_TAG
