@@ -233,10 +233,13 @@ makeClean() {
   if (($oClean == 0 || $oClean > 1)); then
     # lsTo out docker container ls --all --filter name=$CONTAINER
     command="docker container ls --all --filter name=$CONTAINER"
-    out=(xCute $command)
+    out=($(xCute $command))
+    echo && echo \${#out} is ${#out}
+    for ((i = 0; i < ${#out}; ++i)); do
+      echo $((i+1)): ${out[$i]}
+    done
     #echo out as array is "${out[@]}"
-    echo HELLO
-    die alpha beta
+    die
     if [ $lastLineCount -gt 1 ]; then
       xCute2 docker stop $CONTAINER && xCute2 docker rm $CONTAINER ||
         die "Error removing container '$CONTAINER': $(getLastError)"

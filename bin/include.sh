@@ -49,7 +49,7 @@ decorate() {
 die() {
   test $# -gt 0 && echo && echo $* # https://stackoverflow.com/q/3601515
   echo
-  echo Death from ${FUNCNAME[1]}:${BASH_LINENO[0]} at $(date +%H:%M)
+  echo Death from ${FUNCNAME[1]}:${BASH_LINENO[0]} causes at $(date +%H:%M).
   exit 42
 }
 
