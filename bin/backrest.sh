@@ -61,6 +61,9 @@ localSettings=LocalSettings.php
 dataContainer=$(getContainer $DATA_SERVICE)
 viewContainer=$(getContainer $VIEW_SERVICE)
 
+# Wiki DBA credentials.
+password=${DB_USER_PASSWORD:-''}
+
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Validate requested data and view containers.
@@ -131,11 +134,18 @@ main() {
     done
   fi
 
+  # Use may define DW_DB_USER_PASSWORD or use command line --password=xyz.
+  # Else, we prompt.
+  while [ -z "$password" ]; do
+    echo
+    read -sp "Please enter password for user $DB_USER: " password
+  done
+
   if $BACKUP; then
 
     # Backup database.
     #  local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DB_ROOT_PASSWORD"
-    local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p"
+    local command="docker exec $dataContainer mariadb-dump $DB_NAME -u$DB_USER -p$password"
     local file="${hostRoot}/${dataFile}.gz"
     xShow "$command | gzip > \"$file\""
     $command | gzip >"$file"
@@ -166,7 +176,7 @@ main() {
 
     # Restore database
     # local command="docker exec -i $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD"
-    local command="docker exec -i $dataContainer mariadb -uroot -p"
+    local command="docker exec -i $dataContainer mariadb -u$DB_USER -p$password"
     local file=$hostRoot/${dataFile}.gz
     xShow "gzcat \"$file\" | $command"
     gzcat "$file" | $command
@@ -216,6 +226,10 @@ parseCommandLine() {
     --no-decoration)
       DECORATE=false
       shift
+      ;;
+    -p | --password)
+      password=$2
+      shift 2
       ;;
     -r | --restore)
       RESTORE=true
@@ -267,7 +281,7 @@ Options:
   -h | --help                    Print this usage summary
   -f | --force                   Allow backup to an existing location
        --no-decoration           Disable composer-naming emulation
-  -p | --password                MediaWiki DBA password
+  -p | --password string         MediaWiki DBA password
   -r | --restore                 Restore database, images, and local settings
   -V | --view-container string   Override default '$(getContainer view)'
   -v | --verbose                 Display a few parameters
