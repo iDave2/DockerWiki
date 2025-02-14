@@ -140,8 +140,7 @@ join() { # https://stackoverflow.com/a/17841619
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  On the never-ending quest to make code more readable, memorable, brief,
-#  ... these helpers may be handy.
+#  Adventures in preprocessing...
 #
 #  The xCute variants call xShow for a pretty display of what it will do
 #  before it does it; xQute flavors are Quiet, they just run the command
