@@ -89,46 +89,13 @@ main() {
   parseCommandLine "$@"
   die
 
-  # case "$oInstaller" in
-  # cli) # the default, this runs php in container cli
-  #   # dockerFile=Dockerfiles/default
-  #   ;;
-  # debug) # going away, use separate netshoot
-  #   # dockerFile=Dockerfiles/default
-  #   ;;
-  # restore) # restore=path to a DockerWiki backup directory
-  #   local checks=( # It will help reader to spell these out if one is missing...
-  #     -d "$BACKUP_DIR"
-  #     -f "$BACKUP_DIR/$gzDatabase"
-  #     -f "$BACKUP_DIR/$localSettings"
-  #     -d "$BACKUP_DIR/$imageDir"
-  #   )
-  #   for ((i = 0; $i < ${#checks[*]}; i += 2)); do
-  #     local op=${checks[$i]} path=${checks[$i + 1]}
-  #     if ! [ $op $path ]; then
-  #       local what
-  #       [ $op == '-d' ] && what=directory || what=file
-  #       echo -e "\nError: $what '$path' not found"
-  #       usage "DockerWiki backup not found for --installer 'restore=$BACKUP_DIR'"
-  #     fi
-  #   done
-  #   # dockerFile=Dockerfiles/default # needs --build-arg VERSION=restore
-  #   ;;
-  # web) # leaves bare system for web installer
-  #   # dockerFile=Dockerfiles/default
-  #   ;;
-  # *) # boo-boos and butt-dials
-  #   usage "Unrecognized --installer '$oInstaller', please check usage"
-  #   ;;
-  # esac
-
   # Make one or both services.
   case $WHERE in
   mariadb) makeData ;;
   mediawiki) makeView ;;
   *)
     if [ -f compose.yaml -a -d mariadb -a -d mediawiki ]; then
-      if [ $oClean -gt 0 ]; then
+      if test $oClean -gt 0; then
         xCute pushd mediawiki && makeView && xCute popd
         xCute pushd mariadb && makeData && xCute popd
       else
@@ -523,4 +490,13 @@ EOT
 #  </EndWax>
 #  <BeginLLM>...
 #
+cat <<EOT
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  BEGIN ${0##*/} at $(date +%H:%M) with args $(join ', ' "$@").
+#
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+EOT
+
 main "$@"
