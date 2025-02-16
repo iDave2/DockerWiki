@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
 #
+#  This script can backup and restore DockerWiki:
+#
+#    $ ./backrest.sh --help                 # Print usage summary
+#    $ ./backrest.sh --backup                 # -> ~/.DockerWiki/backup/<date>/
+#    $ ./backrest.sh -bw /mydw/backup_dir/      # -> /mydw/backup_dir/<date>/
+#    $ ./backrest.sh -rw /mydw/backup_dir/<date>  # <- /mydw/backup_dir/<date>
+#
+#  Default `backup_dir` or "working directory" may be changed in
+#  `~/.DockerWiki/config`:
+#
+#    DW_BACKUP_DIR=/mydw/backup_dir   # Override default backup directory
+#
+#  - - - - - - - -
+#
 #  This script backs up and restores three things:
 #    - The MariaDB database -- named 'mediawiki' of all things --
 #      that contains all MediaWiki database records;

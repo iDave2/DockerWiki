@@ -143,18 +143,18 @@ join() { # https://stackoverflow.com/a/17841619
 #  Print MAPFILE to STDOUT without the extra space.
 #  https://stackoverflow.com/a/64244057.
 #
-pmap() {
-  # echo pmap: received $# args
-  # echo "$@" | xargs -I % echo -e "%\n"
-  # i=0
-  for s in "$@"; do
-    # t=$s && echo "$t"
-    t=$(echo "$s" | sed -e 's/^[:space:]*//' -e 's/[:space:]*$//')
-    echo "$t"
-    # echo $i: "$s"
-    # let i++
-  done
-}
+# pmap() {
+#   # echo pmap: received $# args
+#   # echo "$@" | xargs -I % echo -e "%\n"
+#   # i=0
+#   for s in "$@"; do
+#     # t=$s && echo "$t"
+#     t=$(echo "$s" | sed -e 's/^[:space:]*//' -e 's/[:space:]*$//')
+#     echo "$t"
+#     # echo $i: "$s"
+#     # let i++
+#   done
+# }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #

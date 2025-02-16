@@ -10,11 +10,7 @@
 #  that image. When run from their parent folder (i.e., the project root),
 #  this program builds and runs both images, aka DockerWiki.
 #
-#  TODO: Hide all the passwords echoed to logs (use secrets).
-#
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-
-STOP() { die BYE from ${FUNCNAME[1]}:${BASH_LINENO[0]}; }
 
 set -uo pipefail # pipe status is last-to-fail or zero if none fail
 
@@ -43,10 +39,10 @@ dockerFile=Dockerfile
 dataVolume=$(decorate "$DATA_VOLUME" "$DW_PROJECT" 'volume')
 dataTarget=/var/lib/mysql
 network=$(decorate "$NETWORK" "$DW_PROJECT" 'network')
-BACKUP= # --installer restore=BACKUP (i.e, the backup directory)
+BACKUP_DIR= # --installer restore=BACKUP_DIR (i.e, the backup directory)
 
 # Contents of a backup directory (see backrest.sh).
-readonly gzDatabase=all-databases.sql.gz
+readonly gzDatabase=$DW_DB_NAME.sql.gz
 readonly imageDir=images
 readonly localSettings=LocalSettings.php
 
@@ -91,39 +87,40 @@ main() {
   isDockerRunning || die "Please check docker, I cannot connect."
 
   parseCommandLine "$@"
+  die
 
-  case "$oInstaller" in
-  cli) # the default, this runs php in container cli
-    # dockerFile=Dockerfiles/default
-    ;;
-  debug) # going away, use separate netshoot
-    # dockerFile=Dockerfiles/default
-    ;;
-  restore) # restore=path to a DockerWiki backup directory
-    local checks=( # It will help reader to spell these out if one is missing...
-      -d "$BACKUP"
-      -f "$BACKUP/$gzDatabase"
-      -f "$BACKUP/$localSettings"
-      -d "$BACKUP/$imageDir"
-    )
-    for ((i = 0; $i < ${#checks[*]}; i += 2)); do
-      local op=${checks[$i]} path=${checks[$i + 1]}
-      if ! [ $op $path ]; then
-        local what
-        [ $op == '-d' ] && what=directory || what=file
-        echo -e "\nError: $what '$path' not found"
-        usage "DockerWiki backup not found for --installer 'restore=$BACKUP'"
-      fi
-    done
-    # dockerFile=Dockerfiles/default # needs --build-arg VERSION=restore
-    ;;
-  web) # leaves bare system for web installer
-    # dockerFile=Dockerfiles/default
-    ;;
-  *) # boo-boos and butt-dials
-    usage "Unrecognized --installer '$oInstaller', please check usage"
-    ;;
-  esac
+  # case "$oInstaller" in
+  # cli) # the default, this runs php in container cli
+  #   # dockerFile=Dockerfiles/default
+  #   ;;
+  # debug) # going away, use separate netshoot
+  #   # dockerFile=Dockerfiles/default
+  #   ;;
+  # restore) # restore=path to a DockerWiki backup directory
+  #   local checks=( # It will help reader to spell these out if one is missing...
+  #     -d "$BACKUP_DIR"
+  #     -f "$BACKUP_DIR/$gzDatabase"
+  #     -f "$BACKUP_DIR/$localSettings"
+  #     -d "$BACKUP_DIR/$imageDir"
+  #   )
+  #   for ((i = 0; $i < ${#checks[*]}; i += 2)); do
+  #     local op=${checks[$i]} path=${checks[$i + 1]}
+  #     if ! [ $op $path ]; then
+  #       local what
+  #       [ $op == '-d' ] && what=directory || what=file
+  #       echo -e "\nError: $what '$path' not found"
+  #       usage "DockerWiki backup not found for --installer 'restore=$BACKUP_DIR'"
+  #     fi
+  #   done
+  #   # dockerFile=Dockerfiles/default # needs --build-arg VERSION=restore
+  #   ;;
+  # web) # leaves bare system for web installer
+  #   # dockerFile=Dockerfiles/default
+  #   ;;
+  # *) # boo-boos and butt-dials
+  #   usage "Unrecognized --installer '$oInstaller', please check usage"
+  #   ;;
+  # esac
 
   # Make one or both services.
   case $WHERE in
@@ -284,6 +281,7 @@ makeData() {
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
   xCute2 cp "$dockerFile" build/Dockerfile &&
     cp 20-noop.sh build/20-noop.sh &&
+    cp password-file build/mariadb-password-file &&
     cp root-password-file build/mariadb-root-password-file &&
     cp show-databases build/mariadb-show-databases ||
     die "Copy failed: $(getLastError)"
@@ -291,16 +289,17 @@ makeData() {
   # Prepare build command line and gather inputs.
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
-  if [ $oInstaller != 'restore' ]; then
-    xCute2 cp password-file build/mariadb-password-file ||
-      die "Copy failed: $(getLastError)"
-    buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
-    buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
-    buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
-  else
-    xCute2 cp "$BACKUP/$gzDatabase" build/ || die "Copy failed: $(getLastError)"
-    buildOptions+=" --build-arg VERSION=restore"
-  fi
+
+  # if [ $oInstaller != 'restore' ]; then
+  # xCute2 cp password-file build/mariadb-password-file ||
+  #   die "Copy failed: $(getLastError)"
+  buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
+  buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
+  buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
+  # else
+  #   xCute2 cp "$BACKUP_DIR/$gzDatabase" build/ || die "Copy failed: $(getLastError)"
+  #   buildOptions+=" --build-arg VERSION=restore"
+  # fi
 
   # Move context into build subdirectory and wake up docker engine.
   xCute pushd build && make "$buildOptions" && xCute popd
@@ -335,15 +334,15 @@ makeView() {
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg TONY=$TONY"
-  if [ $oInstaller != 'restore' ]; then
-    xCute2 cp admin-password-file build/passfile &&
-      cp password-file build/dbpassfile ||
-      die "Copy failed: $(getLastError)"
-  else
-    xCute2 cp -R "$BACKUP/$localSettings" "$BACKUP/$imageDir" build/ ||
-      die "Error copying file: $(getLastError)"
-    buildOptions+=" --build-arg VERSION=restore"
-  fi
+  # if [ $oInstaller != 'restore' ]; then
+  xCute2 cp admin-password-file build/passfile &&
+    cp password-file build/dbpassfile ||
+    die "Copy failed: $(getLastError)"
+  # else
+  #   xCute2 cp -R "$BACKUP_DIR/$localSettings" "$BACKUP_DIR/$imageDir" build/ ||
+  #     die "Error copying file: $(getLastError)"
+  #   buildOptions+=" --build-arg VERSION=restore"
+  # fi
 
   # Move context into build subdirectory and wake up docker engine.
   xCute pushd build && make "$buildOptions" && xCute popd
@@ -394,13 +393,31 @@ parseCommandLine() {
     -h | --help)
       usage
       ;;
-    -i | --installer) # bash ${p%%/} won't trim more than one '/' so,
-      oInstaller=$(perl -pwe 's|/+$||' <<<${2:-''})
+    -i | --installer)
+      local reset=$(shopt -p extglob)
+      shopt -s extglob # https://stackoverflow.com/a/4555979
+      oInstaller=${2%%+(/)} # Remove trailing '/'s
+      $reset
+      # echo && echo "[internal]" After reset "\$($reset)", found \"$(shopt extglob)\".
       shift 2
-      if [ "${oInstaller:0:8}" = "restore=" -a ${#oInstaller} -gt 8 ]; then
-        BACKUP=$(realpath ${oInstaller:8})
+      case "$oInstaller" in
+      cli | web) # No problema
+        ;;
+      restore=*)
+        BACKUP_DIR=${oInstaller:8}
+        test -n "$BACKUP_DIR" &&
+          test -d "$BACKUP_DIR" &&
+          test -f "$BACKUP_DIR/$gzDatabase" &&
+          test -f "$BACKUP_DIR/$localSettings" &&
+          test -d "$BACKUP_DIR/$imageDir" ||
+          die Cannot restore from "'$BACKUP_DIR'", please check location
+        BACKUP_DIR=$(realpath ${BACKUP_DIR}) # TODO: weak death knell above
         oInstaller=restore
-      fi
+        ;;
+      *) # boo-boos and butt-dials
+        usage "Unrecognized --installer '$oInstaller'; please check usage"
+        ;;
+      esac
       ;;
     --no-cache)
       oCache=false
@@ -442,8 +459,8 @@ Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 Build and run DockerWiki.
 
 Options:
-  -c | --clean              Remove built artifacts
-  -i | --installer string   cli (default), debug, web, or restore=pathToBackup
+  -c | --clean              Remove (up to -cccc) build artifacts
+  -i | --installer string   'cli' (default), 'web', or 'restore=<dir>'
   -h | --help               Print this usage summary
        --no-cache           Do not use cache when building images
        --no-decoration      Disable composer-naming emulation
