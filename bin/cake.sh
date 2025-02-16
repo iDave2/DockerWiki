@@ -87,7 +87,6 @@ main() {
   isDockerRunning || die "Please check docker, I cannot connect."
 
   parseCommandLine "$@"
-  die
 
   # Make one or both services.
   case $WHERE in
@@ -149,17 +148,11 @@ make() {
       die "Error tagging '$IMAGE:$DW_TAG <- $IMAGE:${DW_EXTRA_TAGS[$i]}'"
   done
 
-  # Launch container with new image.
-  if false; then # --interactive not used / needed, maybe delete?
-    command=$(echo docker run $ENVIRONMENT --interactive --rm --tty \
-      --network $network --name $CONTAINER --hostname $HOST \
-      --network-alias $HOST $MOUNT $PUBLISH $IMAGE:$DW_TAG)
-  else
-    command=$(echo docker run --detach $ENVIRONMENT --network $network \
-      --name $CONTAINER --hostname $HOST --network-alias $HOST $MOUNT \
-      $PUBLISH $IMAGE:$DW_TAG)
-  fi
-  xCute2 $command || die "Launch failed: $(getLastError)"
+  # Launch a container with new image.
+  xCute2 docker run --detach $ENVIRONMENT --network $network \
+    --name $CONTAINER --hostname $HOST --network-alias $HOST \
+    $MOUNT $PUBLISH $IMAGE:$DW_TAG ||
+    die "Launch failed: $(getLastError)"
 
 }
 
