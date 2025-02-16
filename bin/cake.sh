@@ -163,14 +163,14 @@ make() {
 
   # Create a docker volume for the database and a network for chit chat.
   xCute12 docker volume ls --filter name=$dataVolume ||
-      die "Error listing data volume: $(getLastError)"
+    die "Error listing data volume: $(getLastError)"
   echo "$(getLastOutput)" && mapfile -t < <(getLastOutput)
   if ((${#MAPFILE[@]} == 1)); then
     xCute2 docker volume create $dataVolume ||
       die "Error creating volume: $(getLastError)"
   fi
   xCute12 docker network ls --filter name=$network ||
-      die "Error listing data volume: $(getLastError)"
+    die "Error listing data volume: $(getLastError)"
   echo "$(getLastOutput)" && mapfile < <(getLastOutput)
   if ((${#MAPFILE[@]} == 1)); then
     xCute2 docker network create $network ||
@@ -336,7 +336,9 @@ makeView() {
   $oCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg TONY=$TONY"
   if [ $oInstaller != 'restore' ]; then
-    xCute2 cp dbpassfile passfile build/ || die "Copy failed: $(getLastError)"
+    xCute2 cp admin-password-file build/passfile &&
+      cp password-file build/dbpassfile ||
+      die "Copy failed: $(getLastError)"
   else
     xCute2 cp -R "$BACKUP/$localSettings" "$BACKUP/$imageDir" build/ ||
       die "Error copying file: $(getLastError)"
