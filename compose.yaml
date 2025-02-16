@@ -10,7 +10,7 @@ services:
       - data
     environment:
       - DW_TZ=${DW_TZ}
-    hostname: $VIEW_HOST
+    hostname: $DW_VIEW_HOST
     networks:
       - net
     ports:
@@ -20,7 +20,7 @@ services:
     image: $DW_HID/mariadb:$DW_TAG
     environment:
       - DW_TZ=${DW_TZ}
-    hostname: $DATA_HOST
+    hostname: $DW_DATA_HOST
     networks:
       - net
     volumes:

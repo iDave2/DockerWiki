@@ -36,9 +36,9 @@ PUBLISH=
 
 # More file scoped stuff (naming please?).
 dockerFile=Dockerfile
-dataVolume=$(decorate "$DATA_VOLUME" "$DW_PROJECT" 'volume')
+dataVolume=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
 dataTarget=/var/lib/mysql
-network=$(decorate "$NETWORK" "$DW_PROJECT" 'network')
+network=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
 BACKUP_DIR= # --installer restore=BACKUP_DIR (i.e, the backup directory)
 
 # Contents of a backup directory (see backrest.sh).
@@ -225,8 +225,8 @@ makeClean() {
 #
 makeData() {
 
-  CONTAINER=$(getContainer $DATA_SERVICE)
-  HOST=$DATA_HOST
+  CONTAINER=$(getContainer $DW_DATA_SERVICE)
+  HOST=$DW_DATA_HOST
   IMAGE=$DW_HID/mariadb
   MOUNT="--mount type=volume,src=$dataVolume,dst=$dataTarget"
   PUBLISH=
@@ -272,9 +272,9 @@ makeData() {
 #
 makeView() {
 
-  CONTAINER=$(getContainer $VIEW_SERVICE)
+  CONTAINER=$(getContainer $DW_VIEW_SERVICE)
   ENVIRONMENT=
-  HOST=$VIEW_HOST
+  HOST=$DW_VIEW_HOST
   IMAGE=$DW_HID/mediawiki
   MOUNT=
   PUBLISH="--publish $DW_MW_PORTS"
@@ -319,7 +319,7 @@ makeView() {
 
   # Database needs to be Running and Connectable to continue.
   if ! waitForData; then
-    local error="Error: Cannot connect to data container '$(getContainer $DATA_SERVICE)'; "
+    local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
     error+="unable to generate $localSettings; "
     error+="browser may display web-based installer."
     echo -e "\n$error"
@@ -331,7 +331,7 @@ makeView() {
   local port=${DW_MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
   port=${port##*:}             # 127.0.0.1:8080 -> 8080
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
-    --dbtype=mysql --dbserver=$DATA_HOST --dbname=$DW_DB_NAME --dbuser=$DW_DB_USER \
+    --dbtype=mysql --dbserver=$DW_DATA_HOST --dbname=$DW_DB_NAME --dbuser=$DW_DB_USER \
     --dbpassfile="$TONY/dbpassfile" --passfile="$TONY/passfile" \
     --scriptpath='' --server="http://localhost:$port" $DW_SITE $DW_MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
@@ -440,8 +440,8 @@ EOT
 #
 waitForData() {
 
-  local dataContainer=$(getContainer $DATA_SERVICE) dataState
-  local viewContainer=$(getContainer $VIEW_SERVICE) viewState
+  local dataContainer=$(getContainer $DW_DATA_SERVICE) dataState
+  local viewContainer=$(getContainer $DW_VIEW_SERVICE) viewState
 
   # Start the database.
   xCute2 docker start $dataContainer ||

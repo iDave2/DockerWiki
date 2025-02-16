@@ -61,11 +61,11 @@ die() {
 getContainer() {
   local service
   case "$1" in
-  $DATA_SERVICE | $VIEW_SERVICE)
+  $DW_DATA_SERVICE | $DW_VIEW_SERVICE)
     service="$1"
     ;;
   *)
-    usage "getContainer: expected '$DATA_SERVICE' or '$VIEW_SERVICE', not '$1'"
+    usage "getContainer: expected '$DW_DATA_SERVICE' or '$DW_VIEW_SERVICE', not '$1'"
     ;;
   esac
   echo $(decorate "$service" "$DW_PROJECT" 'container')
@@ -109,11 +109,11 @@ getOpt() {
 #  Rather than having everyone creating folders, how about,
 #
 getTempDir() {
-  if [ ! -d "$TEMP_DIR" ]; then
-    mkdir "$TEMP_DIR" && [ -d "$TEMP_DIR" ] ||
-      die "Error: cannot create temporary directory, '$TEMP_DIR'!"
+  if [ ! -d "$DW_TEMP_DIR" ]; then
+    mkdir "$DW_TEMP_DIR" && [ -d "$DW_TEMP_DIR" ] ||
+      die "Error: cannot create temporary directory, '$DW_TEMP_DIR'!"
   fi
-  echo $TEMP_DIR
+  echo $DW_TEMP_DIR
 }
 
 ####-####+####-####+####-####+####-####+

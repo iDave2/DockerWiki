@@ -72,8 +72,8 @@ imageDir=images
 localSettings=LocalSettings.php
 
 # Defaults subject to change via command line options.
-dataContainer=$(getContainer $DATA_SERVICE)
-viewContainer=$(getContainer $VIEW_SERVICE)
+dataContainer=$(getContainer $DW_DATA_SERVICE)
+viewContainer=$(getContainer $DW_VIEW_SERVICE)
 
 # Wiki DBA credentials.
 #password=${DW_DB_USER_PASSWORD:-''}
@@ -139,8 +139,8 @@ main() {
     [ -d "$hostRoot" ] || usage "-w <$hostRoot> not found, nothing to restore"
   fi
 
-  checkContainer $dataContainer $DATA_HOST mariadb
-  checkContainer $viewContainer $VIEW_HOST mediawiki
+  checkContainer $dataContainer $DW_DATA_HOST mariadb
+  checkContainer $viewContainer $DW_VIEW_HOST mediawiki
 
   if ! $QUIET; then
     echo
