@@ -39,7 +39,7 @@ dockerFile=Dockerfile
 dataVolume=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
 dataTarget=/var/lib/mysql
 network=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
-BACKUP_DIR= # --installer restore=BACKUP_DIR (i.e, the backup directory)
+BACKUP_DIR= # --installer restore=BACKUP_DIR
 
 # Contents of a backup directory (see backrest.sh).
 readonly gzDatabase=$DW_DB_NAME.sql.gz
@@ -241,7 +241,6 @@ makeData() {
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
   xCute2 cp "$dockerFile" build/Dockerfile &&
     cp 20-noop.sh build/20-noop.sh &&
-    cp password-file build/mariadb-password-file &&
     cp root-password-file build/mariadb-root-password-file &&
     cp show-databases build/mariadb-show-databases ||
     die "Copy failed: $(getLastError)"
@@ -250,16 +249,16 @@ makeData() {
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
 
-  # if [ $oInstaller != 'restore' ]; then
-  # xCute2 cp password-file build/mariadb-password-file ||
-  #   die "Copy failed: $(getLastError)"
-  buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
-  buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
-  buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
-  # else
-  #   xCute2 cp "$BACKUP_DIR/$gzDatabase" build/ || die "Copy failed: $(getLastError)"
-  #   buildOptions+=" --build-arg VERSION=restore"
-  # fi
+  if test $oInstaller == 'restore'; then
+    xCute2 cp "$BACKUP_DIR/$gzDatabase" build/ || die "Copy failed: $(getLastError)"
+    buildOptions+=" --build-arg VERSION=restore"
+  else
+    xCute2 cp password-file build/mariadb-password-file ||
+      die "Copy failed: $(getLastError)"
+    buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
+    buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
+    buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
+  fi
 
   # Move context into build subdirectory and wake up docker engine.
   xCute pushd build && make "$buildOptions" && xCute popd
@@ -286,7 +285,7 @@ makeView() {
   fi
 
   # Prepare build directory. We presently sit in mediawiki folder.
-  [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
+  test ! -d build || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mediawiki/build failed: $(getLastError)"
   xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
 
@@ -294,27 +293,22 @@ makeView() {
   local buildOptions=''
   $oCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg TONY=$TONY"
-  # if [ $oInstaller != 'restore' ]; then
-  xCute2 cp admin-password-file build/passfile &&
-    cp password-file build/dbpassfile ||
-    die "Copy failed: $(getLastError)"
-  # else
-  #   xCute2 cp -R "$BACKUP_DIR/$localSettings" "$BACKUP_DIR/$imageDir" build/ ||
-  #     die "Error copying file: $(getLastError)"
-  #   buildOptions+=" --build-arg VERSION=restore"
-  # fi
+  if test $oInstaller == 'restore'; then
+    xCute2 cp -R "$BACKUP_DIR/$localSettings" "$BACKUP_DIR/$imageDir" build/ ||
+      die "Error copying file: $(getLastError)"
+    buildOptions+=" --build-arg VERSION=restore"
+  else
+    xCute2 cp admin-password-file build/passfile &&
+      cp password-file build/dbpassfile ||
+      die "Copy failed: $(getLastError)"
+  fi
 
   # Move context into build subdirectory and wake up docker engine.
   xCute pushd build && make "$buildOptions" && xCute popd
 
   # Are we done yet?
   case $oInstaller in
-  cli | debug) # use the CLI installer below
-    :
-    ;;
-  restore | web) # done, user finds restored system or browser wizard
-    return 0
-    ;;
+  restore | web) return 0 ;; # done, user continues in browser
   esac
 
   # Database needs to be Running and Connectable to continue.
@@ -326,10 +320,10 @@ makeView() {
     return -42
   fi
 
-  # Install / configure mediawiki now that we have a mariadb network.
+  # Install / configure mediawiki using famous PHP language.
   # This creates MW DB tables and generates LocalSettings.php file.
   local port=${DW_MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
-  port=${port##*:}             # 127.0.0.1:8080 -> 8080
+  port=${port#*:}              # 127.0.0.1:8080 -> 8080
   command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
     --dbtype=mysql --dbserver=$DW_DATA_HOST --dbname=$DW_DB_NAME --dbuser=$DW_DB_USER \
     --dbpassfile="$TONY/dbpassfile" --passfile="$TONY/passfile" \
@@ -355,7 +349,7 @@ parseCommandLine() {
       ;;
     -i | --installer)
       local reset=$(shopt -p extglob)
-      shopt -s extglob # https://stackoverflow.com/a/4555979
+      shopt -s extglob      # https://stackoverflow.com/a/4555979
       oInstaller=${2%%+(/)} # Remove trailing '/'s
       $reset
       # echo && echo "[internal]" After reset "\$($reset)", found \"$(shopt extglob)\".
@@ -487,7 +481,7 @@ cat <<EOT
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  BEGIN ${0##*/} at $(date +%H:%M) with args $(join ', ' "$@").
+#  BEGIN ${0##*/} at $(date +%H:%M) with args ($(join ', ' "$@")).
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 EOT
