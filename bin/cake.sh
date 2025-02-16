@@ -231,17 +231,28 @@ makeClean() {
 
   # Remove existing CONTAINERs sometimes (-cc).
   if (($oClean == 0 || $oClean > 1)); then
-    # lsTo out docker container ls --all --filter name=$CONTAINER
+    # lsToX out docker container ls --all --filter name=$CONTAINER
     command="docker container ls --all --filter name=$CONTAINER"
-    out=($(xCute $command))
-    echo && echo \${#out} is ${#out}
-    for ((i = 0; i < ${#out}; ++i)); do
-      echo $((i+1)): ${out[$i]}
-    done
-    #echo out as array is "${out[@]}"
-    die
-    if [ $lastLineCount -gt 1 ]; then
-      xCute2 docker stop $CONTAINER && xCute2 docker rm $CONTAINER ||
+    xShow $command && mapfile -t < <(xQute2 $command ||
+      die "Error listing containers: $(getLastError)")
+    # echo '${#MAPFILE[@]}' = ${#MAPFILE[@]}, MAPFILE:
+    # echo " ${MAPFILE[@]}"
+    pmap "${MAPFILE[@]}"
+    # die
+    # cat -n <<<" ${MAPFILE[@]}"
+    # echo 0: \""${MAPFILE[0]}"\"
+    # echo 1: \""${MAPFILE[1]}"\"
+    # die
+    # out=($(xCute $command))
+    # echo && echo \${#out} is ${#out}
+    # for ((i = 0; i < ${#out}; ++i)); do
+    #   echo $((i + 1)): ${out[$i]}
+    # done
+    # #echo out as array is "${out[@]}"
+    # die
+    # if [ $lastLineCount -gt 1 ]; then
+    if [ ${#MAPFILE[@]} -gt 1 ]; then
+      xCute2 docker rm --force $CONTAINER ||
         die "Error removing container '$CONTAINER': $(getLastError)"
     fi
   fi
@@ -250,20 +261,39 @@ makeClean() {
   # by request (-cc). This means "cake -cc" removes just enough
   # to test docker compose on the images remaining in Docker Desktop.
   if (($oClean > 1)); then
-    lsTo out docker network ls --filter name=$network
-    [ $lastLineCount -gt 1 ] && xCute docker network rm $network
+    # lsToX out docker network ls --filter name=$network
+    command="docker network ls --filter name=$network"
+    xShow $command && mapfile -t < <(xQute2 $command ||
+      die "Error listing networks: $(getLastError)")
+    pmap "${MAPFILE[@]}"
+    # [ $lastLineCount -gt 1 ] && xCute docker network rm $network
+    [ ${#MAPFILE[@]} -gt 1 ] && xCute docker network rm $network
   fi
 
   # Remove existing IMAGEs sometimes (-ccc).
   if (($oClean == 0 || $oClean > 2)); then
-    lsTo out docker image ls $IMAGE
-    local tags=($(echo "$out" | cut -w -f 2 | grep -v DW_TAG))
+    # lsToX out docker image ls $IMAGE
+    # command="docker image ls $IMAGE"
+
+    # xShow $command && mapfile < <(xQute2 $command ||
+    #   die "Error listing images: $(getLastError)")
+    # pmap "${MAPFILE[@]}"
+
+    xCute12 docker image ls $IMAGE ||
+      die "Error listing images: $(getLastError)"
+    echo "$(getLastOutput)" && mapfile < <(getLastOutput)
+
+    # local tags=($(echo "$out" | cut -w -f 2 | grep -v TAG))
+    local tags=($(echo "${MAPFILE[@]:1}" | sed -e 's/^ *//' | cut -w -f 2))
+    # echo tags = "${tags[@]}"
     if ((${#tags[*]} > 0)); then # https://stackoverflow.com/a/13216833
       local images=(${tags[@]/#/${IMAGE}:})
+      # echo would remove "${images[@]}"
       xCute2 docker rmi "${images[@]}" ||
         die "Error removing images: $(getLastError)"
     fi
   fi
+  die
 
   # Remove volumes if requested (-cccc). "Still in use"
   # errors can be ignored on first container; they leave when

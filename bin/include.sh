@@ -49,7 +49,7 @@ decorate() {
 die() {
   test $# -gt 0 && echo && echo $* # https://stackoverflow.com/q/3601515
   echo
-  echo Death from ${FUNCNAME[1]}:${BASH_LINENO[0]} causes at $(date +%H:%M).
+  echo Death caused by ${FUNCNAME[1]}:${BASH_LINENO[0]} at $(date +%H:%M).
   exit 42
 }
 
@@ -136,6 +136,24 @@ join() { # https://stackoverflow.com/a/17841619
     c=$d
   done
   echo $r
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  Print MAPFILE to STDOUT without the extra space.
+#  https://stackoverflow.com/a/64244057.
+#
+pmap() {
+  # echo pmap: received $# args
+  # echo "$@" | xargs -I % echo -e "%\n"
+  # i=0
+  for s in "$@"; do
+    # t=$s && echo "$t"
+    t=$(echo "$s" | sed -e 's/^[:space:]*//' -e 's/[:space:]*$//')
+    echo "$t"
+    # echo $i: "$s"
+    # let i++
+  done
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
