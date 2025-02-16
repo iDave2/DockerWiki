@@ -40,7 +40,6 @@ PUBLISH=
 
 # More file scoped stuff (naming please?).
 dockerFile=Dockerfile
-lastLineCount=0 # see lsTo()
 dataVolume=$(decorate "$DATA_VOLUME" "$DW_PROJECT" 'volume')
 dataTarget=/var/lib/mysql
 network=$(decorate "$NETWORK" "$DW_PROJECT" 'network')
@@ -81,23 +80,6 @@ getState() {
     eval $__result=$state
   done
 
-}
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  Common processing for "docker ls" commands using default 'table' format.
-#  One could also use JSON format and parse that but here we are.
-#
-#    Synopsis: lsTo output-variable-name docker some-ls-command ...
-#
-lsTo() {
-  local __outVarName="$1"
-  shift
-  xShow "$@"
-  local __ls=$(xQute2 "$@") || die "docker listing failed: $(getLastError)"
-  echo "$__ls" # silence requires another approach; one default here
-  lastLineCount=$(echo $(echo "$__ls" | wc -l))
-  eval $__outVarName="'$__ls'" # and if $__ls has apostrophe's ??'?'
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -180,13 +162,17 @@ make() {
   (($oClean > 0)) && return 0
 
   # Create a docker volume for the database and a network for chit chat.
-  lsTo out docker volume ls --filter name=$dataVolume
-  if [ $lastLineCount -eq 1 ]; then
+  xCute12 docker volume ls --filter name=$dataVolume ||
+      die "Error listing data volume: $(getLastError)"
+  echo "$(getLastOutput)" && mapfile -t < <(getLastOutput)
+  if ((${#MAPFILE[@]} == 1)); then
     xCute2 docker volume create $dataVolume ||
       die "Error creating volume: $(getLastError)"
   fi
-  lsTo out docker network ls --filter name=$network
-  if [ $lastLineCount -eq 1 ]; then
+  xCute12 docker network ls --filter name=$network ||
+      die "Error listing data volume: $(getLastError)"
+  echo "$(getLastOutput)" && mapfile < <(getLastOutput)
+  if ((${#MAPFILE[@]} == 1)); then
     xCute2 docker network create $network ||
       die "Error creating network: $(getLastError)"
   fi
@@ -273,7 +259,6 @@ makeClean() {
     echo "$(getLastOutput)" && mapfile < <(getLastOutput)
     ((${#MAPFILE[@]} > 1)) && xCute docker volume rm $dataVolume
   fi
-  die
 
 }
 
