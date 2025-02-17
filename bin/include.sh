@@ -4,9 +4,7 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-set -uo pipefail # pipe status is last-to-fail or zero if none fail
-
-# Additional variables declared at EOF after functions available.
+# Additional variables declared at EOF after functions are visible.
 DECORATE=true # see --no-decoration and decorate()
 
 ####-####+####-####+####-####+####-####+

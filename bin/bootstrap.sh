@@ -12,9 +12,9 @@ set -uo pipefail # pipe status is last-to-fail or zero if none fail
 
 ScriptDir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
-UserConfig=$(source "${ScriptDir}/../.env" && echo $DW_USER_CONFIG)
-test -f "$UserConfig" && source "$UserConfig"
+DW_USER_CONFIG=$(source "${ScriptDir}/../.env" && echo $DW_USER_CONFIG)
+test -f "$DW_USER_CONFIG" && source "$DW_USER_CONFIG"
 
-source "${ScriptDir}/../.env" # second pass, also quick
+source "${ScriptDir}/../.env" # second pass, even quicker
 
 source "${ScriptDir}/include.sh"
