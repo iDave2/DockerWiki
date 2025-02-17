@@ -15,37 +15,35 @@
 ScriptDir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${ScriptDir}/bootstrap.sh"
 
-# Basename of working directory.
-WorkingDir=$(basename $(pwd -P))
+WorkingDir=$(basename $(pwd -P)) # Current working directory
+BannerShown=false                # Flag to print banner just once
+LaunchArgs=("$@")                # Memory bank for showBannner
 
-BannerShown=false
-LaunchArgs=("$@")
+# Command-line options.
+OpCache=true    # Use build cache?
+OpClean=0       # Clean (remove) artifacts?
+OpInstaller=cli # Type of mediawiki installer to use
+OpTimeout=10    # Periods to wait for database to wake up
 
-# Initialize options.
-oCache=true
-oClean=0
-oInstaller=cli
-oTimeout=10
+# Container / runtime configurations.
+Container=
+Environment=
+Host=
+Image=
+Mount=
+Publish=
 
-# Container / runtime configuration.
-CONTAINER=
-ENVIRONMENT=
-HOST=
-IMAGE=
-MOUNT=
-PUBLISH=
+# Miscellaneous.
+BackupDir= # --installer restore=BackupDir
+DockerFile=Dockerfile
+DataVolume=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
+DataTarget=/var/lib/mysql
+Network=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
 
-# More file scoped stuff (naming please?).
-dockerFile=Dockerfile
-dataVolume=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
-dataTarget=/var/lib/mysql
-network=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
-BACKUP_DIR= # --installer restore=BACKUP_DIR
-
-# Contents of a backup directory (see backrest.sh).
-readonly gzDatabase=$DW_DB_NAME.sql.gz
-readonly imageDir=images
-readonly localSettings=LocalSettings.php
+# Contents of a BackUp directory (see backrest.sh).
+readonly BuDatabase=$DW_DB_NAME.sql.gz
+readonly BuImageDir=images
+readonly BuLocalSettings=LocalSettings.php
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -97,7 +95,7 @@ main() {
   mediawiki) makeView ;;
   *)
     if [ -f compose.yaml -a -d mariadb -a -d mediawiki ]; then
-      if test $oClean -gt 0; then
+      if test $OpClean -gt 0; then
         xCute pushd mediawiki && makeView && xCute popd
         xCute pushd mariadb && makeData && xCute popd
       else
@@ -106,9 +104,11 @@ main() {
       fi
     else
       local projectDir=$(realpath $ScriptDir/..)
-      local line1=$'This program must be run from \'mariadb\', \'mediawiki\',\n'
-      local line2="    or '$projectDir', not '$WorkingDir'."
-      usage "$line1 $line2"
+      local message=$'This program must be run from \'mariadb\', \'mediawiki\',\n'
+      # local line2="    or '$projectDir', not '$WorkingDir'."
+      # usage "$line1 $line2"
+      message+="    or '$projectDir', not '$WorkingDir'."
+      usage "$line1"
     fi
     ;;
   esac
@@ -128,36 +128,36 @@ make() {
   makeClean
 
   # Stop here if user only wants to clean up.
-  (($oClean > 0)) && return 0
+  (($OpClean > 0)) && return 0
 
   # Create a docker volume for the database and a network for chit chat.
-  xCute12 docker volume ls --filter name=$dataVolume ||
+  xCute12 docker volume ls --filter name=$DataVolume ||
     die "Error listing data volume: $(getLastError)"
   echo "$(getLastOutput)" && mapfile -t < <(getLastOutput)
   if ((${#MAPFILE[@]} == 1)); then
-    xCute2 docker volume create $dataVolume ||
+    xCute2 docker volume create $DataVolume ||
       die "Error creating volume: $(getLastError)"
   fi
-  xCute12 docker network ls --filter name=$network ||
+  xCute12 docker network ls --filter name=$Network ||
     die "Error listing data volume: $(getLastError)"
   echo "$(getLastOutput)" && mapfile < <(getLastOutput)
   if ((${#MAPFILE[@]} == 1)); then
-    xCute2 docker network create $network ||
+    xCute2 docker network create $Network ||
       die "Error creating network: $(getLastError)"
   fi
 
   # Build the image.
-  command="docker build $buildOptions --tag $IMAGE:$DW_TAG ."
+  command="docker build $buildOptions --tag $Image:$DW_TAG ."
   xCute2 $command || die "Build failed: $(getLastError)"
   for ((i = 0; i < ${#DW_EXTRA_TAGS[*]}; i++)); do
-    xCute2 docker image tag $IMAGE:$DW_TAG $IMAGE:${DW_EXTRA_TAGS[$i]} ||
-      die "Error tagging '$IMAGE:$DW_TAG <- $IMAGE:${DW_EXTRA_TAGS[$i]}'"
+    xCute2 docker image tag $Image:$DW_TAG $Image:${DW_EXTRA_TAGS[$i]} ||
+      die "Error tagging '$Image:$DW_TAG <- $Image:${DW_EXTRA_TAGS[$i]}'"
   done
 
   # Launch a container with new image.
-  xCute2 docker run --detach $ENVIRONMENT --network $network \
-    --name $CONTAINER --hostname $HOST --network-alias $HOST \
-    $MOUNT $PUBLISH $IMAGE:$DW_TAG ||
+  xCute2 docker run --detach $Environment --network $Network \
+    --name $Container --hostname $Host --network-alias $Host \
+    $Mount $Publish $Image:$DW_TAG ||
     die "Launch failed: $(getLastError)"
 
 }
@@ -174,40 +174,40 @@ makeClean() {
   # Build directories are created during builds before this cleaning
   # step. So do not erase build directories when building!
   # Erase build directories on request (-c).
-  if (($oClean > 0)); then
+  if (($OpClean > 0)); then
     [ -d build ] && xCute rm -fr build
   fi
 
   # Remove existing CONTAINERs sometimes (-cc).
-  if (($oClean == 0 || $oClean > 1)); then
-    xCute12 docker container ls --all --filter name=$CONTAINER ||
+  if (($OpClean == 0 || $OpClean > 1)); then
+    xCute12 docker container ls --all --filter name=$Container ||
       die "Error listing containers: $(getLastError)"
     echo "$(getLastOutput)" && mapfile -t < <(getLastOutput)
     if [ ${#MAPFILE[@]} -gt 1 ]; then
-      xCute2 docker rm --force $CONTAINER ||
-        die "Error removing container '$CONTAINER': $(getLastError)"
+      xCute2 docker rm --force $Container ||
+        die "Error removing container '$Container': $(getLastError)"
     fi
   fi
 
   # No need to remove NETWORKs during builds but they are removed
   # by request (-cc). This means "cake -cc" removes just enough
   # to test docker compose on the images remaining in Docker Desktop.
-  if (($oClean > 1)); then
-    xCute12 docker network ls --filter name=$network ||
+  if (($OpClean > 1)); then
+    xCute12 docker network ls --filter name=$Network ||
       die "Error listing networks: $(getLastError)"
     echo "$(getLastOutput)" && mapfile -t < <(getLastOutput)
-    test ${#MAPFILE[@]} -gt 1 && xCute docker network rm $network
+    test ${#MAPFILE[@]} -gt 1 && xCute docker network rm $Network
   fi
 
   # Remove existing IMAGEs sometimes (-ccc).
-  if (($oClean == 0 || $oClean > 2)); then
-    xCute12 docker image ls $IMAGE ||
+  if (($OpClean == 0 || $OpClean > 2)); then
+    xCute12 docker image ls $Image ||
       die "Error listing images: $(getLastError)"
     echo "$(getLastOutput)" && mapfile < <(getLastOutput)
     local tags=($(echo "${MAPFILE[@]:1}" | sed -e 's/^ *//' | cut -w -f 2))
     # echo tags = "${tags[@]}"
     if ((${#tags[*]} > 0)); then # https://stackoverflow.com/a/13216833
-      local images=(${tags[@]/#/${IMAGE}:})
+      local images=(${tags[@]/#/${Image}:})
       xCute2 docker rmi "${images[@]}" ||
         die "Error removing images: $(getLastError)"
     fi
@@ -216,11 +216,11 @@ makeClean() {
   # Remove volumes if requested (-cccc). "Still in use"
   # errors can be ignored on first container; they leave when
   # second container is removed, no longer using the resource.
-  if (($oClean > 3)); then
-    xCute12 docker volume ls --filter name=$dataVolume ||
+  if (($OpClean > 3)); then
+    xCute12 docker volume ls --filter name=$DataVolume ||
       die "Error listing volumes: $(getLastError)"
     echo "$(getLastOutput)" && mapfile < <(getLastOutput)
-    ((${#MAPFILE[@]} > 1)) && xCute docker volume rm $dataVolume
+    ((${#MAPFILE[@]} > 1)) && xCute docker volume rm $DataVolume
   fi
 
 }
@@ -233,13 +233,13 @@ makeData() {
 
   showBanner
 
-  CONTAINER=$(getContainer $DW_DATA_SERVICE)
-  HOST=$DW_DATA_HOST
-  IMAGE=$DW_HID/mariadb
-  MOUNT="--mount type=volume,src=$dataVolume,dst=$dataTarget"
-  PUBLISH=
+  Container=$(getContainer $DW_DATA_SERVICE)
+  Host=$DW_DATA_HOST
+  Image=$DW_HID/mariadb
+  Mount="--mount type=volume,src=$DataVolume,dst=$DataTarget"
+  Publish=
 
-  if (($oClean > 0)); then
+  if (($OpClean > 0)); then
     make # just cleanup, no build & run
     return
   fi
@@ -247,7 +247,7 @@ makeData() {
   # Prepare build directory. We presently sit in mariadb folder.
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
-  xCute2 cp "$dockerFile" build/Dockerfile &&
+  xCute2 cp "$DockerFile" build/Dockerfile &&
     cp 20-noop.sh build/20-noop.sh &&
     cp root-password-file build/mariadb-root-password-file &&
     cp show-databases build/mariadb-show-databases ||
@@ -255,10 +255,10 @@ makeData() {
 
   # Prepare build command line and gather inputs.
   local buildOptions=''
-  $oCache || buildOptions='--no-cache'
+  $OpCache || buildOptions='--no-cache'
 
-  if test $oInstaller == 'restore'; then
-    xCute2 cp "$BACKUP_DIR/$gzDatabase" build/ || die "Copy failed: $(getLastError)"
+  if test $OpInstaller == 'restore'; then
+    xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
     buildOptions+=" --build-arg VERSION=restore"
     buildOptions+=" --build-arg DW_DB_NAME=$DW_DB_NAME"
   else
@@ -282,15 +282,15 @@ makeView() {
 
   showBanner
 
-  CONTAINER=$(getContainer $DW_VIEW_SERVICE)
-  ENVIRONMENT=
-  HOST=$DW_VIEW_HOST
-  IMAGE=$DW_HID/mediawiki
-  MOUNT=
-  PUBLISH="--publish $DW_MW_PORTS"
+  Container=$(getContainer $DW_VIEW_SERVICE)
+  Environment=
+  Host=$DW_VIEW_HOST
+  Image=$DW_HID/mediawiki
+  Mount=
+  Publish="--publish $DW_MW_PORTS"
   TONY=/root # Maria's boyfriend.
 
-  if (($oClean > 0)); then
+  if (($OpClean > 0)); then
     make # just cleanup, no build & run
     return
   fi
@@ -298,14 +298,14 @@ makeView() {
   # Prepare build directory. We presently sit in mediawiki folder.
   test ! -d build || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mediawiki/build failed: $(getLastError)"
-  xCute2 cp "$dockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
+  xCute2 cp "$DockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
 
   # Prepare build command line and gather inputs.
   local buildOptions=''
-  $oCache || buildOptions='--no-cache'
+  $OpCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg TONY=$TONY"
-  if test $oInstaller == 'restore'; then
-    xCute2 cp -R "$BACKUP_DIR/$localSettings" "$BACKUP_DIR/$imageDir" build/ ||
+  if test $OpInstaller == 'restore'; then
+    xCute2 cp -R "$BackupDir/$BuLocalSettings" "$BackupDir/$BuImageDir" build/ ||
       die "Error copying file: $(getLastError)"
     buildOptions+=" --build-arg VERSION=restore"
   else
@@ -318,14 +318,14 @@ makeView() {
   xCute pushd build && make "$buildOptions" && xCute popd
 
   # Are we done yet?
-  case $oInstaller in
+  case $OpInstaller in
   restore | web) return 0 ;; # done, user continues in browser
   esac
 
   # Database needs to be Running and Connectable to continue.
   if ! waitForData; then
     local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
-    error+="unable to generate $localSettings; "
+    error+="unable to generate $BuLocalSettings; "
     error+="browser may display web-based installer."
     echo -e "\n$error"
     return -42
@@ -335,7 +335,7 @@ makeView() {
   # This creates MW DB tables and generates LocalSettings.php file.
   local port=${DW_MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
   port=${port#*:}              # 127.0.0.1:8080 -> 8080
-  command=$(echo docker exec $CONTAINER maintenance/run CommandLineInstaller \
+  command=$(echo docker exec $Container maintenance/run CommandLineInstaller \
     --dbtype=mysql --dbserver=$DW_DATA_HOST --dbname=$DW_DB_NAME --dbuser=$DW_DB_USER \
     --dbpassfile="$TONY/dbpassfile" --passfile="$TONY/passfile" \
     --scriptpath='' --server="http://localhost:$port" $DW_SITE $DW_MW_ADMIN)
@@ -352,7 +352,7 @@ parseCommandLine() {
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
     -c | --clean)
-      let oClean++
+      let OpClean++
       shift
       ;;
     -h | --help)
@@ -360,32 +360,32 @@ parseCommandLine() {
       ;;
     -i | --installer)
       local reset=$(shopt -p extglob)
-      shopt -s extglob      # https://stackoverflow.com/a/4555979
-      oInstaller=${2%%+(/)} # Remove trailing '/'s
+      shopt -s extglob       # https://stackoverflow.com/a/4555979
+      OpInstaller=${2%%+(/)} # Remove trailing '/'s
       $reset
       # echo && echo "[internal]" After reset "\$($reset)", found \"$(shopt extglob)\".
       shift 2
-      case "$oInstaller" in
+      case "$OpInstaller" in
       cli | web) # No problema
         ;;
       restore=*)
-        BACKUP_DIR=${oInstaller:8}
-        test -n "$BACKUP_DIR" &&
-          test -d "$BACKUP_DIR" &&
-          test -f "$BACKUP_DIR/$gzDatabase" &&
-          test -f "$BACKUP_DIR/$localSettings" &&
-          test -d "$BACKUP_DIR/$imageDir" ||
-          die Cannot restore from "'$BACKUP_DIR'", please check location
-        BACKUP_DIR=$(realpath ${BACKUP_DIR}) # TODO: weak death knell above
-        oInstaller=restore
+        BackupDir=${OpInstaller:8}
+        test -n "$BackupDir" &&
+          test -d "$BackupDir" &&
+          test -f "$BackupDir/$BuDatabase" &&
+          test -f "$BackupDir/$BuLocalSettings" &&
+          test -d "$BackupDir/$BuImageDir" ||
+          die Cannot restore from "'$BackupDir'", please check location
+        BackupDir=$(realpath ${BackupDir}) # TODO: weak death knell above
+        OpInstaller=restore
         ;;
       *) # boo-boos and butt-dials
-        usage "Unrecognized --installer '$oInstaller'; please check usage"
+        usage "Unrecognized --installer '$OpInstaller'; please check usage"
         ;;
       esac
       ;;
     --no-cache)
-      oCache=false
+      OpCache=false
       shift
       ;;
     --no-decoration)
@@ -393,10 +393,10 @@ parseCommandLine() {
       shift
       ;;
     -t | --timeout)
-      oTimeout="$2"
+      OpTimeout="$2"
       shift 2
-      if ! [[ $oTimeout =~ ^[+]?[1-9][0-9]*$ ]]; then
-        usage "--timeout 'seconds': expected a positive integer, found '$oTimeout'"
+      if ! [[ $OpTimeout =~ ^[+]?[1-9][0-9]*$ ]]; then
+        usage "--timeout 'seconds': expected a positive integer, found '$OpTimeout'"
       fi
       ;;
     -* | --*)
@@ -487,7 +487,7 @@ EOT
   printf "$format" $dataContainer $dataState $viewContainer $viewState
 
   # Punt. Here's a semaphore.
-  for ((i = 0; i < $oTimeout; ++i)); do
+  for ((i = 0; i < $OpTimeout; ++i)); do
     xCute docker exec $dataContainer /root/mariadb-show-databases && break
     sleep 2
   done

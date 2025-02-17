@@ -11,3 +11,4 @@ alias br="${SCRIPT_DIR}/bin/backrest.sh"
 alias cake="${SCRIPT_DIR}/bin/cake.sh"
 alias d=docker
 alias dc="docker compose"
+alias dp="declare -p"
