@@ -7,17 +7,15 @@
 #    $ ./backrest.sh -bw /mydw/backup_dir/      # -> /mydw/backup_dir/<date>/
 #    $ ./backrest.sh -rw /mydw/backup_dir/<date>  # <- /mydw/backup_dir/<date>
 #
-#  Default `backup_dir` or "working directory" may be changed in
-#  `~/.DockerWiki/config`:
-#
-#    DW_BACKUP_DIR=/mydw/backup_dir   # Override default backup directory
+#  Default `backup_dir` (--work-dir) may be changed in $DW_USER_CONFIG.
+#  Really? How?
 #
 #  - - - - - - - -
 #
 #  Here's a thought:
 #    * Environment variables are UPPER_CASE;
 #    * File scope variables are PascalCase;
-#    * Function scope (local nameref) variables are camelCase.
+#    * Functions and local (nameref) variables are camelCase.
 #
 #  - - - - - - - -
 #
@@ -143,7 +141,6 @@ main() {
   if $Backup; then
 
     # Backup database.
-    #  command="docker exec $DataContainer mariadb-dump --all-databases -uroot -p$DB_ROOT_PASSWORD"
     command="docker exec $DataContainer mariadb-dump"
     command="${command} -u$DW_DB_USER -p$DW_DB_USER_PASSWORD"
     command="${command} --databases $DW_DB_NAME"
@@ -176,7 +173,6 @@ main() {
   if $Restore; then
 
     # Restore database
-    # command="docker exec -i $DataContainer mariadb -uroot -p$DB_ROOT_PASSWORD"
     command="docker exec -i $DataContainer mariadb"
     command="${command} -u$DW_DB_USER -p$DW_DB_USER_PASSWORD"
     local file=$BackupDir/${DataFile}.gz

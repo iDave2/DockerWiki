@@ -16,7 +16,10 @@ ScriptDir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${ScriptDir}/bootstrap.sh"
 
 # Basename of working directory.
-WHERE=$(basename $(pwd -P))
+WorkingDir=$(basename $(pwd -P))
+
+BannerShown=false
+LaunchArgs=("$@")
 
 # Initialize options.
 oCache=true
@@ -84,10 +87,12 @@ main() {
 
   isDockerRunning || die "Please check docker, I cannot connect."
 
+  # LaunchArgs=("$@") # Save for banner.
+
   parseCommandLine "$@"
 
   # Make one or both services.
-  case $WHERE in
+  case $WorkingDir in
   mariadb) makeData ;;
   mediawiki) makeView ;;
   *)
@@ -100,7 +105,10 @@ main() {
         xCute pushd mediawiki && makeView && xCute popd
       fi
     else
-      usage Expected \$PWD in mariadb, mediawiki, or their parent folder, not \"$WHERE\".
+      local projectDir=$(realpath $ScriptDir/..)
+      local line1=$'This program must be run from \'mariadb\', \'mediawiki\',\n'
+      local line2="    or '$projectDir', not '$WorkingDir'."
+      usage "$line1 $line2"
     fi
     ;;
   esac
@@ -223,6 +231,8 @@ makeClean() {
 #
 makeData() {
 
+  showBanner
+
   CONTAINER=$(getContainer $DW_DATA_SERVICE)
   HOST=$DW_DATA_HOST
   IMAGE=$DW_HID/mariadb
@@ -269,6 +279,8 @@ makeData() {
 #  Configure make() to create or destroy a mediawiki image.
 #
 makeView() {
+
+  showBanner
 
   CONTAINER=$(getContainer $DW_VIEW_SERVICE)
   ENVIRONMENT=
@@ -399,11 +411,29 @@ parseCommandLine() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
+#  Make start of long outputs easier to see.
+#
+showBanner() {
+  if $BannerShown; then return; fi
+  BannerShown=true
+  local args=$(join ', ' "${LaunchArgs[@]}")
+  cat <<EOT
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  BEGIN ${0##*/} at $(date +%H:%M) with args ($args).
+#
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+EOT
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
 #  Summarize usage on request or when command line does not compute.
 #
 usage() {
   if [ -n "$*" ]; then
-    echo -e "\n***  $*  ***" >&2
+    echo -e "\n***  $@  ***" >&2
   fi
   cat >&2 <<EOT
 
@@ -476,13 +506,4 @@ EOT
 #  </EndWax>
 #  <BeginLLM>...
 #
-cat <<EOT
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  BEGIN ${0##*/} at $(date +%H:%M) with args ($(join ', ' "$@")).
-#
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-EOT
-
 main "$@"
