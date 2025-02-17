@@ -12,10 +12,8 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-set -uo pipefail # pipe status is last-to-fail or zero if none fail
-
-SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-source ${SCRIPT_DIR}/include.sh
+ScriptDir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source "${ScriptDir}/bootstrap.sh"
 
 # Basename of working directory.
 WHERE=$(basename $(pwd -P))

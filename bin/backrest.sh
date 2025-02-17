@@ -14,69 +14,41 @@
 #
 #  - - - - - - - -
 #
-#  This script backs up and restores three things:
-#    - The MariaDB database -- named 'mediawiki' of all things --
-#      that contains all MediaWiki database records;
-#    - MediaWiki images, /var/www/html/images/**;
-#    - /var/www/html/LocalSettings.php, the MediaWiki configuration.
+#  Here's a thought:
+#    * Environment variables are UPPER_CASE;
+#    * File scope variables are PascalCase;
+#    * Function scope (local nameref) variables are camelCase.
 #
-#  MediaWiki always has at least two accounts defined:
-#    - the MediaWiki administrator (MWA) account;
-#    - the MediaWiki database administrator (DBA) account;
-#
-#  MariaDB also has at least two accounts defined:
-#    - root;
-#    - the MediaWiki database administrator (DBA) account;
-#
-#  This script performs container operations using the DBA account
-#  so, as a Backup Operator, you only need to know DBA credentials.
+#  - - - - - - - -
 #
 #  TODO: Write somewhere how to change account names and/or passwords
 #  on a live system, then saved to backup.
 #
-#
-#  This script passes cleartext passwords so is Not Secure.
 #  This script requires 'bash' and 'jq'.
-#
-#  Try camel case for file scope hint, uppercase for globals?
 #
 #  Mention JQ up front. This uses a jq tool c/o i forget.
 #
-#  TODO: Dave, rather than suffer headaches with root passwords here,
-#  perhaps you could just backup and restore mediawiki stuff, not all of
-#  mariadb. Then WikiDBA, rather than root, might be sufficient (and a
-#  more appropriate secret for the Backup Operator, an ancient role of
-#  the Windoze ideology). It might also be easier to change DB accounts:
-#  restore base system (with whatever accounts desired), then restore
-#  mediawiki data, then modify any credentials in LocalSettings as
-#  needed, then back that up until next time.
-#
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-set -uo pipefail # pipe status is last-to-fail or zero if none fail
-
-SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-source "${SCRIPT_DIR}/include.sh" # https://stackoverflow.com/a/246128
+ScriptDir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source "${ScriptDir}/bootstrap.sh"
 
 # What to do.
-BACKUP=false
-force=false
-QUIET=true
-RESTORE=false
+Backup=false
+Force=false
+Quiet=true
+Restore=false
 
 # Where to do it.
-hostRoot=                # see --work-dir
-wikiRoot="/var/www/html" # docroot inside view container
-dataFile=mediawiki.sql
-imageDir=images
-localSettings=LocalSettings.php
+DataFile=$DW_DB_NAME.sql
+HostRoot= # see --work-dir
+ImageDir=images
+LocalSettings=LocalSettings.php
+WikiRoot="/var/www/html" # docroot inside view container
 
 # Defaults subject to change via command line options.
-dataContainer=$(getContainer $DW_DATA_SERVICE)
-viewContainer=$(getContainer $DW_VIEW_SERVICE)
-
-# Wiki DBA credentials.
-#password=${DW_DB_USER_PASSWORD:-''}
+DataContainer=$(getContainer $DW_DATA_SERVICE)
+ViewContainer=$(getContainer $DW_VIEW_SERVICE)
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -122,29 +94,29 @@ main() {
 
   # Validate request excessively.
 
-  ($BACKUP && $RESTORE) || (! $BACKUP && ! $RESTORE) &&
+  ($Backup && $Restore) || (! $Backup && ! $Restore) &&
     usage "Please specify either --backup or --restore"
 
-  if $BACKUP; then
-    [ -n "$hostRoot" ] || hostRoot="$(getTempDir)/backup.$(date '+%y%m%d.%H%M%S')"
-    for dir in "$hostRoot" "$hostRoot/$imageDir"; do
+  if $Backup; then
+    [ -n "$HostRoot" ] || HostRoot="$(getTempDir)/backup.$(date '+%y%m%d.%H%M%S')"
+    for dir in "$HostRoot" "$HostRoot/$ImageDir"; do
       if [ -d "$dir" ]; then
-        $force || usage "Use --force to reuse working dir '$dir'"
+        $Force || usage "Use --force to reuse working dir '$dir'"
       else
         xCute2 mkdir "$dir" || usage "Trouble creating '$dir': $(getLastError)"
       fi
     done
   else
-    [ -n "$hostRoot" ] || usage "Please specify \"-w <from-dir>\" when running --restore"
-    [ -d "$hostRoot" ] || usage "-w <$hostRoot> not found, nothing to restore"
+    [ -n "$HostRoot" ] || usage "Please specify \"-w <from-dir>\" when running --restore"
+    [ -d "$HostRoot" ] || usage "-w <$HostRoot> not found, nothing to restore"
   fi
 
-  checkContainer $dataContainer $DW_DATA_HOST mariadb
-  checkContainer $viewContainer $DW_VIEW_HOST mediawiki
+  checkContainer $DataContainer $DW_DATA_HOST mariadb
+  checkContainer $ViewContainer $DW_VIEW_HOST mediawiki
 
-  if ! $QUIET; then
+  if ! $Quiet; then
     echo
-    for name in dataContainer viewContainer hostRoot dataFile imageDir localSettings; do
+    for name in DataContainer ViewContainer HostRoot DataFile ImageDir LocalSettings; do
       printf "%13s = %s\n" $name ${!name}
     done
   fi
@@ -159,63 +131,65 @@ main() {
     echo
   done
 
-  if $BACKUP; then
+  if $Backup; then
 
     # Backup database.
-    #  local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DB_ROOT_PASSWORD"
-    local command="docker exec $dataContainer mariadb-dump"
-    $command="{$command} -u$DW_DB_USER -p$DW_DB_USER_PASSWORD"
-    $command="${command} --databases $DW_DB_NAME"
-    local file="${hostRoot}/${dataFile}.gz"
+    #  local command="docker exec $DataContainer mariadb-dump --all-databases -uroot -p$DB_ROOT_PASSWORD"
+    local command="docker exec $DataContainer mariadb-dump"
+    command="${command} -u$DW_DB_USER -p$DW_DB_USER_PASSWORD"
+    command="${command} --databases $DW_DB_NAME"
+    local file="${HostRoot}/${DataFile}.gz"
     xShow "$command | gzip > \"$file\""
     $command | gzip >"$file"
     [ $? -ne 0 ] && die "Error backing up database; exit status '$?'."
 
     # Backup images
-    local commandA="docker exec $viewContainer tar -cC $wikiRoot/$imageDir ."
-    local commandB="tar -xC $hostRoot/$imageDir"
+    local commandA="docker exec $ViewContainer tar -cC $WikiRoot/$ImageDir ."
+    local commandB="tar -xC $HostRoot/$ImageDir"
     xShow "$commandA | $commandB"
     $commandA | $commandB
     [ $? -ne 0 ] && die "Error backing up images; exit status '$?'."
 
     # Save LocalSettings.php.
     xCute2 docker cp \
-      "$viewContainer:$wikiRoot/$localSettings" \
-      "$hostRoot/$localSettings" ||
+      "$ViewContainer:$WikiRoot/$LocalSettings" \
+      "$HostRoot/$LocalSettings" ||
       die "Error backing up local settings: $(getLastError)"
 
     # Make backups mostly read-only.
-    command="find $hostRoot -type f -exec chmod -w {} ;"
+    command="find $HostRoot -type f -exec chmod -w {} ;"
     xCute2 $command || die "Trouble making backup mostly read-only: $(getLastError)"
 
-    echo -e "\n==> Wiki backup written to '$hostRoot' <=="
+    echo -e "\n==> Wiki backup written to '$HostRoot' <=="
 
   fi
 
-  if $RESTORE; then
+  if $Restore; then
 
     # Restore database
-    # local command="docker exec -i $dataContainer mariadb -uroot -p$DB_ROOT_PASSWORD"
-    local command="docker exec -i $dataContainer mariadb -u$DW_DB_USER -p$password"
-    local file=$hostRoot/${dataFile}.gz
+    # local command="docker exec -i $DataContainer mariadb -uroot -p$DB_ROOT_PASSWORD"
+    local command="docker exec -i $DataContainer mariadb"
+    commmand="${command} -u$DW_DB_USER -p$DW_DB_USER_PASSWORD"
+    die command is \"${command}\"
+    local file=$HostRoot/${DataFile}.gz
     xShow "gzcat \"$file\" | $command"
     gzcat "$file" | $command
     [ $? -ne 0 ] && die "Error restoring database!"
 
     # Restore pics.
-    local commandA="tar -cC ${hostRoot}/$imageDir ."
-    local commandB="docker exec --interactive $viewContainer tar -xC $wikiRoot/$imageDir"
+    local commandA="tar -cC ${HostRoot}/$ImageDir ."
+    local commandB="docker exec --interactive $ViewContainer tar -xC $WikiRoot/$ImageDir"
     xShow "$commandA | $commandB"
     $commandA | $commandB
     [ $? -ne 0 ] && die "Error restoring images: exit status '$?'"
 
     # Restore local settings / configuration.
     xCute2 docker cp \
-      "$hostRoot/$localSettings" \
-      "$viewContainer:$wikiRoot/$localSettings" ||
+      "$HostRoot/$LocalSettings" \
+      "$ViewContainer:$WikiRoot/$LocalSettings" ||
       die "Error backing up local settings: $(getLastError)"
 
-    echo && echo "==> Wiki restored from '$hostRoot' <=="
+    echo && echo "==> Wiki restored from '$HostRoot' <=="
 
   fi
 }
@@ -229,15 +203,15 @@ parseCommandLine() {
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
     -b | --backup)
-      BACKUP=true
+      Backup=true
       shift
       ;;
     -D | --data-container)
-      dataContainer="$2"
+      DataContainer="$2"
       shift 2
       ;;
     -f | --force)
-      force=true
+      Force=true
       shift
       ;;
     -h | --help)
@@ -252,19 +226,19 @@ parseCommandLine() {
       shift 2
       ;;
     -r | --restore)
-      RESTORE=true
+      Restore=true
       shift
       ;;
     -V | --view-container)
-      viewContainer="$2"
+      ViewContainer="$2"
       shift 2
       ;;
     -v | --verbose)
-      QUIET=false
+      Quiet=false
       shift
       ;;
     -w | --work-dir)
-      hostRoot="${2%/}" # remove any trailing '/'
+      HostRoot="${2%/}" # remove any trailing '/'
       shift 2
       ;;
     -* | --*)
