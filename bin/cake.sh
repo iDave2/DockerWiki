@@ -252,6 +252,7 @@ makeData() {
   if test $oInstaller == 'restore'; then
     xCute2 cp "$BACKUP_DIR/$gzDatabase" build/ || die "Copy failed: $(getLastError)"
     buildOptions+=" --build-arg VERSION=restore"
+    buildOptions+=" --build-arg DW_DB_NAME=$DW_DB_NAME"
   else
     xCute2 cp password-file build/mariadb-password-file ||
       die "Copy failed: $(getLastError)"

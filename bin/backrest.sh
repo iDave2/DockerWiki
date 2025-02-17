@@ -153,16 +153,19 @@ main() {
 
   # Use may define DW_DB_USER_PASSWORD or use command line --password=xyz.
   # Else, we prompt.
-  while [ -z "$DW_DB_USER_PASSWORD" ]; do
+  while [ -z "${DW_DB_USER_PASSWORD:-}" ]; do
     echo
     read -sp "Please enter password for user $DW_DB_USER: " DW_DB_USER_PASSWORD
+    echo
   done
 
   if $BACKUP; then
 
     # Backup database.
     #  local command="docker exec $dataContainer mariadb-dump --all-databases -uroot -p$DB_ROOT_PASSWORD"
-    local command="docker exec $dataContainer mariadb-dump $DW_DB_NAME -u$DW_DB_USER -p$password"
+    local command="docker exec $dataContainer mariadb-dump"
+    $command="{$command} -u$DW_DB_USER -p$DW_DB_USER_PASSWORD"
+    $command="${command} --databases $DW_DB_NAME"
     local file="${hostRoot}/${dataFile}.gz"
     xShow "$command | gzip > \"$file\""
     $command | gzip >"$file"

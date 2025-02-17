@@ -55,7 +55,8 @@ COPY --chmod=400 mariadb-password-file $MARIA/
 #  Restored images require an existing database, a backup.
 #
 FROM data AS data-branch-restore
-COPY all-databases.sql.gz /docker-entrypoint-initdb.d/
+ARG DW_DB_NAME=foobar
+COPY $DW_DB_NAME.sql.gz /docker-entrypoint-initdb.d/
 
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
