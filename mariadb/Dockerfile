@@ -1,12 +1,13 @@
 #  syntax = docker/dockerfile:1
 #  check  = skip=SecretsUsedInArgOrEnv
 #
-#  The check triggers on "password", "password_file", etc...
+#  Dockerfile for yet another MariaDB.
 #
 #  Also see:
 #    https://stackoverflow.com/a/79156231
 #    https://hub.docker.com/_/mariadb/;
 #    https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/;
+#    https://www.youtube.com/watch?v=6Bj5uyDe-hM.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
