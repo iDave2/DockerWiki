@@ -20,9 +20,6 @@ BannerShown=false                # Flag to print banner just once
 LaunchArgs=("$@")                # Memory bank for showBannner
 
 # Command-line options.
-# Bash v5 has associative arrays. Notation awkward, ${O[cache]} etc...
-# declare -A O=(cache true clean 0 installer cli timeout 10)
-# declare -p O
 OpCache=true    # Use build cache?
 OpClean=0       # Clean (remove) artifacts?
 OpInstaller=cli # Type of mediawiki installer to use
@@ -294,6 +291,17 @@ makeView() {
 
   showBanner
 
+  # Associative array looks like this (for compare/contrast):
+  #
+  #   declare -A C=(ConfigDefault) # keys with empty values
+  #   ${C[Container]}=$(getContainer $DW_VIEW_SERVICE)
+  #   ${C[Host]}=$DW_VIEW_HOST
+  #   ${C[Image]}=$DW_HID/mediawiki
+  #   ${C[Publish]}="--publish $DW_MW_PORTS"
+  #   ${C[TONY]}=/root
+  #
+  # Not sure the nice encapsulation offsets the more complex notation.
+  #
   Container=$(getContainer $DW_VIEW_SERVICE)
   Environment=
   Host=$DW_VIEW_HOST
@@ -329,11 +337,6 @@ makeView() {
   # Move context into build subdirectory and wake up docker engine.
   xCute pushd build && make "$buildOptions" && xCute popd
 
-  # Are we done yet?
-  case $OpInstaller in
-  restore | web) return 0 ;; # done, user continues in browser
-  esac
-
   # Database needs to be Running and Connectable to continue.
   if ! waitForData; then
     local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
@@ -342,6 +345,28 @@ makeView() {
     echo -e "\n$error"
     return -42
   fi
+
+  # Are we done yet?
+  if test $OpInstaller = 'restore'; then
+    cat <<'EOT'
+#
+#  Build complete, system restored.
+#
+EOT
+  elif test $OpInstaller = 'web'; then
+    cat <<'EOT'
+#
+#  Build complete, finish configuration in browser.
+#
+EOT
+  fi
+  case $OpInstaller in
+  restore | web)
+    # Also see https://stackoverflow.com/a/23039509.
+    open 'http://localhost:8080/'
+    return 0
+    ;;
+  esac
 
   # Install / configure mediawiki using famous PHP language.
   # This creates MW DB tables and generates LocalSettings.php file.
