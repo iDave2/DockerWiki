@@ -14,7 +14,7 @@ ARG VERSION=default
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  See https://stackoverflow.com/a/60820156. Mahvelous.
+#  See https://stackoverflow.com/a/60820156.
 #
 FROM mariadb:11.6 AS data
 
@@ -55,7 +55,7 @@ COPY --chmod=400 mariadb-password-file $MARIA/
 #  Restored images require an existing database, a backup.
 #
 FROM data AS data-branch-restore
-ARG DW_DB_NAME=foobar
+ARG DW_DB_NAME=mediawiki
 COPY $DW_DB_NAME.sql.gz /docker-entrypoint-initdb.d/
 
 

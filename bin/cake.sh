@@ -20,6 +20,9 @@ BannerShown=false                # Flag to print banner just once
 LaunchArgs=("$@")                # Memory bank for showBannner
 
 # Command-line options.
+# Bash v5 has associative arrays. Notation awkward, ${O[cache]} etc...
+# declare -A O=(cache true clean 0 installer cli timeout 10)
+# declare -p O
 OpCache=true    # Use build cache?
 OpClean=0       # Clean (remove) artifacts?
 OpInstaller=cli # Type of mediawiki installer to use
@@ -256,6 +259,8 @@ makeData() {
   # Prepare build command line and gather inputs.
   local buildOptions=''
   $OpCache || buildOptions='--no-cache'
+
+  # TODO: VERSION is required for all builds, either 'default' or 'restore'
 
   if test $OpInstaller == 'restore'; then
     xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
