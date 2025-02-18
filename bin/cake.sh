@@ -250,28 +250,35 @@ makeData() {
   # Prepare build directory. We presently sit in mariadb folder.
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
-  xCute2 cp "$DockerFile" build/Dockerfile &&
-    cp 20-noop.sh build/20-noop.sh &&
-    cp root-password-file build/mariadb-root-password-file &&
-    cp show-databases build/mariadb-show-databases ||
-    die "Copy failed: $(getLastError)"
+
+  # Prepare contents of build directory.
+  declare -An map=( # Associative arrays? Six or a half dozen?
+    $DockerFile Dockerfile
+    20-noop.sh 20-noop.sh
+    password-file mariadb-password-file
+    root-password-file mariadb-root-password-file
+    show-databases mariadb-show-databases
+  )
+  for i in "${!map[@]}"; do # https://stackoverflow.com/a/3113285
+    xCute2 cp "$i" "build/${map[$i]}" || die "Copy failed: $(getLastError)"
+  done
+  # xCute2 cp "$DockerFile" build/Dockerfile &&
+  #   cp 20-noop.sh build/20-noop.sh &&
+  #   cp password-file build/mariadb-password-file &&
+  #   cp root-password-file build/mariadb-root-password-file &&
+  #   cp show-databases build/mariadb-show-databases ||
+  #   die "Copy failed: $(getLastError)"
 
   # Prepare build command line and gather inputs.
   local buildOptions=''
   $OpCache || buildOptions='--no-cache'
-
-  # TODO: VERSION is required for all builds, either 'default' or 'restore'
+  buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
+  buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
+  buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
 
   if test $OpInstaller == 'restore'; then
     xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
     buildOptions+=" --build-arg VERSION=restore"
-    buildOptions+=" --build-arg DW_DB_NAME=$DW_DB_NAME"
-  else
-    xCute2 cp password-file build/mariadb-password-file ||
-      die "Copy failed: $(getLastError)"
-    buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
-    buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
-    buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
   fi
 
   # Move context into build subdirectory and wake up docker engine.

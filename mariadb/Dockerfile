@@ -35,28 +35,27 @@ ENV MARIADB_USER=$MARIADB_USER
 # Place custom initialization steps inside /docker-entrypoint-initdb.d.
 COPY ./20-noop.sh /docker-entrypoint-initdb.d/
 
-# Restore from scratch (at least) needs a root password.
+# Wrap all secrets in files.
 ENV MARIADB_ROOT_PASSWORD_FILE="$MARIA/mariadb-root-password-file"
 COPY --chmod=400 mariadb-root-password-file $MARIA/
-COPY --chmod=500 mariadb-show-databases $MARIA/
 
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  Default image requires passwords for the new database.
-#
-FROM data AS data-branch-default
 ENV MARIADB_PASSWORD_FILE="$MARIA/mariadb-password-file"
 COPY --chmod=400 mariadb-password-file $MARIA/
 
+COPY --chmod=500 mariadb-show-databases $MARIA/
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Default image uses this endpoint.
+#
+FROM data AS data-branch-default
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Restored images require an existing database, a backup.
 #
 FROM data AS data-branch-restore
-ARG DW_DB_NAME=mediawiki
-COPY $DW_DB_NAME.sql.gz /docker-entrypoint-initdb.d/
+COPY $MARIADB_DATABASE.sql.gz /docker-entrypoint-initdb.d/
 
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
