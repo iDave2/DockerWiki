@@ -12,3 +12,4 @@ alias cake="${SCRIPT_DIR}/bin/cake.sh"
 alias d=docker
 alias dc="docker compose"
 alias dp="declare -p"
+alias dw="${SCRIPT_DIR}/bin/dw.sh"
