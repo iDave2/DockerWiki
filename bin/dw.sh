@@ -7,6 +7,7 @@
 ScriptDir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${ScriptDir}/bootstrap.sh"
 
+backrest="${ScriptDir}/backrest.sh"
 url=http://localhost:8080/
 
 
@@ -43,6 +44,8 @@ main() {
   # Open browser page.
 
   xCute open $url
+
+  # Make a backup to DW_BACKUP_DIR, unzipped, for git
 
   echo "Finish me" && sleep 10
 

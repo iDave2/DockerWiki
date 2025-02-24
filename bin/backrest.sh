@@ -36,9 +36,10 @@ Backup=false
 Force=false
 Quiet=true
 Restore=false
+Zipped=true
 
 # Where to do it.
-BackupDir= # see --work-dir
+BackupDir=${DW_BACKUPS_DIR}/$(date '+%y%m%d.%H%M%S') # see --work-dir
 DataFile=$DW_DB_NAME.sql
 ImageDir=images
 LocalSettings=LocalSettings.php
@@ -86,6 +87,9 @@ checkContainer() {
 #
 main() {
 
+  # set | grep '^DW' | sort
+  # die bye
+
   local command
 
   isDockerRunning || die "Is docker down? I cannot connect."
@@ -98,7 +102,7 @@ main() {
     usage "Please specify either --backup or --restore"
 
   if $Backup; then
-    test -n "$BackupDir" || BackupDir="$(getTempDir)/backup.$(date '+%y%m%d.%H%M%S')"
+    # test -n "$BackupDir" || BackupDir="$(getTempDir)/backup.$(date '+%y%m%d.%H%M%S')"
     if test -d "$BackupDir"; then
       if $Force; then
         #command="chmod -R u+w $BackupDir" # Make existing backup writable.
@@ -144,9 +148,15 @@ main() {
     command="docker exec $DataContainer mariadb-dump"
     command="${command} -u$DW_DB_USER -p$DW_DB_USER_PASSWORD"
     command="${command} --databases $DW_DB_NAME"
-    local file="${BackupDir}/${DataFile}.gz"
-    xShow "$command | gzip > \"$file\""
-    $command | gzip >"$file"
+    local file="${BackupDir}/${DataFile}"
+    if $Zipped; then
+      file+=".gz"
+      xShow "$command | gzip > \"$file\""
+      $command | gzip >"$file"
+    else
+      xShow "$command > \"$file\""
+      $command >"$file"
+    fi
     [ $? -ne 0 ] && die "Error backing up database; exit status '$?'."
 
     # Backup images
@@ -175,9 +185,14 @@ main() {
     # Restore database
     command="docker exec -i $DataContainer mariadb"
     command="${command} -u$DW_DB_USER -p$DW_DB_USER_PASSWORD"
-    local file=$BackupDir/${DataFile}.gz
-    xShow "gzcat \"$file\" | $command"
-    gzcat "$file" | $command
+    local file="$BackupDir/${DataFile}"
+    if test -f $file; then # unzipped
+      xShow "cat \"$file\" | $command"
+      cat "$file" | $command
+    else #zipped
+      xShow "gzcat \"$file\" | $command"
+      gzcat "$file" | $command
+    fi
     [ $? -ne 0 ] && die "Error restoring database!"
 
     # Restore pics.
@@ -233,6 +248,10 @@ parseCommandLine() {
       Restore=true
       shift
       ;;
+    -u | --unzipped)
+      Zipped=false
+      shift
+      ;;
     -V | --view-container)
       ViewContainer="$2"
       shift 2
@@ -242,7 +261,8 @@ parseCommandLine() {
       shift
       ;;
     -w | --work-dir)
-      BackupDir="${2%/}" # remove any trailing '/'
+      BackupDir="${2%/}" # remove any trailing '/' (but '/' => '' ...)
+      test -z "$BackupDir" && BackupDir=.
       shift 2
       ;;
     -* | --*)
@@ -281,6 +301,7 @@ Options:
        --no-decoration           Disable composer-naming emulation
   -p | --password string         MediaWiki DBA password
   -r | --restore                 Restore database, images, and local settings
+  -u | --unzipped                Leave db.sql; don't gzip to db.sql.gz.
   -V | --view-container string   Override default '$(getContainer view)'
   -v | --verbose                 Display a few parameters
   -w | --work-dir string         Backup directory on host
