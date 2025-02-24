@@ -102,19 +102,16 @@ main() {
     usage "Please specify either --backup or --restore"
 
   if $Backup; then
-    # test -n "$BackupDir" || BackupDir="$(getTempDir)/backup.$(date '+%y%m%d.%H%M%S')"
     if test -d "$BackupDir"; then
       if $Force; then
-        #command="chmod -R u+w $BackupDir" # Make existing backup writable.
         xCute2 chmod -R u+w $BackupDir || # Make existing backup writable.
           die "Trouble making backup writable: $(getLastError)"
       else
-        usage "Use --force to reuse working dir '$dir'"
+        usage "Use --force to reuse working dir '$BackupDir'"
       fi
-    else
-      xCute2 mkdir -p "$BackupDir/$ImageDir" ||
-        usage "Trouble creating '$dir': $(getLastError)"
     fi
+    xCute2 mkdir -p "$BackupDir/$ImageDir" ||
+      usage "Trouble creating '$dir': $(getLastError)"
   else
     test -n "$BackupDir" ||
       usage "Please specify \"-w <backup-dir>\" when running --restore"

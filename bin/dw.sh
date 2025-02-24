@@ -7,9 +7,18 @@
 ScriptDir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${ScriptDir}/bootstrap.sh"
 
-backrest="${ScriptDir}/backrest.sh"
 url=http://localhost:8080/
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+backup() {
+  echo && echo "==> Backing up $DW_SITE <=="
+  local backupDir=${MY_BACKUP_DIR} # Secret defined in DW_USER_CONFIG
+  test -n $backupDir && backupDir="--work-dir ${backupDir}"
+  local command="${ScriptDir}/backrest.sh --backup --force --unzipped $backupDir"
+  xShow $command
+  $command
+}
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -45,11 +54,9 @@ main() {
 
   xCute open $url
 
-  # Make a backup to DW_BACKUP_DIR, unzipped, for git
+  # Make an unzipped backup, for git
 
-  echo "Finish me" && sleep 10
-
-  $weOpenedDocker && xCute pkill Docker
+  backup || die "ERROR: backup failed"
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
