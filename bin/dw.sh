@@ -7,7 +7,8 @@
 ScriptDir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${ScriptDir}/bootstrap.sh"
 
-OpenedByUs=false
+url=http://localhost:8080/
+
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -17,21 +18,35 @@ main() {
 
   parseCommandLine "$@"
 
+  # Make sure docker is listening.
+
+  weOpenedDocker=false
   if ! isDockerRunning; then # Disable auto-dashboard in Settings
     xCute2 open -a Docker || die "Error: $(getLastError)"
     for ((timer = 10; timer > 0; --timer)); do
-      isDockerRunning && OpenedByUs=true && break
-      sleep 1
+      sleep 1 # Next isDockerRunning appears to wait...
+      isDockerRunning && weOpenedDocker=true && break
     done
+    $weOpenedDocker || die "Error: cannot start docker"
   fi
 
+  # Make sure containers are running.
+
   xCute docker start wiki-data-1 wiki-view-1
+  isWikiUp=false
+  for ((timer = 10; timer > 0; --timer)); do
+    xQute2 curl -sS $url && isWikiUp=true && break
+    sleep 1
+  done
+  $isWikiUp || die "Error: $(getLastError)"
 
-  xCute open "http://localhost:8080/"
+  # Open browser page.
 
-  echo "Finish me" && sleep 20
+  xCute open $url
 
-  $OpenedByUs && xCute pkill Docker
+  echo "Finish me" && sleep 10
+
+  $weOpenedDocker && xCute pkill Docker
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
