@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
-#  DockerWiki wrapper under construction.
+#  DockerWiki wrapper for everyday use.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-ScriptDir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+# Resolve links completely to find everything.
+ScriptDir=$(dirname -- $(realpath -- ${BASH_SOURCE[0]}))
 source "${ScriptDir}/bootstrap.sh"
 
 url=http://localhost:8080/
