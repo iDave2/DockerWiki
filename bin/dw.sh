@@ -1,23 +1,26 @@
 #!/usr/bin/env bash
 #
-#  DockerWiki wrapper for everyday use.
+#  DockerWiki wrapper for everyday use, this program starts docker, starts
+#  wiki containers, opens a browser to website, and takes a backup.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-# Resolve links completely to find everything.
+# Resolve links completely or find nothing.
 ScriptDir=$(dirname -- $(realpath -- ${BASH_SOURCE[0]}))
 source "${ScriptDir}/bootstrap.sh"
 
-url=http://localhost:8080/
+# MY_BACKUP_DIR could be in DW_USER_CONFIG, for example.
+BackupDir=${MY_BACKUP_DIR:-$DW_BACKUPS_DIR/$(date '+%y%m%d.%H%M%S')}
+
+SiteURL=http://localhost:8080/
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 backup() {
   echo && echo "==> Backing up $DW_SITE <=="
-  local backupDir=${MY_BACKUP_DIR} # Secret defined in DW_USER_CONFIG
-  test -n $backupDir && backupDir="--work-dir ${backupDir}"
-  local command="${ScriptDir}/backrest.sh --backup --force --unzipped $backupDir"
-  xShow $command
+  local command="${ScriptDir}/backrest.sh --backup --force --unzipped"
+  command+=" --work-dir $BackupDir"
+  xShow $command # xCute garbles backrest.sh output...
   $command
 }
 
@@ -25,7 +28,10 @@ backup() {
 #
 main() {
 
-  isDockerRunning && echo "Docker is running" || echo "Docker is not running"
+  echo &&
+    isDockerRunning &&
+    echo "Docker is running" ||
+    echo "Docker is not running"
 
   parseCommandLine "$@"
 
@@ -46,16 +52,16 @@ main() {
   xCute docker start wiki-data-1 wiki-view-1
   isWikiUp=false
   for ((timer = 10; timer > 0; --timer)); do
-    xQute2 curl -sS $url && isWikiUp=true && break
+    xQute2 curl -sS $SiteURL && isWikiUp=true && break
     sleep 1
   done
   $isWikiUp || die "Error: $(getLastError)"
 
   # Open browser page.
 
-  xCute open $url
+  xCute open $SiteURL
 
-  # Make an unzipped backup, for git
+  # Make an unzipped backup
 
   backup || die "ERROR: backup failed"
 }
@@ -66,53 +72,8 @@ parseCommandLine() {
   set -- $(getOpt "$@")
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
-    -c | --clean)
-      let OpClean++
-      shift
-      ;;
     -h | --help)
       usage
-      ;;
-    -i | --installer)
-      local reset=$(shopt -p extglob)
-      shopt -s extglob       # https://stackoverflow.com/a/4555979
-      OpInstaller=${2%%+(/)} # Remove trailing '/'s
-      $reset
-      # echo && echo "[internal]" After reset "\$($reset)", found \"$(shopt extglob)\".
-      shift 2
-      case "$OpInstaller" in
-      cli | web) # No problema
-        ;;
-      restore=*)
-        BackupDir=${OpInstaller:8}
-        test -n "$BackupDir" &&
-          test -d "$BackupDir" &&
-          test -f "$BackupDir/$BuDatabase" &&
-          test -f "$BackupDir/$BuLocalSettings" &&
-          test -d "$BackupDir/$BuImageDir" ||
-          die Cannot restore from "'$BackupDir'", please check location
-        BackupDir=$(realpath ${BackupDir}) # TODO: weak death knell above
-        OpInstaller=restore
-        ;;
-      *) # boo-boos and butt-dials
-        usage "Unrecognized --installer '$OpInstaller'; please check usage"
-        ;;
-      esac
-      ;;
-    --no-cache)
-      OpCache=false
-      shift
-      ;;
-    --no-decoration)
-      DECORATE=false
-      shift
-      ;;
-    -t | --timeout)
-      OpTimeout="$2"
-      shift 2
-      if ! [[ $OpTimeout =~ ^[+]?[1-9][0-9]*$ ]]; then
-        usage "--timeout 'seconds': expected a positive integer, found '$OpTimeout'"
-      fi
       ;;
     -* | --*)
       usage unknown option \"$1\"
@@ -126,8 +87,6 @@ parseCommandLine() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  Summarize usage on request or when command line does not compute.
-#
 usage() {
   if [ -n "$*" ]; then
     echo -e "\n***  $@  ***" >&2
@@ -136,15 +95,10 @@ usage() {
 
 Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
-[Fix old cake usage].
+Start DockerWiki and take a backup.
 
 Options:
-  -c | --clean              Remove (up to -cccc) build artifacts
-  -i | --installer string   'cli' (default), 'web', or 'restore=<dir>'
   -h | --help               Print this usage summary
-       --no-cache           Do not use cache when building images
-       --no-decoration      Disable composer-naming emulation
-  -t | --timeout seconds    Seconds to retry DB connection before failing
 EOT
   exit 1
 }
