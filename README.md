@@ -73,14 +73,41 @@ $ br --restore -w ./my-git-backups  # <- ./my-git-backups/
 
 In this context, *installer* refers to the method used to create MediaWiki's
 initial database and runtime configuration stored in `LocalSettings.php`.
-`cake` offers four choices:
+`cake` offers three choices:
 ```bash
 $ cake -i web                # web-based installer
 $ cake --installer cli       # command-line installer (default)
-$ cake -i debug              # same as cli but w/extra dev tools
 $ cake -i restore=my/backup  # Restore a backrest.sh backup
 ```
-The first three methods create a database and local settings *after* the
+## Web installer
+The web installer presents you with a "set up the wiki" browser page, much like a vanilla container with the hub's official mediawiki image except that a big MariaDB system lurks nearby,
+```bash
+docker run --name some-mediawiki -d -p 8080:80 mediawiki
+```
+For web installs, MariaDB has only a root account and no wiki database so installer needs to know the MariaDB root password to complete configuration. (See `mariadb/root-password-file`, its current home.)
+
+This method offers advanced installers granular control over all aspects of configuration (like which extensions to include).
+
+## Command-line installer
+This method leverages built-in PHP programs to automate installation. Configuration settings come from `DW_` variables defined in increasing order of precedence by files `.env`, `DW_USER_CONFIG`, or command-line assignments.
+
+For example, file `.env` begins with a line,
+```bash
+DW_HID=${DW_HID:-idave2} # Docker Hub ID
+```
+To build images with `your_hub_id` rather than mine, you could override on the command line,
+```bash
+DW_HID=your_hub_id cake -i cli
+```
+or you could add a line to `DW_USER_CONFIG` (after learning that its default location is `~/.DockerWiki/config`),
+```bash
+DW_HID=${DW_HID:-your_hub_id} # Override .env
+```
+
+This method was popular with remote workers, ealayhim alsalam.
+
+## Restoring (backups into) an image
+The first two installation methods create a database and local settings *after* the
 images are built and running in their containers, so if these containers
 (not images) were destroyed and recreated, they would again need to have
 a database and local settings created.
@@ -93,6 +120,8 @@ $ cake --installer restore=./hub
 ```
 This is how the Docker Hub images corresponding to this git repository
 were created.
+
+TODO: Also mention newer method for saving a container as a new image...
 
 ---
 

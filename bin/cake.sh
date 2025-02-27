@@ -249,16 +249,16 @@ makeData() {
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
 
   # Prepare contents of build directory.
-  declare -An map=( # Associative arrays? Six or a half dozen?
-    $DockerFile Dockerfile
-    20-noop.sh 20-noop.sh
-    password-file mariadb-password-file
-    root-password-file mariadb-root-password-file
-    show-databases mariadb-show-databases
-  )
-  for i in "${!map[@]}"; do # https://stackoverflow.com/a/3113285
-    xCute2 cp "$i" "build/${map[$i]}" || die "Copy failed: $(getLastError)"
-  done
+  xCute2 cp "$DockerFile" 20-noop.sh build/ &&
+    cp root-password-file build/mariadb-root-password-file ||
+    die "Copy failed: $(getLastError)"
+
+  # declare -An map=( # Associative arrays? Six or one half dozen?
+  #   password-file mariadb-password-file
+  # )
+  # for i in "${!map[@]}"; do # https://stackoverflow.com/a/3113285
+  #   xCute2 cp "$i" "build/${map[$i]}" || die "Copy failed: $(getLastError)"
+  # done
   # xCute2 cp "$DockerFile" build/Dockerfile &&
   #   cp 20-noop.sh build/20-noop.sh &&
   #   cp password-file build/mariadb-password-file &&
@@ -268,14 +268,27 @@ makeData() {
 
   # Prepare build command line and gather inputs.
   local buildOptions=''
+  buildOptions+=" --build-arg MARIA=/root" # TODO: hard-coded?
+  buildOptions+=" --build-arg VERSION=$OpInstaller"
   $OpCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
+  case $OpInstaller in
+  web) ;;
+  cli)
+    xCute2 cp show-databases build/mariadb-show-databases ||
+      die "Copy failed: $(getLastError)"
+    ;;
+  restore)
+    xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
+    ;;
+  esac
+
   buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
   buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
 
+  # Installer option is becoming famous?
   if test $OpInstaller == 'restore'; then
     xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
-    buildOptions+=" --build-arg VERSION=restore"
   fi
 
   # Move context into build subdirectory and wake up docker engine.
@@ -324,27 +337,22 @@ makeView() {
   local buildOptions=''
   $OpCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg TONY=$TONY"
-  if test $OpInstaller == 'restore'; then
-    xCute2 cp -R "$BackupDir/$BuLocalSettings" "$BackupDir/$BuImageDir" build/ ||
-      die "Error copying file: $(getLastError)"
-    buildOptions+=" --build-arg VERSION=restore"
-  else
+  buildOptions+=" --build-arg VERSION=$OpInstaller"
+  case $OpInstaller in
+  web) ;;
+  cli)
     xCute2 cp admin-password-file build/passfile &&
       cp password-file build/dbpassfile ||
       die "Copy failed: $(getLastError)"
-  fi
+    ;;
+  restore)
+    xCute2 cp -R "$BackupDir/$BuLocalSettings" "$BackupDir/$BuImageDir" build/ ||
+      die "Error copying file: $(getLastError)"
+    ;;
+  esac
 
   # Move context into build subdirectory and wake up docker engine.
   xCute pushd build && make "$buildOptions" && xCute popd
-
-  # Database needs to be Running and Connectable to continue.
-  if ! waitForData; then
-    local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
-    error+="unable to generate $BuLocalSettings; "
-    error+="browser may display web-based installer."
-    echo -e "\n$error"
-    return -42
-  fi
 
   # Are we done yet?
   if test $OpInstaller = 'restore'; then
@@ -367,6 +375,15 @@ EOT
     return 0
     ;;
   esac
+
+  # Database needs to be Running and Connectable to continue.
+  if ! waitForData; then
+    local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
+    error+="unable to generate $BuLocalSettings; "
+    error+="browser may display web-based installer."
+    echo -e "\n$error"
+    return -42
+  fi
 
   # Install / configure mediawiki using famous PHP language.
   # This creates MW DB tables and generates LocalSettings.php file.

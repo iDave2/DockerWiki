@@ -11,7 +11,7 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-ARG VERSION=default
+ARG VERSION=cli
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -22,34 +22,37 @@ FROM mariadb:11.6 AS data
 # I just met a girl.
 ARG MARIA=/root
 
+# Any MariaDB requires at least this.
+ENV MARIADB_ROOT_PASSWORD_FILE="$MARIA/mariadb-root-password-file"
+COPY --chmod=400 mariadb-root-password-file $MARIA/
+
 # Root localhost-only?.
-ARG MARIADB_ROOT_HOST
-ENV MARIADB_ROOT_HOST=$MARIADB_ROOT_HOST
+# ARG MARIADB_ROOT_HOST
+# ENV MARIADB_ROOT_HOST=$MARIADB_ROOT_HOST
 
 # MariaDB kindly sets up a user and database for us.
 # Configure something for MediaWiki.
-ARG MARIADB_DATABASE
-ENV MARIADB_DATABASE=$MARIADB_DATABASE
-ARG MARIADB_USER
-ENV MARIADB_USER=$MARIADB_USER
+# ARG MARIADB_DATABASE
+# ENV MARIADB_DATABASE=$MARIADB_DATABASE
+# ARG MARIADB_USER
+# ENV MARIADB_USER=$MARIADB_USER
 
 # Place custom initialization steps inside /docker-entrypoint-initdb.d.
 COPY ./20-noop.sh /docker-entrypoint-initdb.d/
 
-# Wrap all secrets in files.
-ENV MARIADB_ROOT_PASSWORD_FILE="$MARIA/mariadb-root-password-file"
-COPY --chmod=400 mariadb-root-password-file $MARIA/
 
-ENV MARIADB_PASSWORD_FILE="$MARIA/mariadb-password-file"
-COPY --chmod=400 mariadb-password-file $MARIA/
+# ENV MARIADB_PASSWORD_FILE="$MARIA/mariadb-password-file"
+# COPY --chmod=400 mariadb-password-file $MARIA/
 
-COPY --chmod=500 mariadb-show-databases $MARIA/
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Default image uses this endpoint.
 #
-FROM data AS data-branch-default
+FROM data AS data-branch-web
+
+FROM data AS data-branch-cli
+COPY --chmod=500 mariadb-show-databases $MARIA/
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
