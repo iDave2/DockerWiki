@@ -80,31 +80,58 @@ $ cake --installer cli       # command-line installer (default)
 $ cake -i restore=my/backup  # Restore a backrest.sh backup
 ```
 ## Web installer
-The web installer presents you with a "set up the wiki" browser page, much like a vanilla container with the hub's official mediawiki image except that a big MariaDB system lurks nearby,
+The web installer presents you with a "set up the wiki" browser page,
+just like a vanilla container with the hub's official mediawiki image,
+except that a big MariaDB system lurks nearby,
 ```bash
-docker run --name some-mediawiki -d -p 8080:80 mediawiki
+$ docker run --name some-mediawiki -d -p 8080:80 mediawiki
 ```
-For web installs, MariaDB has only a root account and no wiki database so installer needs to know the MariaDB root password to complete configuration. (See `mariadb/root-password-file`, its current home.)
+For web installs, MariaDB is given only a root account and no wiki database
+(i.e., no "application" database), so the MediaWiki installer needs to know
+the MariaDB root password in order to complete wiki configuration. (See
+`mariadb/root-password-file`, if it has not moved.)
 
-This method offers advanced installers granular control over all aspects of configuration (like which extensions to include).
+This method offers advanced installers granular control over all aspects
+of configuration (like which extensions to include).
 
 ## Command-line installer
-This method leverages built-in PHP programs to automate installation. Configuration settings come from `DW_` variables defined in increasing order of precedence by files `.env`, `DW_USER_CONFIG`, or command-line assignments.
+This method leverages built-in PHP programs to automate installation.
+Configuration settings come from `DW_` variables scattered in increasing
+order of precedence by files `.env`, `DW_USER_CONFIG`, and command-line
+assignments.
 
 For example, file `.env` begins with a line,
+
 ```bash
 DW_HID=${DW_HID:-idave2} # Docker Hub ID
 ```
-To build images with `your_hub_id` rather than mine, you could override on the command line,
+
+This bash jargon means "set DW_HID to idave2 unless it is already set."
+To build images with `your_hub_id` rather than mine, you could (write your
+own `.env` or) override `.env` on the command line,
+
 ```bash
-DW_HID=your_hub_id cake -i cli
+$ DW_HID=your_hub_id cake -i cli
 ```
-or you could add a line to `DW_USER_CONFIG` (after learning that its default location is `~/.DockerWiki/config`),
+
+or you could add a line to `DW_USER_CONFIG` (after learning that its
+default location is `~/.DockerWiki/config`),
+
 ```bash
 DW_HID=${DW_HID:-your_hub_id} # Override .env
 ```
 
-This method was popular with remote workers, ealayhim alsalam.
+`DW_USER_CONFIG` is a good place to hide secrets.
+
+Finally, this command-line installer may include postinstallation steps
+not documented here (yet).
+
+[comment]: # (
+  That's fine, Dave. Anyone using this as a template
+  will eventually grok what they like and toss the rest.
+  See https://stackoverflow.com/a/20885980.
+)
+
 
 ## Restoring (backups into) an image
 The first two installation methods create a database and local settings *after* the
@@ -112,16 +139,17 @@ images are built and running in their containers, so if these containers
 (not images) were destroyed and recreated, they would again need to have
 a database and local settings created.
 
-In order for these important artifacts to end up in image layers rather
-than volatile container memory, we use a Dockerfile that copies them into
-the image from a folder previously created by `backrest.sh`:
+In order for these artifacts to end up in image layers rather than volatile
+container memory, we use a Dockerfile that copies them into the image from
+a folder previously created by `backrest.sh` (i.e., a backup):
 ```bash
 $ cake --installer restore=./hub
 ```
 This is how the Docker Hub images corresponding to this git repository
 were created.
 
-TODO: Also mention newer method for saving a container as a new image...
+Also see `docker commit`, another method to commit changes from a running
+container into a new image.
 
 ---
 

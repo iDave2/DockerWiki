@@ -11,11 +11,12 @@
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-# Tony is Maria's boyfriend and default container includes cli install.
-ARG TONY=/root
 ARG VERSION=cli
 
 FROM mediawiki:1.43 AS view
+
+# Tony is Maria's boyfriend.
+ARG TONY=/root
 
 FROM view AS view-branch-web
 
