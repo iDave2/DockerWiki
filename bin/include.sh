@@ -9,6 +9,16 @@ DECORATE=true # see --no-decoration and decorate()
 
 ####-####+####-####+####-####+####-####+
 #
+#  Open default browser with the given URL.
+#
+browse() {
+  local url="$1"
+  test -n $url || die "browse(): please specify <url> to open"
+  open $url # Also see https://stackoverflow.com/a/23039509.
+}
+
+####-####+####-####+####-####+####-####+
+#
 #  Curly version of xShow, this pretty-prints comment + command.
 #
 cShow() {
@@ -134,21 +144,20 @@ join() { # https://stackoverflow.com/a/17841619
 
 ####-####+####-####+####-####+####-####+
 #
-#  Print MAPFILE to STDOUT without the extra space.
-#  https://stackoverflow.com/a/64244057.
+#  Wait for the given URL to respond. Return true if site responds
+#  before timing out; otherwise, return false.
 #
-# pmap() {
-#   # echo pmap: received $# args
-#   # echo "$@" | xargs -I % echo -e "%\n"
-#   # i=0
-#   for s in "$@"; do
-#     # t=$s && echo "$t"
-#     t=$(echo "$s" | sed -e 's/^[:space:]*//' -e 's/[:space:]*$//')
-#     echo "$t"
-#     # echo $i: "$s"
-#     # let i++
-#   done
-# }
+waitForView() {
+  local url=$1 seconds=${2:-10} isUp=false timer
+  for ((timer = $seconds; timer > 0; --timer)); do
+    echo waitForView: timer=$timer
+    # xQute12 curl -sS $url && isUp=true && break
+    xCute curl --head $url && isUp=true && break
+    sleep 1
+  done
+  echo "waitForView done:\n" && cat "$(getLastOutput)"
+  $isUp
+}
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #

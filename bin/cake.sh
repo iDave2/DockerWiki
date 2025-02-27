@@ -39,9 +39,10 @@ DockerFile=Dockerfile
 DataVolume=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
 DataTarget=/var/lib/mysql
 Network=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
+SiteURL='http://localhost:8080/'
 
 # Contents of a BackUp directory (see backrest.sh).
-readonly BuDatabase=$DW_DB_NAME.sql
+BuDatabase=$DW_DB_NAME.sql
 readonly BuImageDir=images
 readonly BuLocalSettings=LocalSettings.php
 
@@ -148,7 +149,8 @@ make() {
 
   # Build the image.
   command="docker build $buildOptions --tag $Image:$DW_TAG ."
-  xCute2 $command || die "Build failed: $(getLastError)"
+  xShow $command # xCute garbles output, if any
+  $command || die "Build failed: $(getLastError)"
   for ((i = 0; i < ${#DW_EXTRA_TAGS[*]}; i++)); do
     xCute2 docker image tag $Image:$DW_TAG $Image:${DW_EXTRA_TAGS[$i]} ||
       die "Error tagging '$Image:$DW_TAG <- $Image:${DW_EXTRA_TAGS[$i]}'"
@@ -260,6 +262,12 @@ makeData() {
   buildOptions+=" --build-arg VERSION=$OpInstaller"
   case $OpInstaller in
   web) ;;
+  restore)
+    xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
+    if test "${BuDatabase%.gz}" = "${BuDatabase}"; then
+      xCute2 gzip "$BackupDir/$BuDatabase" || die "Gzip failed: $(getLastError)"
+    fi
+    ;& # Fall through...
   cli)
     buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
     buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
@@ -267,11 +275,6 @@ makeData() {
     xCute2 cp password-file build/mariadb-password-file &&
       cp show-databases build/mariadb-show-databases ||
       die "Copy failed: $(getLastError)"
-    ;;
-  restore)
-    xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
-    test "${BuDatabase%.gz}" = "${BuDatabase} &&
-      xCute2 gzip ""$BackupDir/$BuDatabase" || die "Gzip failed: $(getLastError)"
     ;;
   esac
 
@@ -301,13 +304,14 @@ makeView() {
     return
   fi
 
+  local buildOptions lastWords isWikiUp timer
+
   # Prepare build directory. We presently sit in mediawiki folder.
   test ! -d build || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mediawiki/build failed: $(getLastError)"
   xCute2 cp "$DockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
 
   # Prepare build command line and gather inputs.
-  local buildOptions='' lastWords=''
   $OpCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg TONY=$TONY"
   buildOptions+=" --build-arg VERSION=$OpInstaller"
@@ -332,14 +336,15 @@ makeView() {
   # Are we done yet?
   case $OpInstaller in
   restore | web)
+    waitForView $SiteURL
     cat <<EOT
+
 #
 #  $lastWords
 #
 EOT
-    # Also see https://stackoverflow.com/a/23039509.
-    open 'http://localhost:8080/'
-    return 0
+    browse $SiteURL # Also see https://stackoverflow.com/a/23039509.
+    return 0        # Restore and web installers stop here.
     ;;
   esac
 
@@ -393,7 +398,7 @@ parseCommandLine() {
         BackupDir=${OpInstaller:8}
         test ! -f "$BackupDir/$BuDatabase" &&
           test -f "$BackupDir/$BuDatabase.gz" &&
-          $BuDatabase+=".gz"
+          BuDatabase+=".gz"
         test -n "$BackupDir" &&
           test -d "$BackupDir" &&
           test -f "$BackupDir/$BuDatabase" &&

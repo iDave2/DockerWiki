@@ -86,10 +86,11 @@ except that a big MariaDB system lurks nearby,
 ```bash
 $ docker run --name some-mediawiki -d -p 8080:80 mediawiki
 ```
-For web installs, MariaDB is given only a root account and no wiki database
-(i.e., no "application" database), so the MediaWiki installer needs to know
-the MariaDB root password in order to complete wiki configuration. (See
-`mariadb/root-password-file`, if it has not moved.)
+For web installs, MariaDB is given only a root account and no application
+(mediawiki) database and user, so the MediaWiki installer needs to know
+the MariaDB root password (see `mariadb/root-password-file`), and the
+MariaDB root login must be available to the MediaWiki container, so this
+configuration is less secure than with `MARIADB_ROOT_HOST=localhost`.
 
 This method offers advanced installers granular control over all aspects
 of configuration (like which extensions to include).
