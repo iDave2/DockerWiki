@@ -41,7 +41,7 @@ DataTarget=/var/lib/mysql
 Network=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
 
 # Contents of a BackUp directory (see backrest.sh).
-readonly BuDatabase=$DW_DB_NAME.sql.gz
+readonly BuDatabase=$DW_DB_NAME.sql
 readonly BuImageDir=images
 readonly BuLocalSettings=LocalSettings.php
 
@@ -253,43 +253,27 @@ makeData() {
     cp root-password-file build/mariadb-root-password-file ||
     die "Copy failed: $(getLastError)"
 
-  # declare -An map=( # Associative arrays? Six or one half dozen?
-  #   password-file mariadb-password-file
-  # )
-  # for i in "${!map[@]}"; do # https://stackoverflow.com/a/3113285
-  #   xCute2 cp "$i" "build/${map[$i]}" || die "Copy failed: $(getLastError)"
-  # done
-  # xCute2 cp "$DockerFile" build/Dockerfile &&
-  #   cp 20-noop.sh build/20-noop.sh &&
-  #   cp password-file build/mariadb-password-file &&
-  #   cp root-password-file build/mariadb-root-password-file &&
-  #   cp show-databases build/mariadb-show-databases ||
-  #   die "Copy failed: $(getLastError)"
-
   # Prepare build command line and gather inputs.
   local buildOptions=''
+  $OpCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg MARIA=/root" # TODO: hard-coded?
   buildOptions+=" --build-arg VERSION=$OpInstaller"
-  $OpCache || buildOptions='--no-cache'
-  buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
   case $OpInstaller in
   web) ;;
   cli)
-    xCute2 cp show-databases build/mariadb-show-databases ||
+    buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
+    buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
+    buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
+    xCute2 cp password-file build/mariadb-password-file &&
+      cp show-databases build/mariadb-show-databases ||
       die "Copy failed: $(getLastError)"
     ;;
   restore)
     xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
+    test "${BuDatabase%.gz}" = "${BuDatabase} &&
+      xCute2 gzip ""$BackupDir/$BuDatabase" || die "Gzip failed: $(getLastError)"
     ;;
   esac
-
-  buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
-  buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
-
-  # Installer option is becoming famous?
-  if test $OpInstaller == 'restore'; then
-    xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
-  fi
 
   # Move context into build subdirectory and wake up docker engine.
   xCute pushd build && make "$buildOptions" && xCute popd
@@ -304,17 +288,6 @@ makeView() {
 
   showBanner
 
-  # Associative array looks like this (for compare/contrast):
-  #
-  #   declare -A C=(ConfigDefault) # keys with empty values
-  #   ${C[Container]}=$(getContainer $DW_VIEW_SERVICE)
-  #   ${C[Host]}=$DW_VIEW_HOST
-  #   ${C[Image]}=$DW_HID/mediawiki
-  #   ${C[Publish]}="--publish $DW_MW_PORTS"
-  #   ${C[TONY]}=/root
-  #
-  # Not sure the nice encapsulation offsets the more complex notation.
-  #
   Container=$(getContainer $DW_VIEW_SERVICE)
   Environment=
   Host=$DW_VIEW_HOST
@@ -334,18 +307,20 @@ makeView() {
   xCute2 cp "$DockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
 
   # Prepare build command line and gather inputs.
-  local buildOptions=''
+  local buildOptions='' lastWords=''
   $OpCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg TONY=$TONY"
   buildOptions+=" --build-arg VERSION=$OpInstaller"
   case $OpInstaller in
-  web) ;;
+  web)
+    lastWords="Build complete, finish configuration in browser."
+    ;;
   cli)
     xCute2 cp admin-password-file build/passfile &&
-      cp password-file build/dbpassfile ||
-      die "Copy failed: $(getLastError)"
+      cp password-file build/dbpassfile || die "Copy failed: $(getLastError)"
     ;;
   restore)
+    lastWords="Build complete, system restored."
     xCute2 cp -R "$BackupDir/$BuLocalSettings" "$BackupDir/$BuImageDir" build/ ||
       die "Error copying file: $(getLastError)"
     ;;
@@ -355,21 +330,13 @@ makeView() {
   xCute pushd build && make "$buildOptions" && xCute popd
 
   # Are we done yet?
-  if test $OpInstaller = 'restore'; then
-    cat <<'EOT'
-#
-#  Build complete, system restored.
-#
-EOT
-  elif test $OpInstaller = 'web'; then
-    cat <<'EOT'
-#
-#  Build complete, finish configuration in browser.
-#
-EOT
-  fi
   case $OpInstaller in
   restore | web)
+    cat <<EOT
+#
+#  $lastWords
+#
+EOT
     # Also see https://stackoverflow.com/a/23039509.
     open 'http://localhost:8080/'
     return 0
@@ -385,7 +352,7 @@ EOT
     return -42
   fi
 
-  # Install / configure mediawiki using famous PHP language.
+  # Install / configure mediawiki using the famous PHP language.
   # This creates MW DB tables and generates LocalSettings.php file.
   local port=${DW_MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
   port=${port#*:}              # 127.0.0.1:8080 -> 8080
@@ -424,6 +391,9 @@ parseCommandLine() {
         ;;
       restore=*)
         BackupDir=${OpInstaller:8}
+        test ! -f "$BackupDir/$BuDatabase" &&
+          test -f "$BackupDir/$BuDatabase.gz" &&
+          $BuDatabase+=".gz"
         test -n "$BackupDir" &&
           test -d "$BackupDir" &&
           test -f "$BackupDir/$BuDatabase" &&
