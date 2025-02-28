@@ -184,17 +184,11 @@ main() {
 
     # Restore LocalSettings.php and its famous secret key.
     local inFile="$BackupDir/$LocalSettings"
-    # local commandA="cat $inFile"
-    # local commandB="wgSecretKey show"
     local tmpFile="$(getTempDir)/$LocalSettings"
     xShow "cat $inFile | wgSecretKey show >$tmpFile"
     cat "$inFile" | wgSecretKey show >"$tmpFile" || die "Error: $(getLastError)"
-    # xShow "$commandA | $commandB >$tmpFile"
-    # $commandA | $commandB >$tmpFile || die "Error: $(getLastError)"
-
-    xCute2 docker cp "$tmpFile" "$ViewContainer:$WikiRoot/" ||
-      die "Error: $(getLastError)"
-    xCute2 rm "$tmpFile" || die "Error: $(getLastError)"
+    xCute2 docker cp "$tmpFile" "$ViewContainer:$WikiRoot/" &&
+      xCute2 rm "$tmpFile" || die "Error: $(getLastError)"
 
     echo && echo "==> Wiki restored from '$BackupDir' <=="
 
