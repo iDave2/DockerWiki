@@ -310,6 +310,7 @@ makeView() {
 
   # Prepare build command line and gather inputs.
   $OpCache || buildOptions='--no-cache'
+  buildOptions+=" --build-arg CACHE_DATE=$(date '+%y%m%d.%H%M%S')"
   buildOptions+=" --build-arg TONY=$TONY"
   buildOptions+=" --build-arg VERSION=$OpInstaller"
   case $OpInstaller in
