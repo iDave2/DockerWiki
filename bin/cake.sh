@@ -265,7 +265,7 @@ makeData() {
   restore)
     xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
     if test "${BuDatabase%.gz}" = "${BuDatabase}"; then
-      xCute2 gzip "$BackupDir/$BuDatabase" || die "Gzip failed: $(getLastError)"
+      xCute2 gzip "build/$BuDatabase" || die "Gzip failed: $(getLastError)"
     fi
     ;& # Fall through...
   cli)
@@ -336,7 +336,8 @@ makeView() {
   # Are we done yet?
   case $OpInstaller in
   restore | web)
-    waitForView $SiteURL
+    waitForView $SiteURL 15 || # 15 second timeout
+      die "Trouble starting view: $(getLastError)"
     cat <<EOT
 
 #

@@ -151,7 +151,7 @@ waitForView() {
   local url=$1 seconds=${2:-10} isUp=false timer
   local http status message
   for ((timer = $seconds; timer > 0; --timer)); do
-    echo -e "\n$ read http status message 2>\"$errFile\" < <(curl -ISs $url)"
+    echo -e "\n$ read http status message < <(curl -ISs $url)"
     if read http status message 2>"$errFile" < <(curl -ISs $url); then
       echo "out>" $http $status $message
       test ${status:0:1} -lt 4 && isUp=true && break
