@@ -158,7 +158,7 @@ waitForView() {
     echo -e "\n$ read http status message < <(curl -ISs $url)"
     if read http status message 2>"$errFile" < <(curl -ISs $url); then
       echo "out>" $http $status $message
-      test ${status:0:1} -lt 4 && isUp=true && break
+      test ${status:-500} -lt 400 && isUp=true && break
     else
       echo "err> $(getLastError)"
     fi

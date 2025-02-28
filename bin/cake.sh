@@ -86,8 +86,6 @@ main() {
 
   isDockerRunning || die "Please check docker, I cannot connect."
 
-  # LaunchArgs=("$@") # Save for banner.
-
   parseCommandLine "$@"
 
   # Make one or both services.
@@ -125,9 +123,7 @@ EOT
 #
 make() {
 
-  local buildOptions=${1:-''}
-  local command out
-  # this local game may be hopeless - bash reports undefined usage, not unused vars
+  local buildOptions=${1:-''} command
 
   makeClean
 
@@ -173,8 +169,6 @@ make() {
 #  something.
 #
 makeClean() {
-
-  local command out
 
   # Build directories are created during builds before this cleaning
   # step. So do not erase build directories when building!
@@ -365,10 +359,17 @@ EOT
   # This creates MW DB tables and generates LocalSettings.php file.
   local port=${DW_MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
   port=${port#*:}              # 127.0.0.1:8080 -> 8080
-  command=$(echo docker exec $Container maintenance/run CommandLineInstaller \
-    --dbtype=mysql --dbserver=$DW_DATA_HOST --dbname=$DW_DB_NAME --dbuser=$DW_DB_USER \
-    --dbpassfile="$TONY/dbpassfile" --passfile="$TONY/passfile" \
-    --scriptpath='' --server="http://localhost:$port" $DW_SITE $DW_MW_ADMIN)
+  local command=$(echo docker exec $Container \
+    maintenance/run CommandLineInstaller \
+    --dbtype=mysql \
+    --dbserver=$DW_DATA_HOST \
+    --dbname=$DW_DB_NAME \
+    --dbuser=$DW_DB_USER \
+    --dbpassfile="$TONY/dbpassfile" \
+    --passfile="$TONY/passfile" \
+    --scriptpath='' \
+    --server="http://localhost:$port" \
+    $DW_SITE $DW_MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 
 }
