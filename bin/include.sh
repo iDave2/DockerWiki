@@ -7,9 +7,9 @@
 # Additional variables declared at EOF after functions are visible.
 DECORATE=true # see --no-decoration and decorate()
 
-# A random value for wgSecretKey
-SecretShow=$(perl -we "print map { ('0'..'9','a'..'f')[int(rand(16))] } 1..64")
-SecretHide='%%wgSecretKey%%'
+# Hide and show (generate) secrets.
+readonly SecretHide='%%wgSecretKey%%'
+unset SecretShow
 
 ####-####+####-####+####-####+####-####+
 #
@@ -56,7 +56,7 @@ decorate() {
 #  TODO: This should write to stderr someday.
 #
 die() {
-  test $# -gt 0 && echo -e "\n$*" >&2 # https://stackoverflow.com/q/3601515
+  test $# -gt 0 && echo -e "\n$*\n" >&2 # https://stackoverflow.com/q/3601515
   echo >&2
   echo Death caused by ${FUNCNAME[1]}:${BASH_LINENO[0]} at $(date +%H:%M). >&2
   exit 42
@@ -193,25 +193,36 @@ waitForView() {
 #        docker cp tmpFile wiki-view-1:/var/www/html/LocalSettings.php &&
 #        rm tmpFile
 #
+#  Also see:
+#    https://stackoverflow.com/a/66461030.
+#
 #  Note: This algorithm was motivated by github warnings apparently triggered
-#  by specific conditions: name=LocalSettings.php and $wgSecretKey=<clearkey>.
-#  The MediaWiki DB user password is still clear (in case you want to generalize
+#  by conditions name=LocalSettings.php and $wgSecretKey=<clearkey>. The
+#  MediaWiki DB user password is still clear (in case you want to generalize
 #  this). Also see usage in MediaWiki Dockerfile. And revisit docker secrets.
 #
 #  TODO: Do docker secrets persist? Are they initialized once or remain live?
 #
 wgSecretKey() {
+
   local action=${1:-unset}
+
   case $action in
-  show)
-    perl -pwe "s|$SecretHide|$SecretShow|" # LocalSettings.php
-    ;;
-  hide)
-    perl -pwe 's|^(\$wgSecretKey)\s*=.*|$1 = "%%wgSecretKey%%";|'
-    ;;
-  *)
-    usage "wgSecretKey [hide | show], not '\$1 $action'"
-    ;;
+  hide | show) ;;
+  *) usage "wgSecretKey [hide | show], not '\$1 $action'" ;;
+  esac
+
+  if test -z ${SecretShow:-''}; then
+    readonly Hex=$(echo {0..9} {a..f} | tr -d ' ') # 0123456789abcdef
+    for i in {1..64}; do
+      SecretShow+=${Hex:((RANDOM % ${#Hex})):1} # Tsoj2 dowsth!
+    done
+    readonly SecretShow
+  fi
+
+  case $action in
+  hide) perl -pwe 's|^(\$wgSecretKey)\s*=.*|$1 = "%%wgSecretKey%%";|' ;;
+  show) perl -pwe "s|$SecretHide|$SecretShow|" ;;
   esac
 }
 

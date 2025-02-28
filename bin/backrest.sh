@@ -199,12 +199,30 @@ main() {
     [ $? -ne 0 ] && die "Error restoring images: exit status '$?'"
 
     # Restore local settings / configuration.
-    xCute2 docker cp \
-      "$BackupDir/$LocalSettings" \
-      "$ViewContainer:$WikiRoot/$LocalSettings" ||
-      die "Error backing up local settings: $(getLastError)"
+    #    $ $(... | wgSecretKey show >tmpFile) &&
+    #        docker cp tmpFile wiki-view-1:/var/www/html/LocalSettings.php &&
+    #        rm tmpFile
 
-    echo && echo "==> Wiki restored from '$BackupDir' <=="
+    local inFile="$BackupDir/$LocalSettings"
+    local tmpFile="$(getTempDir)/$LocalSettings"
+    local commandA="cat $inFile"
+    local commandB="wgSecretKey show"
+    xShow "$commandA | $commandB >$tmpFile"
+    $commandA | $commandB >$tmpFile || die "Error: $(getLastError)"
+
+    xCute2 docker cp "$tmpFile" "$ViewContainer:$WikiRoot/" ||
+      die "Error: $(getLastError)"
+    xCute2 rm "$tmpFile" || die "Error: $(getLastError)"
+
+    # xShow "$commandA && $commandB"
+    # hi
+    # ## $commandA && $commandB || die "Error: $(getLastError)"
+    # xCute2 docker cp \
+    #   "$BackupDir/$LocalSettings" \
+    #   "$ViewContainer:$WikiRoot/$LocalSettings" ||
+    #   die "Error backing up local settings: $(getLastError)"
+
+    # echo && echo "==> Wiki restored from '$BackupDir' <=="
 
   fi
 }
