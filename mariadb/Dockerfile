@@ -3,6 +3,9 @@
 #
 #  Dockerfile for yet another MariaDB.
 #
+#  The SecretsUsedInArgOrEnv check gets emotionally triggered by
+#  substrings PASSWORD in the variable names below.
+#
 #  Also see:
 #    https://stackoverflow.com/a/79156231;
 #    https://stackoverflow.com/a/60820156;

@@ -28,8 +28,7 @@ backup() {
 #
 main() {
 
-  echo &&
-    isDockerRunning &&
+  echo && isDockerRunning &&
     echo "Docker is running" ||
     echo "Docker is not running"
 
@@ -47,15 +46,10 @@ main() {
     $weOpenedDocker || die "Error: cannot start docker"
   fi
 
-  # Make sure containers are running.
+  # Make sure containers are chatty.
 
-  xCute docker start wiki-data-1 wiki-view-1
-  isWikiUp=false
-  for ((timer = 10; timer > 0; --timer)); do
-    xQute2 curl -sS $SiteURL && isWikiUp=true && break
-    sleep 1
-  done
-  $isWikiUp || die "Error: $(getLastError)"
+  xCute2 docker start wiki-data-1 wiki-view-1 || die "Error: $(getLastError)"
+  waitForView $SiteURL || die "Trouble accessing $SiteURL: $(getLastError)"
 
   # Open browser page.
 
