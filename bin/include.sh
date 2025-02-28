@@ -144,12 +144,16 @@ join() { # https://stackoverflow.com/a/17841619
 
 ####-####+####-####+####-####+####-####+
 #
-#  Wait for the given URL to respond. Return true if site responds
-#  before timing out; otherwise, return false.
+#  Wait for the given URL to return an HTTP status code less than 400.
+#
+#  Args:
+#    $1 = URL to query
+#    $2 = optional timeout in seconds; default 10
+#
+#  Return true if site responds in time; else false.
 #
 waitForView() {
-  local url=$1 seconds=${2:-10} isUp=false timer
-  local http status message
+  local url=$1 seconds=${2:-10} isUp=false timer http status message
   for ((timer = $seconds; timer > 0; --timer)); do
     echo -e "\n$ read http status message < <(curl -ISs $url)"
     if read http status message 2>"$errFile" < <(curl -ISs $url); then
