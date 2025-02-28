@@ -72,18 +72,6 @@ checkContainer() {
 #
 main() {
 
-  # case $1 in
-  # hide)
-  #   # xShow wgSecretKey hide
-  #   wgSecretKey hide
-  #   ;;
-  # show)
-  #   # xShow wgSecretKey show
-  #   wgSecretKey show
-  #   ;;
-  # esac
-  # return 0
-
   local command
 
   isDockerRunning || die "Is docker down? I cannot connect."
@@ -163,10 +151,6 @@ main() {
     local file="$BackupDir/$LocalSettings"
     xShow "$commandA | $commandB >$file"
     $commandA | $commandB >$file || die "Error: $(getLastError)"
-    # xCute2 docker cp \
-    #   "$ViewContainer:$WikiRoot/$LocalSettings" \
-    #   "$BackupDir/$LocalSettings" ||
-    #   die "Error backing up local settings: $(getLastError)"
 
     # Make backups mostly read-only.
     command="find $BackupDir -type f -exec chmod -w {} ;"
@@ -198,31 +182,21 @@ main() {
     $commandA | $commandB
     [ $? -ne 0 ] && die "Error restoring images: exit status '$?'"
 
-    # Restore local settings / configuration.
-    #    $ $(... | wgSecretKey show >tmpFile) &&
-    #        docker cp tmpFile wiki-view-1:/var/www/html/LocalSettings.php &&
-    #        rm tmpFile
-
+    # Restore LocalSettings.php and its famous secret key.
     local inFile="$BackupDir/$LocalSettings"
+    # local commandA="cat $inFile"
+    # local commandB="wgSecretKey show"
     local tmpFile="$(getTempDir)/$LocalSettings"
-    local commandA="cat $inFile"
-    local commandB="wgSecretKey show"
-    xShow "$commandA | $commandB >$tmpFile"
-    $commandA | $commandB >$tmpFile || die "Error: $(getLastError)"
+    xShow "cat $inFile | wgSecretKey show >$tmpFile"
+    cat "$inFile" | wgSecretKey show >"$tmpFile" || die "Error: $(getLastError)"
+    # xShow "$commandA | $commandB >$tmpFile"
+    # $commandA | $commandB >$tmpFile || die "Error: $(getLastError)"
 
     xCute2 docker cp "$tmpFile" "$ViewContainer:$WikiRoot/" ||
       die "Error: $(getLastError)"
     xCute2 rm "$tmpFile" || die "Error: $(getLastError)"
 
-    # xShow "$commandA && $commandB"
-    # hi
-    # ## $commandA && $commandB || die "Error: $(getLastError)"
-    # xCute2 docker cp \
-    #   "$BackupDir/$LocalSettings" \
-    #   "$ViewContainer:$WikiRoot/$LocalSettings" ||
-    #   die "Error backing up local settings: $(getLastError)"
-
-    # echo && echo "==> Wiki restored from '$BackupDir' <=="
+    echo && echo "==> Wiki restored from '$BackupDir' <=="
 
   fi
 }
