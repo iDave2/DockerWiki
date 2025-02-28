@@ -104,12 +104,15 @@ main() {
         xCute pushd mediawiki && makeView && xCute popd
       fi
     else
-      local projectDir=$(realpath $ScriptDir/..)
-      local message=$'This program must be run from \'mariadb\', \'mediawiki\',\n'
-      # local line2="    or '$projectDir', not '$WorkingDir'."
-      # usage "$line1 $line2"
-      message+="    or '$projectDir', not '$WorkingDir'."
-      usage "$line1"
+      local message projectDir=$(realpath $ScriptDir/..)
+      read -r -d '' message <<EOT # https://stackoverflow.com/a/1655389
+This program must be run from
+      ${projectDir}/mariadb or
+       ${projectDir}/mediawiki or
+        ${projectDir} but
+         not $(pwd -P)
+EOT
+      usage "$message"
     fi
     ;;
   esac
