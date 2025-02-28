@@ -149,13 +149,17 @@ join() { # https://stackoverflow.com/a/17841619
 #
 waitForView() {
   local url=$1 seconds=${2:-10} isUp=false timer
+  local http status message
   for ((timer = $seconds; timer > 0; --timer)); do
-    echo waitForView: timer=$timer
-    # xQute12 curl -sS $url && isUp=true && break
-    xCute curl --head $url && isUp=true && break
+    echo -e "\n$ read http status message 2>\"$errFile\" < <(curl -ISs $url)"
+    if read http status message 2>"$errFile" < <(curl -ISs $url); then
+      echo "out>" $http $status $message
+      test ${status:0:1} -lt 4 && isUp=true && break
+    else
+      echo "err> $(getLastError)"
+    fi
     sleep 1
   done
-  echo "waitForView done:\n" && cat "$(getLastOutput)"
   $isUp
 }
 
