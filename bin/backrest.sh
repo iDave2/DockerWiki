@@ -7,24 +7,9 @@
 #    $ ./backrest.sh -bw /mydw/backup_dir/      # -> /mydw/backup_dir/<date>/
 #    $ ./backrest.sh -rw /mydw/backup_dir/<date>  # <- /mydw/backup_dir/<date>
 #
-#  Default `backup_dir` (--work-dir) may be changed in $DW_USER_CONFIG.
-#  Really? How?
-#
 #  - - - - - - - -
-#
-#  Here's a thought:
-#    * Environment variables are UPPER_CASE;
-#    * File scope variables are PascalCase;
-#    * Functions and local (nameref) variables are camelCase.
-#
-#  - - - - - - - -
-#
-#  TODO: Write somewhere how to change account names and/or passwords
-#  on a live system, then saved to backup.
 #
 #  This script requires 'bash' and 'jq'.
-#
-#  Mention JQ up front. This uses a jq tool c/o i forget.
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
@@ -87,8 +72,17 @@ checkContainer() {
 #
 main() {
 
-  # set | grep '^DW' | sort
-  # die bye
+  # case $1 in
+  # hide)
+  #   # xShow wgSecretKey hide
+  #   wgSecretKey hide
+  #   ;;
+  # show)
+  #   # xShow wgSecretKey show
+  #   wgSecretKey show
+  #   ;;
+  # esac
+  # return 0
 
   local command
 
@@ -164,10 +158,15 @@ main() {
     [ $? -ne 0 ] && die "Error backing up images; exit status '$?'."
 
     # Save LocalSettings.php.
-    xCute2 docker cp \
-      "$ViewContainer:$WikiRoot/$LocalSettings" \
-      "$BackupDir/$LocalSettings" ||
-      die "Error backing up local settings: $(getLastError)"
+    commandA="docker exec $ViewContainer cat $LocalSettings"
+    commandB="wgSecretKey hide"
+    local file="$BackupDir/$LocalSettings"
+    xShow "$commandA | $commandB >$file"
+    $commandA | $commandB >$file || die "Error: $(getLastError)"
+    # xCute2 docker cp \
+    #   "$ViewContainer:$WikiRoot/$LocalSettings" \
+    #   "$BackupDir/$LocalSettings" ||
+    #   die "Error backing up local settings: $(getLastError)"
 
     # Make backups mostly read-only.
     command="find $BackupDir -type f -exec chmod -w {} ;"

@@ -48,8 +48,8 @@ main() {
 
   # Make sure containers are chatty.
 
-  xCute2 docker start wiki-data-1 wiki-view-1 || die "Error: $(getLastError)"
-  waitForView $SiteURL || die "Trouble accessing $SiteURL: $(getLastError)"
+  xCute2 docker start wiki-data-1 wiki-view-1 && waitForView $SiteURL ||
+    die "Trouble accessing $SiteURL: $(getLastError)"
 
   # Open browser page.
 

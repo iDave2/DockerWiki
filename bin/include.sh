@@ -7,6 +7,10 @@
 # Additional variables declared at EOF after functions are visible.
 DECORATE=true # see --no-decoration and decorate()
 
+# A random value for wgSecretKey
+SecretShow=$(perl -we "print map { ('0'..'9','a'..'f')[int(rand(16))] } 1..64")
+SecretHide='%%wgSecretKey%%'
+
 ####-####+####-####+####-####+####-####+
 #
 #  Open default browser with the given URL.
@@ -49,11 +53,12 @@ decorate() {
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Prints given message and dies. usage() is gentler.
+#  TODO: This should write to stderr someday.
 #
 die() {
-  test $# -gt 0 && echo && echo $* # https://stackoverflow.com/q/3601515
-  echo
-  echo Death caused by ${FUNCNAME[1]}:${BASH_LINENO[0]} at $(date +%H:%M).
+  test $# -gt 0 && echo -e "\n$*" >&2 # https://stackoverflow.com/q/3601515
+  echo >&2
+  echo Death caused by ${FUNCNAME[1]}:${BASH_LINENO[0]} at $(date +%H:%M). >&2
   exit 42
 }
 
@@ -165,6 +170,49 @@ waitForView() {
     sleep 1
   done
   $isUp
+}
+
+####-####+####-####+####-####+####-####+
+#
+#  This filter expects to be inside a pipe streaming LocalSettings.php
+#  to or from a MediaWiki container's /var/www/html folder. It takes
+#  one argument, 'hide' or 'show'.
+#
+#  'hide' is used during backups to replace a live $wgSecretKey with
+#  the string '%%wgSecretKey%%'.
+#
+#  'show' works in the opposite direction, replacing '%%wgSecretKey%%'
+#  with a fresh 64-character random string.
+#
+#  Examples:
+#    # Hiding is straightforward:
+#    $ docker exec wiki-view-1 cat LocalSettings.php | wgSecretKey hide | ...
+#
+#    # Showing is awkward, so far:
+#    $ $(... | wgSecretKey show >tmpFile) &&
+#        docker cp tmpFile wiki-view-1:/var/www/html/LocalSettings.php &&
+#        rm tmpFile
+#
+#  Note: This algorithm was motivated by github warnings apparently triggered
+#  by specific conditions: name=LocalSettings.php and $wgSecretKey=<clearkey>.
+#  The MediaWiki DB user password is still clear (in case you want to generalize
+#  this). Also see usage in MediaWiki Dockerfile. And revisit docker secrets.
+#
+#  TODO: Do docker secrets persist? Are they initialized once or remain live?
+#
+wgSecretKey() {
+  local action=${1:-unset}
+  case $action in
+  show)
+    perl -pwe "s|$SecretHide|$SecretShow|" # LocalSettings.php
+    ;;
+  hide)
+    perl -pwe 's|^(\$wgSecretKey)\s*=.*|$1 = "%%wgSecretKey%%";|'
+    ;;
+  *)
+    usage "wgSecretKey [hide | show], not '\$1 $action'"
+    ;;
+  esac
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
