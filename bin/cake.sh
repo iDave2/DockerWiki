@@ -361,7 +361,7 @@ EOT
   local port=${DW_MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
   port=${port#*:}              # 127.0.0.1:8080 -> 8080
   local command=$(echo docker exec $Container \
-    maintenance/run CommandLineInstaller \
+    maintenance/run install \
     --dbtype=mysql \
     --dbserver=$DW_DATA_HOST \
     --dbname=$DW_DB_NAME \
@@ -370,9 +370,9 @@ EOT
     --passfile="$TONY/passfile" \
     --scriptpath='' \
     --server="http://localhost:$port" \
+    --with-extensions \
     $DW_SITE $DW_MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
-
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
