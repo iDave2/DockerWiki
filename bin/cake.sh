@@ -108,7 +108,9 @@ This program must be run from
       ${projectDir}/mariadb or
        ${projectDir}/mediawiki or
         ${projectDir} but
-         not $(pwd -P)
+         not $(
+        pwd -P
+      )
 EOT
       usage "$message"
     fi
@@ -248,9 +250,13 @@ makeData() {
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
 
   # Prepare contents of build directory.
-  xCute2 cp "$DockerFile" 20-noop.sh build/ &&
-    cp root-password-file build/mariadb-root-password-file ||
+  echo $DW_DB_ROOT_PASSWORD >build/mariadb-root-password-file
+  test -f build/mariadb-root-password-file &&
+    xCute2 cp "$DockerFile" 20-noop.sh build/ ||
     die "Copy failed: $(getLastError)"
+
+  # cp root-password-file build/mariadb-root-password-file ||
+  #   die "Copy failed: $(getLastError)"
 
   # Prepare build command line and gather inputs.
   local buildOptions=''
@@ -269,8 +275,9 @@ makeData() {
     buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
     buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
     buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
-    xCute2 cp password-file build/mariadb-password-file &&
-      cp show-databases build/mariadb-show-databases ||
+    echo $DW_DB_USER_PASSWORD >build/mariadb-password-file
+    test -f build/mariadb-password-file &&
+      xCute2 cp show-databases build/mariadb-show-databases ||
       die "Copy failed: $(getLastError)"
     ;;
   esac
@@ -318,8 +325,12 @@ makeView() {
     lastWords="Build complete, finish configuration in browser."
     ;;
   cli)
-    xCute2 cp admin-password-file build/passfile &&
-      cp password-file build/dbpassfile || die "Copy failed: $(getLastError)"
+    echo $DW_MW_ADMIN_PASSWORD >build/passfile
+    echo $DW_DB_USER_PASSWORD >build/dbpassfile
+    test -f build/passfile && test -f build/dbpassfile ||
+      die "Copy failed: $(getLastError)"
+    # xCute2 cp admin-password-file build/passfile &&
+    #   cp password-file build/dbpassfile || die "Copy failed: $(getLastError)"
     ;;
   restore)
     lastWords="Build complete, system restored."
@@ -371,7 +382,7 @@ EOT
     --scriptpath='' \
     --server="http://localhost:$port" \
     --with-extensions \
-    $DW_SITE $DW_MW_ADMIN)
+    $DW_MW_SITE $DW_MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 }
 
