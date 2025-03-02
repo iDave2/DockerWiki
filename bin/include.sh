@@ -53,7 +53,6 @@ decorate() {
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  Prints given message and dies. usage() is gentler.
-#  TODO: This should write to stderr someday.
 #
 die() {
   test $# -gt 0 && echo -e "\n$*\n" >&2 # https://stackoverflow.com/q/3601515
