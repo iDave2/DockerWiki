@@ -1,3 +1,9 @@
+#
+#  Created by 'docker compose config' for launching remotely.
+#
+#  Keep this synchronized with whatever was last placed in ./hub
+#  and used to build the images on docker hub.
+#
 name: wiki
 services:
   data:
