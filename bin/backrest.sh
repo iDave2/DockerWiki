@@ -72,7 +72,7 @@ checkContainer() {
 #
 main() {
 
-  local command
+  local command commandHide commandShow
 
   isDockerRunning || die "Is docker down? I cannot connect."
 
@@ -124,21 +124,26 @@ main() {
   if $Backup; then
 
     # Backup database.
-    command="docker exec $DataContainer mariadb-dump"
-    command="${command} -u$DW_DB_USER -p$DW_DB_USER_PASSWORD"
-    command="${command} --databases $DW_DB_NAME"
+
+    command="docker exec $DataContainer mariadb-dump -u$DW_DB_USER"
+    commandHide="$command -p***** --databases $DW_DB_NAME"
+    commandShow="$command -p$DW_DB_USER_PASSWORD --databases $DW_DB_NAME"
+
     local file="${BackupDir}/${DataFile}"
+
     if $Zipped; then
       file+=".gz"
-      xShow "$command | gzip > \"$file\""
-      $command | gzip >"$file"
+      xShow "$commandHide | gzip > \"$file\""
+      $commandShow | gzip >"$file"
     else
-      xShow "$command > \"$file\""
-      $command >"$file"
+      xShow "$commandHide > \"$file\""
+      $commandShow >"$file"
     fi
+
     [ $? -ne 0 ] && die "Error backing up database; exit status '$?'."
 
     # Backup images
+
     local commandA="docker exec $ViewContainer tar -cC $WikiRoot/$ImageDir ."
     local commandB="tar -xC $BackupDir/$ImageDir"
     xShow "$commandA | $commandB"
@@ -146,6 +151,7 @@ main() {
     [ $? -ne 0 ] && die "Error backing up images; exit status '$?'."
 
     # Save LocalSettings.php.
+
     commandA="docker exec $ViewContainer cat $LocalSettings"
     commandB="wgSecretKey hide"
     local file="$BackupDir/$LocalSettings"
@@ -153,8 +159,11 @@ main() {
     $commandA | $commandB >$file || die "Error: $(getLastError)"
 
     # Make backups mostly read-only.
+
     command="find $BackupDir -type f -exec chmod -w {} ;"
     xCute2 $command || die "Trouble making backup mostly read-only: $(getLastError)"
+
+    # Say goodnight.
 
     echo -e "\n==> Wiki backup written to '$BackupDir' <=="
 
@@ -163,19 +172,25 @@ main() {
   if $Restore; then
 
     # Restore database
-    command="docker exec -i $DataContainer mariadb"
-    command="${command} -u$DW_DB_USER -p$DW_DB_USER_PASSWORD"
+
+    command="docker exec -i $DataContainer mariadb -u$DW_DB_USER"
+    commandHide="$command -p*****"
+    commandShow="$command -p$DW_DB_USER_PASSWORD"
+
     local file="$BackupDir/${DataFile}"
+
     if test -f $file; then # unzipped
-      xShow "cat \"$file\" | $command"
-      cat "$file" | $command
+      xShow "cat \"$file\" | $commandHide"
+      cat "$file" | $commandShow
     else #zipped
-      xShow "gzcat \"$file\" | $command"
-      gzcat "$file" | $command
+      xShow "gzcat \"$file\" | $commandHide"
+      gzcat "$file" | $commandShow
     fi
+
     [ $? -ne 0 ] && die "Error restoring database!"
 
     # Restore pics.
+
     local commandA="tar -cC ${BackupDir}/$ImageDir ."
     local commandB="docker exec --interactive $ViewContainer tar -xC $WikiRoot/$ImageDir"
     xShow "$commandA | $commandB"
@@ -183,12 +198,15 @@ main() {
     [ $? -ne 0 ] && die "Error restoring images: exit status '$?'"
 
     # Restore LocalSettings.php and its famous secret key.
+
     local inFile="$BackupDir/$LocalSettings"
     local tmpFile="$(getTempDir)/$LocalSettings"
     xShow "cat $inFile | wgSecretKey show >$tmpFile"
     cat "$inFile" | wgSecretKey show >"$tmpFile" || die "Error: $(getLastError)"
     xCute2 docker cp "$tmpFile" "$ViewContainer:$WikiRoot/" &&
       xCute2 rm "$tmpFile" || die "Error: $(getLastError)"
+
+    # Say goodnight.
 
     echo && echo "==> Wiki restored from '$BackupDir' <=="
 
