@@ -255,9 +255,6 @@ makeData() {
     xCute2 cp "$DockerFile" 20-noop.sh build/ ||
     die "Copy failed: $(getLastError)"
 
-  # cp root-password-file build/mariadb-root-password-file ||
-  #   die "Copy failed: $(getLastError)"
-
   # Prepare build command line and gather inputs.
   local buildOptions=''
   $OpCache || buildOptions='--no-cache'
@@ -329,8 +326,6 @@ makeView() {
     echo $DW_DB_USER_PASSWORD >build/dbpassfile
     test -f build/passfile && test -f build/dbpassfile ||
       die "Copy failed: $(getLastError)"
-    # xCute2 cp admin-password-file build/passfile &&
-    #   cp password-file build/dbpassfile || die "Copy failed: $(getLastError)"
     ;;
   restore)
     lastWords="Build complete, system restored."
