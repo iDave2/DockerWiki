@@ -198,9 +198,7 @@ waitForView() {
 #  Note: This algorithm was motivated by github warnings apparently triggered
 #  by conditions name=LocalSettings.php and $wgSecretKey=<clearkey>. The
 #  MediaWiki DB user password is still clear (in case you want to generalize
-#  this). Also see usage in MediaWiki Dockerfile. And revisit docker secrets.
-#
-#  TODO: Do docker secrets persist? Are they initialized once or remain live?
+#  this). Also see usage in MediaWiki Dockerfile.
 #
 wgSecretKey() {
 
@@ -236,8 +234,6 @@ wgSecretKey() {
 #  The redirection notation -- xCute2, xQute12, etc. -- seems clear enough;
 #  redirected streams from most recent x[CQ]ute may be retrieved with
 #  $(getLastError) and $(getLastOutput).
-#
-#  TODO: PIPESTATUS?
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 xShow() {
