@@ -1,23 +1,17 @@
-#
-#  Created by 'docker compose config' for launching remotely.
-#
-#  Keep this synchronized with whatever was last placed in ./hub
-#  and used to build the images on docker hub.
-#
 name: wiki
 services:
   data:
     environment:
       DW_TZ: UTC
-    hostname: data
-    image: idave2/mariadb:1.0.0
+    hostname: wiki-data-1
+    image: idave2/mariadb:1.1.0
     networks:
       net: null
     volumes:
-    - type: volume
-      source: data
-      target: /var/lib/mysql
-      volume: {}
+      - type: volume
+        source: data
+        target: /var/lib/mysql
+        volume: {}
   view:
     depends_on:
       data:
@@ -25,16 +19,16 @@ services:
         required: true
     environment:
       DW_TZ: UTC
-    hostname: view
-    image: idave2/mediawiki:1.0.0
+    hostname: wiki-view-1
+    image: idave2/mediawiki:1.1.0
     networks:
       net: null
     ports:
-    - mode: ingress
-      host_ip: 127.0.0.1
-      target: 80
-      published: "8080"
-      protocol: tcp
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 80
+        published: "8080"
+        protocol: tcp
 networks:
   net:
     name: wiki_net
