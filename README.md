@@ -124,7 +124,7 @@ DW_HID=${DW_HID:-your_hub_id} # Override .env
 
 `DW_USER_CONFIG` is a good place to hide secrets.
 
-Finally, this command-line installer includes extensions so is relatively large.
+Finally, this command-line installer includes extensions.
 
 [comment]: # (
   That's fine, Dave. Anyone using this as a template
