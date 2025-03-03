@@ -108,9 +108,7 @@ This program must be run from
       ${projectDir}/mariadb or
        ${projectDir}/mediawiki or
         ${projectDir} but
-         not $(
-        pwd -P
-      )
+         not $(pwd -P)
 EOT
       usage "$message"
     fi
