@@ -1,3 +1,7 @@
+[//]: # (Also see:)
+[//]: # (https://stackoverflow.com/a/20885980 [comments])
+[//]: # (https://stackoverflow.com/a/33433098 [tocs])
+
 # DockerWiki
 
 This project is an implementation of the multi-container pattern outlined
@@ -9,6 +13,17 @@ For business applications, please find similar projects from
 [Bitnami](https://hub.docker.com/r/bitnami/mediawiki) or organizations
 whose context includes strong security, support, and all the things a
 business needs to run.
+
+## Contents
+1. [Manifest](#manifest)
+2. [Builds](#builds)
+3. [Backups](#backups)
+4. [Installers](#installers)
+   1. [Web installer](#iWeb)
+   2. [Command-line installer](#iCli)
+   3. [Restore an image](#iRestore)
+
+## Manifest <a name="manifest"></a>
 
 A summary of what is here:
 
@@ -69,7 +84,7 @@ $ br -bw ./my-git-backups/          # -> ./my-git-backups/
 $ br --restore -w ./my-git-backups  # <- ./my-git-backups/
 ```
 
-# Installers
+## Installers
 
 In this context, *installer* refers to the method used to create MediaWiki's
 initial database and runtime configuration stored in `LocalSettings.php`.
@@ -79,7 +94,7 @@ $ cake -i web                # web-based installer
 $ cake --installer cli       # command-line installer (default)
 $ cake -i restore=my/backup  # Restore a backrest.sh backup
 ```
-## Web installer
+### Web installer <a name="iWeb"></a>
 The web installer presents you with a "set up the wiki" browser page,
 just like a vanilla container with the hub's official mediawiki image,
 except that a big MariaDB system lurks nearby,
@@ -95,7 +110,7 @@ configuration is less secure than with `MARIADB_ROOT_HOST=localhost`.
 This method offers advanced installers granular control over all aspects
 of configuration (like which extensions to include).
 
-## Command-line installer
+### Command-line installer <a name="iCli"></a>
 This method leverages built-in PHP programs to automate installation.
 Configuration settings come from `DW_` variables scattered in increasing
 order of precedence by files `.env`, `DW_USER_CONFIG`, and command-line
@@ -133,7 +148,7 @@ Finally, this command-line installer includes extensions.
 )
 
 
-## Restoring (backups into) an image
+### Restoring (backups into) an image <a name="iRestore"></a>
 The first two installation methods create a database and local settings *after* the
 images are built and running in their containers, so if these containers
 (not images) were destroyed and recreated, they would again need to have
