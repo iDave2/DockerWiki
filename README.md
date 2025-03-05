@@ -98,7 +98,7 @@ $ cake --installer cli       # command-line installer (default)
 $ cake -i restore=my/backup  # Restore a backrest.sh backup
 ```
 
- ### Web installer <a id="inWeb" name="inWeb"></a>
+### Web installer <a id="inWeb" name="inWeb"></a>
 
 The web installer presents you with a "set up the wiki" browser page,
 just like a vanilla container with the hub's official mediawiki image,
