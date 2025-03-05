@@ -108,7 +108,9 @@ This program must be run from
       ${projectDir}/mariadb or
        ${projectDir}/mediawiki or
         ${projectDir} but
-         not $(pwd -P)
+         not $(
+        pwd -P
+      )
 EOT
       usage "$message"
     fi
@@ -337,7 +339,11 @@ makeView() {
 
   # Are we done yet?
   case $OpInstaller in
-  restore | web)
+  restore)
+    waitForData || die "Cannot connect database: $(getLastError)"
+    xCute2 ${ScriptDir}/setPasswords.sh || die "Error: $(getLastError)"
+    ;& # fall thru
+  web)
     waitForView $SiteURL 15 || # 15 second timeout
       die "Trouble starting view: $(getLastError)"
     cat <<EOT
