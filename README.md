@@ -1,6 +1,6 @@
-[//]: # (Also see:)
-[//]: # (https://stackoverflow.com/a/20885980 [comments])
-[//]: # (https://stackoverflow.com/a/33433098 [tocs])
+[comment]: # (Also see:)
+[comment]: # (https://stackoverflow.com/a/20885980)
+[comment]: # (https://stackoverflow.com/a/33433098)
 
 # DockerWiki
 
@@ -19,9 +19,9 @@ business needs to run.
 2. [Builds](#builds)
 3. [Backups](#backups)
 4. [Installers](#installers)
-   1. [Web installer](#iWeb)
-   2. [Command-line installer](#iCli)
-   3. [Restore an image](#iRestore)
+   1. [Web installer](#inWeb)
+   2. [Command-line installer](#inCli)
+   3. [Restore an image](#inRestore)
 5. [Passwords](#passwords)
 
 ## Manifest <a name="manifest"></a>
@@ -98,7 +98,7 @@ $ cake --installer cli       # command-line installer (default)
 $ cake -i restore=my/backup  # Restore a backrest.sh backup
 ```
 
- ### Web installer <a name="iWeb"></a>
+ ### Web installer <a id="inWeb" name="inWeb"></a>
 
 The web installer presents you with a "set up the wiki" browser page,
 just like a vanilla container with the hub's official mediawiki image,
@@ -108,14 +108,14 @@ $ docker run --name some-mediawiki -d -p 8080:80 mediawiki
 ```
 For web installs, MariaDB is given only a root account and no application
 (mediawiki) database and user, so the MediaWiki installer needs to know
-the MariaDB root password (see `mariadb/root-password-file`), and the
-MariaDB root login must be available to the MediaWiki container, so this
-configuration is less secure than with `MARIADB_ROOT_HOST=localhost`.
+the MariaDB root password `DW_DB_ROOT_PASSWORD`, and the MariaDB root login
+must be available to the MediaWiki container (or host), so this configuration
+is less secure than with `MARIADB_ROOT_HOST=localhost`.
 
 This method offers advanced installers granular control over all aspects
 of configuration (like which extensions to include).
 
-### Command-line installer <a name="iCli"></a>
+### Command-line installer <a id="inCli" name="inCli"></a>
 
 This method leverages built-in PHP programs to automate installation.
 Configuration settings come from `DW_` variables scattered in increasing
@@ -145,15 +145,7 @@ DW_HID=${DW_HID:-your_hub_id} # Override .env
 
 `DW_USER_CONFIG` is a good place to hide secrets.
 
-Finally, this command-line installer includes extensions.
-
-[comment]: # (
-  That's fine, Dave. Anyone using this as a template
-  will eventually grok what they like and toss the rest.
-  See https://stackoverflow.com/a/20885980.
-)
-
-### Restoring (backups into) an image <a name="iRestore"></a>
+### Restoring (backups into) an image <a id="inRestore" name="inRestore"></a>
 
 The first two installation methods create a database and local settings *after* the
 images are built and running in their containers, so if these containers
@@ -169,8 +161,8 @@ $ cake --installer restore=./hub
 This is how the Docker Hub images corresponding to this git repository
 were created.
 
-Also see `docker commit`, another method to commit changes from a running
-container into a new image.
+Also see `docker commit`, another method for creating new images from
+containers.
 
 ## Passwords
 
@@ -194,14 +186,16 @@ DW_DB_USER_PASSWORD=${DW_DB_USER_PASSWORD:-myPassDBA}
 DW_MW_ADMIN_PASSWORD=${DW_MW_ADMIN_PASSWORD:-myPassAdmin}
 
 # Only used by dw ...
-MY_BACKUP_DIR=~/Backups/DockerWiki
+MY_BACKUP_DIR=~/Documents/Backups
 ```
 
-Finally, rebuild everything with a restore installer,
+Rebuild everything with a restore installer,
 
 ```bash
 $ cake -cccc; cake -i restore=my/backup/
 ```
+
+On success, browser opens to restored wiki.
 
 ---
 
