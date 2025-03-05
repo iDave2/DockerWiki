@@ -101,7 +101,7 @@ $ cake -i restore=my/backup  # Restore a backrest.sh backup
 ### Web installer <a id="inWeb" name="inWeb"></a>
 
 The web installer presents you with a "set up the wiki" browser page,
-just like a vanilla container with the hub's official mediawiki image,
+just like a vanilla container with the hub's official MediaWiki image,
 except that a big MariaDB system lurks nearby,
 ```bash
 $ docker run --name some-mediawiki -d -p 8080:80 mediawiki
@@ -199,7 +199,9 @@ On success, browser opens to restored wiki.
 
 ---
 
-Latest images are pushed to [Docker Hub](https://hub.docker.com/u/idave2) and no CI is configured (yet).
+Latest images are pushed to
+[Docker Hub](https://hub.docker.com/repository/docker/idave2/mediawiki/)
+and no CI is configured (yet).
 
 Docker is fun; five stars to the team.
 
