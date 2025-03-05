@@ -22,6 +22,7 @@ business needs to run.
    1. [Web installer](#iWeb)
    2. [Command-line installer](#iCli)
    3. [Restore an image](#iRestore)
+5. [Passwords](#passwords)
 
 ## Manifest <a name="manifest"></a>
 
@@ -30,7 +31,9 @@ A summary of what is here:
 - `bin/backrest.sh`: simple backup and restore starter kit
 - `bin/cake.sh`: build script to *make* and unmake artifacts
 - `bin/*API.sh`: test scripts for related projects
-- `.env`: build and runtime configuration variables
+- `bin/setPasswords.sh`: reset passwords to current configuration
+- `.env`: default configuration
+- `~/.DockerWiki/config`: user configuration
 - `compose.yaml`: launch instructions for `docker compose`
 - `setEnv.sh`: shortcuts to simplify development and test
 
@@ -69,7 +72,7 @@ Remember to backup important data before (accidentally) removing its volume!
 
 `source setEnv.sh` for a backup and restore script that runs anywhere,
 ```bash
-alias br="/absolute/path/to/bin/backrest.sh"
+alias backrest="/absolute/path/to/bin/backrest.sh"
 ```
 `backrest.sh` backs up and restores three items:
 - MariaDB database;
@@ -79,9 +82,9 @@ alias br="/absolute/path/to/bin/backrest.sh"
 The working directory (option `-w` or `--work-dir`) is
 optional for backup but required for restore:
 ```bash
-$ br -b                             # -> /tmp/DockerWiki/backup-<date>/
-$ br -bw ./my-git-backups/          # -> ./my-git-backups/
-$ br --restore -w ./my-git-backups  # <- ./my-git-backups/
+$ backrest --backup               # -> /tmp/DockerWiki/backup-<date>/
+$ backrest -bw ./my-git-backups/  # -> ./my-git-backups/
+$ backrest -rw ./my-git-backups   # <- ./my-git-backups/
 ```
 
 ## Installers
@@ -94,7 +97,9 @@ $ cake -i web                # web-based installer
 $ cake --installer cli       # command-line installer (default)
 $ cake -i restore=my/backup  # Restore a backrest.sh backup
 ```
-### Web installer <a name="iWeb"></a>
+
+ ### Web installer <a name="iWeb"></a>
+
 The web installer presents you with a "set up the wiki" browser page,
 just like a vanilla container with the hub's official mediawiki image,
 except that a big MariaDB system lurks nearby,
@@ -111,6 +116,7 @@ This method offers advanced installers granular control over all aspects
 of configuration (like which extensions to include).
 
 ### Command-line installer <a name="iCli"></a>
+
 This method leverages built-in PHP programs to automate installation.
 Configuration settings come from `DW_` variables scattered in increasing
 order of precedence by files `.env`, `DW_USER_CONFIG`, and command-line
@@ -147,8 +153,8 @@ Finally, this command-line installer includes extensions.
   See https://stackoverflow.com/a/20885980.
 )
 
-
 ### Restoring (backups into) an image <a name="iRestore"></a>
+
 The first two installation methods create a database and local settings *after* the
 images are built and running in their containers, so if these containers
 (not images) were destroyed and recreated, they would again need to have
@@ -165,6 +171,37 @@ were created.
 
 Also see `docker commit`, another method to commit changes from a running
 container into a new image.
+
+## Passwords
+
+The following procedure may be used to reset passwords if they are ever
+lost or need to be changed from insecure defaults.
+
+First, take a backup of the current system,
+
+```bash
+$ backrest --backup [--force] --work-dir my/backup/
+```
+
+Configure desired passwords in DW_USER_CONFIG (replace `myPassXYZ` below
+with your preferred passwords):
+
+```bash
+# DockerWiki user config overrides
+
+DW_DB_ROOT_PASSWORD=${DW_DB_ROOT_PASSWORD:-myPassRoot}
+DW_DB_USER_PASSWORD=${DW_DB_USER_PASSWORD:-myPassDBA}
+DW_MW_ADMIN_PASSWORD=${DW_MW_ADMIN_PASSWORD:-myPassAdmin}
+
+# Only used by dw ...
+MY_BACKUP_DIR=~/Backups/DockerWiki
+```
+
+Finally, rebuild everything with a restore installer,
+
+```bash
+$ cake -cccc; cake -i restore=my/backup/
+```
 
 ---
 
