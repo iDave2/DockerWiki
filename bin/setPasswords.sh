@@ -16,7 +16,6 @@
 ScriptDir=$(dirname -- $(realpath -- ${BASH_SOURCE[0]}))
 source "${ScriptDir}/bootstrap.sh"
 
-
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 #  MediaWiki DBA, aka DW_DB_USER, aka wgDBuser
@@ -27,9 +26,7 @@ xCute2 docker exec wiki-data-1 mariadb -p$DW_DB_ROOT_PASSWORD -e \
 
 xCute2 docker exec wiki-view-1 perl -i.bak -pwe \
   's|^(\s*\$wgDBpassword\s*=\s*).*|$1\"'$DW_DB_USER_PASSWORD'\";|' \
-  LocalSettings.php ||
-  die "Error: $(getLastError)"
-
+  LocalSettings.php || die "Error: $(getLastError)"
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -38,7 +35,6 @@ xCute2 docker exec wiki-view-1 perl -i.bak -pwe \
 xCute2 docker exec wiki-view-1 maintenance/run changePassword \
   --user $DW_MW_ADMIN --password $DW_MW_ADMIN_PASSWORD ||
   die "Error: $(getLastError)"
-
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
