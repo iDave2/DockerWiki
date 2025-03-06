@@ -112,6 +112,37 @@ getOpt() {
   echo $newArgs
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Function returns the .State.Status of a given container. Returned
+#  status values have the form '"running"' where the double quotes are
+#  part of the string. Errors can be multiline so are collapsed into one
+#  line and quoted for simpler presentation.
+#
+#  From 'docker ps' dockumentation circa 2023, container status can be one
+#  of created, restarting, running, removing, paused, exited, or dead.
+#  See https://docs.docker.com/engine/reference/commandline/ps/.
+#
+#  Also see https://docs.docker.com/config/formatting/.
+#
+getState() {
+
+  (($# >= 2 && $# % 2 == 0)) ||
+    die "Error: getState() requires an even number of arguments"
+
+  local inspect='docker inspect --format' goville='{{json .State.Status}}'
+
+  for ((i = 1; i < $#; i += 2)); do
+    local j=$((i + 1))
+    local container="${!i}" __result="${!j}" options
+    ((i + 2 < $#)) && options="-en" || options="-e"
+    xShow $options $inspect \"$goville\" $container
+    local state=$(echo $($inspect "$goville" $container 2>&1))
+    [ "${state:0:1}" = \" ] || state=\"$state\"
+    eval $__result=$state
+  done
+}
+
 ####-####+####-####+####-####+####-####+
 #
 #  Rather than having everyone creating folders, how about,
@@ -146,6 +177,46 @@ join() { # https://stackoverflow.com/a/17841619
   echo $r
 }
 
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Wait for the database to become usable. While 'docker inspect' may show
+#  mariadb "running", it may not be "connectable" when initializing a new
+#  or restored database.
+#
+waitForData() {
+
+  local timeout=${1:-10} isUp=false dataState viewState
+  local dataContainer=$(getContainer $DW_DATA_SERVICE)
+  local viewContainer=$(getContainer $DW_VIEW_SERVICE)
+  local format="\n==> Container status: %s is \"%s\", %s is \"%s\" <==\n"
+
+  # Start the database.
+
+  xCute2 docker start $dataContainer || die "Error: $(getLastError)"
+
+  # Smell the roses.
+
+  getState $dataContainer dataState $viewContainer viewState
+  printf "$format" $dataContainer $dataState $viewContainer $viewState
+
+  # Wait for a query to work.
+
+  for ((i = 0; i < $timeout; ++i)); do
+    xCute docker exec $dataContainer /root/mariadb-show-databases &&
+      isUp=true && break
+    sleep 1
+  done
+
+  # Sniff again.
+
+  getState $dataContainer dataState $viewContainer viewState
+  printf "$format" $dataContainer $dataState $viewContainer $viewState
+
+  # Report.
+
+  $isUp
+}
+
 ####-####+####-####+####-####+####-####+
 #
 #  Wait for the given URL to return an HTTP status code less than 400.
@@ -157,7 +228,15 @@ join() { # https://stackoverflow.com/a/17841619
 #  Return true if site responds in time; else false.
 #
 waitForView() {
+
   local url=$1 seconds=${2:-10} isUp=false timer http status message
+
+  # Start the view.
+
+  xCute2 docker start $DW_VIEW_HOST || die "Error: $(getLastError)"
+
+  # Sample headers returned from view container.
+
   for ((timer = $seconds; timer > 0; --timer)); do
     echo -e "\n$ read http status message < <(curl -ISs $url)"
     if read http status message 2>"$errFile" < <(curl -ISs $url); then
@@ -168,6 +247,9 @@ waitForView() {
     fi
     sleep 1
   done
+
+  # Report.
+
   $isUp
 }
 

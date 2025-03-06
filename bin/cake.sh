@@ -23,7 +23,6 @@ LaunchArgs=("$@")                # Memory bank for showBannner
 OpCache=true    # Use build cache?
 OpClean=0       # Clean (remove) artifacts?
 OpInstaller=cli # Type of mediawiki installer to use
-OpTimeout=10    # Periods to wait for database to wake up
 
 # Container / runtime configurations.
 Container=
@@ -42,41 +41,9 @@ Network=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
 SiteURL='http://localhost:8080/'
 
 # Contents of a BackUp directory (see backrest.sh).
-BuDatabase=$DB_DATABASE.sql
-readonly BuImageDir=images
-readonly BuLocalSettings=LocalSettings.php
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  Function returns the .State.Status of a given container. Returned
-#  status values have the form '"running"' where the double quotes are
-#  part of the string. Errors can be multiline so are collapsed into one
-#  line and quoted for simpler presentation.
-#
-#  From 'docker ps' dockumentation circa 2023, container status can be one
-#  of created, restarting, running, removing, paused, exited, or dead.
-#  See https://docs.docker.com/engine/reference/commandline/ps/.
-#
-#  Also see https://docs.docker.com/config/formatting/.
-#
-getState() {
-
-  (($# >= 2 && $# % 2 == 0)) ||
-    die "Error: getState() requires an even number of arguments"
-
-  local inspect='docker inspect --format' goville='{{json .State.Status}}'
-
-  for ((i = 1; i < $#; i += 2)); do
-    local j=$((i + 1))
-    local container="${!i}" __result="${!j}" options
-    ((i + 2 < $#)) && options="-en" || options="-e"
-    xShow $options $inspect \"$goville\" $container
-    local state=$(echo $($inspect "$goville" $container 2>&1))
-    [ "${state:0:1}" = \" ] || state=\"$state\"
-    eval $__result=$state
-  done
-
-}
+Database=$DB_DATABASE.sql
+readonly ImageDir=images
+readonly LSettings=LocalSettings.php
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -263,9 +230,9 @@ makeData() {
   case $OpInstaller in
   web) ;;
   restore)
-    xCute2 cp "$BackupDir/$BuDatabase" build/ || die "Copy failed: $(getLastError)"
-    if test "${BuDatabase%.gz}" = "${BuDatabase}"; then
-      xCute2 gzip "build/$BuDatabase" || die "Gzip failed: $(getLastError)"
+    xCute2 cp "$BackupDir/$Database" build/ || die "Copy failed: $(getLastError)"
+    if test "${Database%.gz}" = "${Database}"; then
+      xCute2 gzip "build/$Database" || die "Gzip failed: $(getLastError)"
     fi
     ;& # Fall through...
   cli)
@@ -322,6 +289,7 @@ makeView() {
     lastWords="Build complete, finish configuration in browser."
     ;;
   cli)
+    lastWords="Build completed successfully."
     echo $MW_ADMIN_PASSWORD >build/passfile
     echo $DB_USER_PASSWORD >build/dbpassfile
     test -f build/passfile && test -f build/dbpassfile ||
@@ -329,7 +297,7 @@ makeView() {
     ;;
   restore)
     lastWords="Build complete, system restored."
-    xCute2 cp -R "$BackupDir/$BuLocalSettings" "$BackupDir/$BuImageDir" build/ ||
+    xCute2 cp -R "$BackupDir/$LSettings" "$BackupDir/$ImageDir" build/ ||
       die "Error copying file: $(getLastError)"
     ;;
   esac
@@ -340,7 +308,7 @@ makeView() {
   # Are we done yet?
   case $OpInstaller in
   restore)
-    waitForData || die "Cannot connect database: $(getLastError)"
+    #waitForData || die "Cannot connect database: $(getLastError)"
     xCute2 ${ScriptDir}/configure.sh -v || die "Error: $(getLastError)"
     ;& # fall thru
   web)
@@ -360,7 +328,7 @@ EOT
   # Database needs to be Running and Connectable to continue.
   if ! waitForData; then
     local error="Error: Cannot connect to data container '$(getContainer $DW_DATA_SERVICE)'; "
-    error+="unable to generate $BuLocalSettings; "
+    error+="unable to generate $LSettings; "
     error+="browser may display web-based installer."
     echo -e "\n$error"
     return -42
@@ -383,7 +351,15 @@ EOT
     --with-extensions \
     $MW_SITE $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
+
   xCute2 ${ScriptDir}/configure.sh -v || die "Error: $(getLastError)"
+
+  cat <<EOT
+
+#
+#  $lastWords
+#
+EOT
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -413,14 +389,14 @@ parseCommandLine() {
         ;;
       restore=*)
         BackupDir=${OpInstaller:8}
-        test ! -f "$BackupDir/$BuDatabase" &&
-          test -f "$BackupDir/$BuDatabase.gz" &&
-          BuDatabase+=".gz"
+        test ! -f "$BackupDir/$Database" &&
+          test -f "$BackupDir/$Database.gz" &&
+          Database+=".gz"
         test -n "$BackupDir" &&
           test -d "$BackupDir" &&
-          test -f "$BackupDir/$BuDatabase" &&
-          test -f "$BackupDir/$BuLocalSettings" &&
-          test -d "$BackupDir/$BuImageDir" ||
+          test -f "$BackupDir/$Database" &&
+          test -f "$BackupDir/$LSettings" &&
+          test -d "$BackupDir/$ImageDir" ||
           die Cannot restore from "'$BackupDir'", please check location
         BackupDir=$(realpath ${BackupDir}) # TODO: weak death knell above
         OpInstaller=restore
@@ -437,13 +413,6 @@ parseCommandLine() {
     --no-decoration)
       DECORATE=false
       shift
-      ;;
-    -t | --timeout)
-      OpTimeout="$2"
-      shift 2
-      if ! [[ $OpTimeout =~ ^[+]?[1-9][0-9]*$ ]]; then
-        usage "--timeout 'seconds': expected a positive integer, found '$OpTimeout'"
-      fi
       ;;
     -* | --*)
       usage unknown option \"$1\"
@@ -493,56 +462,8 @@ Options:
   -h | --help               Print this usage summary
        --no-cache           Do not use cache when building images
        --no-decoration      Disable composer-naming emulation
-  -t | --timeout seconds    Seconds to retry DB connection before failing
 EOT
   exit 1
-}
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  This emulates a "view depends_on data" when creating things without
-#  the help of docker compose (i.e., when running this script).
-#
-#  From 'docker ps' dockumentation circa 2023, container status can be one
-#  of created, restarting, running, removing, paused, exited, or dead.
-#  See https://docs.docker.com/engine/reference/commandline/ps/.
-#
-waitForData() {
-
-  local dataContainer=$(getContainer $DW_DATA_SERVICE) dataState
-  local viewContainer=$(getContainer $DW_VIEW_SERVICE) viewState
-
-  # Start the database.
-  xCute2 docker start $dataContainer ||
-    die "Cannot start '$dataContainer': $(getLastError)"
-
-  # Display issue as we build (status says "running" but cannot talk)...
-  cat <<'EOT'
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-#  Note that while 'docker inspect' may show mariadb "running",
-#  it may not be "connectable" when initializing a new database.
-#
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-EOT
-
-  local format="\n=> Container status: %s is \"%s\", %s is \"%s\"\n"
-
-  getState $dataContainer dataState $viewContainer viewState
-  printf "$format" $dataContainer $dataState $viewContainer $viewState
-
-  # Punt. Here's a semaphore.
-  for ((i = 0; i < $OpTimeout; ++i)); do
-    xCute docker exec $dataContainer /root/mariadb-show-databases && break
-    sleep 2
-  done
-
-  getState $dataContainer dataState $viewContainer viewState
-  printf "$format" $dataContainer $dataState $viewContainer $viewState
-
-  [ "$dataState" = "running" ] && return 0 || return 1
-
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

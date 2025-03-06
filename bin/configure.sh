@@ -49,11 +49,17 @@ heading() {
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 main() {
+
   parseCommandLine "$@"
+
+  heading "WAIT FOR DATA AND VIEW TO WAKE UP"
+
+  waitForData 10 || die "Error: Cannot talk to MariaDB"
+  waitForView $Server 15 || die "Error: Cannot talk to MediaWiki"
+
   fixPasswords
   fixSettings
   fixImages
-  #flushViewCache
   flushViewCache
 }
 
@@ -72,11 +78,13 @@ fixImages() { # view:/var/www/html/images
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-fixPasswords() { # fix passwords outside of LocalSettings.php
+fixPasswords() { # Fix passwords outside of LocalSettings.php
 
   heading "FIX PASSWORDS"
 
   local stars="******"
+
+  # Fix $DB_USER aka $wgDBuser aka 'WikiDBA'
 
   cmd() { echo docker exec $DW_DATA_HOST mariadb -p"${1:-$stars}"; }
   sql() { echo "SET PASSWORD FOR '$DB_USER'@'%' = PASSWORD('${1:-$stars}')"; }
@@ -85,8 +93,10 @@ fixPasswords() { # fix passwords outside of LocalSettings.php
   xQute2 $(cmd $DB_ROOT_PASSWORD) -e "$(sql $DB_USER_PASSWORD)" ||
     die "Error: $(getLastError)"
 
+  # Fix $MW_ADMIN aka 'WikiAdmin'
+
   cmd() { echo docker exec $DW_VIEW_HOST maintenance/run changePassword \
-    --user $MW_ADMIN --password "${1:-$stars}"; }
+    --user=$MW_ADMIN --password="${1:-$stars}"; }
 
   xShow "$(cmd)"
   xQute2 $(cmd $MW_ADMIN_PASSWORD) || die "Error: $(getLastError)"

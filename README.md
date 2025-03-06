@@ -30,12 +30,14 @@ A summary of what is here:
 
 - `bin/backrest.sh`: simple backup and restore starter kit
 - `bin/cake.sh`: build script to *make* and unmake artifacts
+- `bin/configure.sh`: configure containers with project settings
 - `bin/*API.sh`: test scripts for related projects
-- `bin/setPasswords.sh`: reset passwords to current configuration
 - `.env`: default configuration
 - `~/.DockerWiki/config`: user configuration
 - `compose.yaml`: launch instructions for `docker compose`
-- `setEnv.sh`: shortcuts to simplify development and test
+- `setEnv.sh`: shortcuts for development and test
+
+[Somebody stop me](https://www.youtube.com/watch?v=jJLlGmXKvyo).
 
 ## Builds
 
