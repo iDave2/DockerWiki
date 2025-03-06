@@ -186,7 +186,7 @@ MW_ENABLE_UPLOADS=true
 MY_BACKUP_DIR=~/Documents/Backups
 ```
 
-apply these overrides to the wiki like this,
+you can apply these overrides to the current wiki like this,
 
 ```bash
 $ configure.sh --verbose
