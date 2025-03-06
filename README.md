@@ -38,8 +38,6 @@ A summary of what is here:
 - `compose.yaml`: launch instructions for `docker compose`
 - `setEnv.sh`: sets up a development environment
 
-[Somebody stop me](https://www.youtube.com/watch?v=jJLlGmXKvyo).
-
 ## Builds
 
 When run from mariadb or mediawiki directories, `cake.sh` only builds that
