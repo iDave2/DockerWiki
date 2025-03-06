@@ -6,9 +6,10 @@
 #    - MW_ADMIN_PASSWORD  # Wiki site administrator password
 #    - DB_ROOT_PASSWORD   # Wiki database administrator password
 #
-#  To reset MariaDB root password requires knowing existing password
-#  and is not addressed here but can be accomplished manually (if you
-#  know current root password) using the SQL shown below.
+#  The MariaDB root password is not easily changed without knowing its
+#  current value. If known, it can be changed using the SQL below; if
+#  not known, one may Backup, Rebuild, and Restore using values from
+#  project environment (.env etc.).
 #
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
