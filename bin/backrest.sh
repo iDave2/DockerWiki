@@ -25,7 +25,7 @@ Zipped=true
 
 # Where to do it.
 BackupDir=${DW_BACKUPS_DIR}/$(date '+%y%m%d.%H%M%S') # see --work-dir
-DataFile=$DW_DB_NAME.sql
+DataFile=$DB_DATABASE.sql
 ImageDir=images
 LocalSettings=LocalSettings.php
 WikiRoot="/var/www/html" # docroot inside view container
@@ -113,9 +113,9 @@ main() {
 
   # Verify credentials extensively.
 
-  while [ -z "${DW_DB_USER_PASSWORD:-}" ]; do
+  while [ -z "${DB_USER_PASSWORD:-}" ]; do
     echo
-    read -sp "Please enter password for user $DW_DB_USER: " DW_DB_USER_PASSWORD
+    read -sp "Please enter password for user $DB_USER: " DB_USER_PASSWORD
     echo
   done
 
@@ -125,9 +125,9 @@ main() {
 
     # Backup database.
 
-    command="docker exec $DataContainer mariadb-dump -u$DW_DB_USER"
-    commandHide="$command -p***** --databases $DW_DB_NAME"
-    commandShow="$command -p$DW_DB_USER_PASSWORD --databases $DW_DB_NAME"
+    command="docker exec $DataContainer mariadb-dump -u$DB_USER"
+    commandHide="$command -p***** --databases $DB_DATABASE"
+    commandShow="$command -p$DB_USER_PASSWORD --databases $DB_DATABASE"
 
     local file="${BackupDir}/${DataFile}"
 
@@ -173,9 +173,9 @@ main() {
 
     # Restore database
 
-    command="docker exec -i $DataContainer mariadb -u$DW_DB_USER"
+    command="docker exec -i $DataContainer mariadb -u$DB_USER"
     commandHide="$command -p*****"
-    commandShow="$command -p$DW_DB_USER_PASSWORD"
+    commandShow="$command -p$DB_USER_PASSWORD"
 
     local file="$BackupDir/${DataFile}"
 
@@ -245,7 +245,7 @@ parseCommandLine() {
       shift
       ;;
     -p | --password)
-      DW_DB_USER_PASSWORD=$2
+      DB_USER_PASSWORD=$2
       shift 2
       ;;
     -r | --restore)

@@ -17,7 +17,7 @@ SiteURL=http://localhost:8080/
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 backup() {
-  echo && echo "==> Backing up $DW_MW_SITE <=="
+  echo && echo "==> Backing up $MW_SITE <=="
   local command="${ScriptDir}/backrest.sh --backup --force --unzipped"
   command+=" --work-dir $BackupDir"
   xShow $command # xCute garbles backrest.sh output...

@@ -42,7 +42,7 @@ Network=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
 SiteURL='http://localhost:8080/'
 
 # Contents of a BackUp directory (see backrest.sh).
-BuDatabase=$DW_DB_NAME.sql
+BuDatabase=$DB_DATABASE.sql
 readonly BuImageDir=images
 readonly BuLocalSettings=LocalSettings.php
 
@@ -250,7 +250,7 @@ makeData() {
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
 
   # Prepare contents of build directory.
-  echo $DW_DB_ROOT_PASSWORD >build/mariadb-root-password-file
+  echo $DB_ROOT_PASSWORD >build/mariadb-root-password-file
   test -f build/mariadb-root-password-file &&
     xCute2 cp "$DockerFile" 20-noop.sh build/ ||
     die "Copy failed: $(getLastError)"
@@ -269,10 +269,10 @@ makeData() {
     fi
     ;& # Fall through...
   cli)
-    buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DW_DB_ROOT_HOST"
-    buildOptions+=" --build-arg MARIADB_DATABASE=$DW_DB_NAME"
-    buildOptions+=" --build-arg MARIADB_USER=$DW_DB_USER"
-    echo $DW_DB_USER_PASSWORD >build/mariadb-password-file
+    buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DB_ROOT_HOST"
+    buildOptions+=" --build-arg MARIADB_DATABASE=$DB_DATABASE"
+    buildOptions+=" --build-arg MARIADB_USER=$DB_USER"
+    echo $DB_USER_PASSWORD >build/mariadb-password-file
     test -f build/mariadb-password-file &&
       xCute2 cp show-databases build/mariadb-show-databases ||
       die "Copy failed: $(getLastError)"
@@ -297,7 +297,7 @@ makeView() {
   Host=$DW_VIEW_HOST
   Image=$DW_HID/mediawiki
   Mount=
-  Publish="--publish $DW_MW_PORTS"
+  Publish="--publish $MW_PORTS"
   TONY=/root # Maria's boyfriend.
 
   if (($OpClean > 0)); then
@@ -322,8 +322,8 @@ makeView() {
     lastWords="Build complete, finish configuration in browser."
     ;;
   cli)
-    echo $DW_MW_ADMIN_PASSWORD >build/passfile
-    echo $DW_DB_USER_PASSWORD >build/dbpassfile
+    echo $MW_ADMIN_PASSWORD >build/passfile
+    echo $DB_USER_PASSWORD >build/dbpassfile
     test -f build/passfile && test -f build/dbpassfile ||
       die "Copy failed: $(getLastError)"
     ;;
@@ -368,20 +368,20 @@ EOT
 
   # Install / configure mediawiki using the famous PHP language.
   # This creates MW DB tables and generates LocalSettings.php file.
-  local port=${DW_MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
+  local port=${MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
   port=${port#*:}              # 127.0.0.1:8080 -> 8080
   local command=$(echo docker exec $Container \
     maintenance/run install \
     --dbtype=mysql \
     --dbserver=$DW_DATA_HOST \
-    --dbname=$DW_DB_NAME \
-    --dbuser=$DW_DB_USER \
+    --dbname=$DB_DATABASE \
+    --dbuser=$DB_USER \
     --dbpassfile="$TONY/dbpassfile" \
     --passfile="$TONY/passfile" \
     --scriptpath='' \
     --server="http://localhost:$port" \
     --with-extensions \
-    $DW_MW_SITE $DW_MW_ADMIN)
+    $MW_SITE $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 }
 

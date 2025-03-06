@@ -108,7 +108,7 @@ $ docker run --name some-mediawiki -d -p 8080:80 mediawiki
 ```
 For web installs, MariaDB is given only a root account and no application
 (mediawiki) database and user, so the MediaWiki installer needs to know
-the MariaDB root password `DW_DB_ROOT_PASSWORD`, and the MariaDB root login
+the MariaDB root password `DB_ROOT_PASSWORD`, and the MariaDB root login
 must be available to the MediaWiki container (or host), so this configuration
 is less secure than with `MARIADB_ROOT_HOST=localhost`.
 
@@ -181,9 +181,9 @@ with your preferred passwords):
 ```bash
 # DockerWiki user config overrides
 
-DW_DB_ROOT_PASSWORD=${DW_DB_ROOT_PASSWORD:-myPassRoot}
-DW_DB_USER_PASSWORD=${DW_DB_USER_PASSWORD:-myPassDBA}
-DW_MW_ADMIN_PASSWORD=${DW_MW_ADMIN_PASSWORD:-myPassAdmin}
+DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-myPassRoot}
+DB_USER_PASSWORD=${DB_USER_PASSWORD:-myPassDBA}
+MW_ADMIN_PASSWORD=${MW_ADMIN_PASSWORD:-myPassAdmin}
 
 # Only used by dw ...
 MY_BACKUP_DIR=~/Documents/Backups

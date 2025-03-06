@@ -3,8 +3,8 @@
 #  This script sets passwords for the two MediaWiki accounts as
 #  specified in the current environment settings:
 #
-#    - DW_MW_ADMIN_PASSWORD  # Wiki site administrator password
-#    - DW_DB_ROOT_PASSWORD   # Wiki database administrator password
+#    - MW_ADMIN_PASSWORD  # Wiki site administrator password
+#    - DB_ROOT_PASSWORD   # Wiki database administrator password
 #
 #  To reset MariaDB root password requires knowing existing password
 #  and is not addressed here but can be accomplished manually (if you
@@ -18,14 +18,14 @@ source "${ScriptDir}/bootstrap.sh"
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  MediaWiki DBA, aka DW_DB_USER, aka wgDBuser
+#  MediaWiki DBA, aka DB_USER, aka wgDBuser
 #
-xCute2 docker exec wiki-data-1 mariadb -p$DW_DB_ROOT_PASSWORD -e \
-  "SET PASSWORD FOR '$DW_DB_USER'@'%' = PASSWORD('$DW_DB_USER_PASSWORD')" ||
+xCute2 docker exec wiki-data-1 mariadb -p$DB_ROOT_PASSWORD -e \
+  "SET PASSWORD FOR '$DB_USER'@'%' = PASSWORD('$DB_USER_PASSWORD')" ||
   die "Error: $(getLastError)"
 
 xCute2 docker exec wiki-view-1 perl -i.bak -pwe \
-  's|^(\s*\$wgDBpassword\s*=\s*).*|$1\"'$DW_DB_USER_PASSWORD'\";|' \
+  's|^(\s*\$wgDBpassword\s*=\s*).*|$1\"'$DB_USER_PASSWORD'\";|' \
   LocalSettings.php || die "Error: $(getLastError)"
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -33,7 +33,7 @@ xCute2 docker exec wiki-view-1 perl -i.bak -pwe \
 #  MediaWiki admin
 #
 xCute2 docker exec wiki-view-1 maintenance/run changePassword \
-  --user $DW_MW_ADMIN --password $DW_MW_ADMIN_PASSWORD ||
+  --user $MW_ADMIN --password $MW_ADMIN_PASSWORD ||
   die "Error: $(getLastError)"
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
