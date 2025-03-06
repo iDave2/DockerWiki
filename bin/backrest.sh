@@ -208,7 +208,7 @@ main() {
 
     # Fix all settings to match current project context.
 
-    xCute "${ScriptDir}/configure.sh" || die "Error: $(getLastError)"
+    xCute configure.sh -v || die "Error: $(getLastError)"
 
     # Say goodnight.
 
