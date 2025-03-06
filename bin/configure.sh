@@ -21,7 +21,7 @@
 ScriptDir=$(dirname -- $(realpath -- ${BASH_SOURCE[0]}))
 source "${ScriptDir}/bootstrap.sh"
 
-Dashes="########" && Stars="********"
+declare -A C=() # To boldly go...see fixPasswords()
 
 File="$DW_TEMP_DIR/config.php" Keep=false
 
@@ -42,17 +42,18 @@ Verbose=false
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 heading() {
-  echo && echo "$Dashes  $*  $Dashes"
+  local dashes="########"
+  echo && echo "$dashes  $*  $dashes"
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 main() {
   parseCommandLine "$@"
+  fixPasswords
   fixSettings
   fixImages
   #flushViewCache
-  fixPasswords
   flushViewCache
 }
 
@@ -71,23 +72,24 @@ fixImages() { # view:/var/www/html/images
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-fixPasswords() { # passwords outside of LocalSettings.php
+fixPasswords() { # fix passwords outside of LocalSettings.php
 
   heading "FIX PASSWORDS"
 
-  local command=(
-    "docker exec $DW_DATA_HOST mariadb -p"
-    $Stars
-    -e "SET PASSWORD FOR '"
-  )
+  local stars="******"
 
-  xCute2 docker exec $DW_DATA_HOST mariadb -p$DB_ROOT_PASSWORD -e \
-    "SET PASSWORD FOR '$DB_USER'@'%' = PASSWORD('$DB_USER_PASSWORD')" ||
+  cmd() { echo docker exec $DW_DATA_HOST mariadb -p"${1:-$stars}"; }
+  sql() { echo "SET PASSWORD FOR '$DB_USER'@'%' = PASSWORD('${1:-$stars}')"; }
+
+  xShow "$(cmd)" -e \"$(sql)\"
+  xQute2 $(cmd $DB_ROOT_PASSWORD) -e "$(sql $DB_USER_PASSWORD)" ||
     die "Error: $(getLastError)"
 
-  xCute2 docker exec $DW_VIEW_HOST maintenance/run changePassword \
-    --user $MW_ADMIN --password $MW_ADMIN_PASSWORD ||
-    die "Error: $(getLastError)"
+  cmd() { echo docker exec $DW_VIEW_HOST maintenance/run changePassword \
+    --user $MW_ADMIN --password "${1:-$stars}"; }
+
+  xShow "$(cmd)"
+  xQute2 $(cmd $MW_ADMIN_PASSWORD) || die "Error: $(getLastError)"
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
