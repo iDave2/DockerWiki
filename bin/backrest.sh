@@ -206,9 +206,9 @@ main() {
     xCute2 docker cp "$tmpFile" "$ViewContainer:$WikiRoot/" &&
       xCute2 rm "$tmpFile" || die "Error: $(getLastError)"
 
-    # Set MediaWiki passwords to current configuration.
+    # Fix all settings to match current project context.
 
-    xCute "${ScriptDir}/setPasswords.sh" || die "Error: $(getLastError)"
+    xCute "${ScriptDir}/configure.sh" || die "Error: $(getLastError)"
 
     # Say goodnight.
 
