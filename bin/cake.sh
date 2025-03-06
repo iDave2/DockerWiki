@@ -341,7 +341,7 @@ makeView() {
   case $OpInstaller in
   restore)
     waitForData || die "Cannot connect database: $(getLastError)"
-    xCute2 ${ScriptDir}/setPasswords.sh || die "Error: $(getLastError)"
+    xCute2 ${ScriptDir}/configure.sh -v || die "Error: $(getLastError)"
     ;& # fall thru
   web)
     waitForView $SiteURL 15 || # 15 second timeout
@@ -369,7 +369,7 @@ EOT
   # Install / configure mediawiki using the famous PHP language.
   # This creates MW DB tables and generates LocalSettings.php file.
   local port=${MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
-  port=${port#*:}              # 127.0.0.1:8080 -> 8080
+  port=${port#*:}           # 127.0.0.1:8080 -> 8080
   local command=$(echo docker exec $Container \
     maintenance/run install \
     --dbtype=mysql \
@@ -383,6 +383,7 @@ EOT
     --with-extensions \
     $MW_SITE $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
+  xCute2 ${ScriptDir}/configure.sh -v || die "Error: $(getLastError)"
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

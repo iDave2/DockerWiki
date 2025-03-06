@@ -55,7 +55,7 @@ decorate() {
 #  Prints given message and dies. usage() is gentler.
 #
 die() {
-  test $# -gt 0 && echo -e "\n$*\n" >&2 # https://stackoverflow.com/q/3601515
+  test $# -gt 0 && echo -e "\n$*" >&2 # https://stackoverflow.com/q/3601515
   echo >&2
   echo Death caused by ${FUNCNAME[1]}:${BASH_LINENO[0]} at $(date +%H:%M). >&2
   exit 42

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 #
-#  This program is called whenever a LocalSettings.php is written to the
-#  MediaWiki container. This filter sets $wg variables to match whatever
-#  is defined in this project's environment settings. For example,
+#  This program is called whenever a LocalSettings.php is created or
+#  restored in the MediaWiki container. It sets MediaWiki's internal
+#  configuration variables $wgXyz to match values in this project
+#  environment (i.e., .env, DW_USER_CONFIG, etc.).
+#
+#  Here is an example circa March 2025,
 #
 #      $wgDBname        = "mediawiki";
 #      $wgDBpassword    = "changeThis";
@@ -18,8 +21,9 @@
 ScriptDir=$(dirname -- $(realpath -- ${BASH_SOURCE[0]}))
 source "${ScriptDir}/bootstrap.sh"
 
+Dashes="########" && Stars="********"
+
 File="$DW_TEMP_DIR/config.php" Keep=false
-Settings=/var/www/html/LocalSettings.php
 
 SecretKey=$(perl -we "print map { ('0'..'9','a'..'f')[int(rand(16))] } 1..64")
 
@@ -31,22 +35,76 @@ Server=$(
   echo "http://$host:$port"
 )
 
+Settings=/var/www/html/LocalSettings.php
+
 Verbose=false
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
+heading() {
+  echo && echo "$Dashes  $*  $Dashes"
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
 main() {
-
   parseCommandLine "$@"
+  fixSettings
+  fixImages
+  #flushViewCache
+  fixPasswords
+  flushViewCache
+}
 
-  xCute2 docker cp $DW_VIEW_HOST:$Settings $File || die "Error: $(getLastError)"
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+fixImages() { # view:/var/www/html/images
+
+  heading "FIX IMAGES"
+
+  local ug='www-data' # TODO: hard-coded user:group ?
+
+  xCute2 docker exec $DW_VIEW_HOST chown -R $ug:$ug images &&
+    xCute2 docker exec $DW_VIEW_HOST find images -type f -exec chmod u+w {} \; ||
+    die "Error: $(getLastError)"
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+fixPasswords() { # passwords outside of LocalSettings.php
+
+  heading "FIX PASSWORDS"
+
+  local command=(
+    "docker exec $DW_DATA_HOST mariadb -p"
+    $Stars
+    -e "SET PASSWORD FOR '"
+  )
+
+  xCute2 docker exec $DW_DATA_HOST mariadb -p$DB_ROOT_PASSWORD -e \
+    "SET PASSWORD FOR '$DB_USER'@'%' = PASSWORD('$DB_USER_PASSWORD')" ||
+    die "Error: $(getLastError)"
+
+  xCute2 docker exec $DW_VIEW_HOST maintenance/run changePassword \
+    --user $MW_ADMIN --password $MW_ADMIN_PASSWORD ||
+    die "Error: $(getLastError)"
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+fixSettings() { # view:/var/www/html/LocalSettings.php
+
+  heading "FIX SETTINGS"
+
+  xCute2 docker cp $DW_VIEW_HOST:$Settings $File && chmod 644 $File ||
+    die "Error: $(getLastError)"
 
   perl -i.bak -pwe '
   s {^\s*(\$wgDBname)\s*=.*}        {$1 = "'$DB_DATABASE'";} ;
   s {^\s*(\$wgDBpassword)\s*=.*}    {$1 = "'$DB_USER_PASSWORD'";} ;
   s {^\s*(\$wgDBserver)\s*=.*}      {$1 = "'$DW_DATA_HOST'";} ;
   s {^\s*(\$wgDBuser)\s*=.*}        {$1 = "'$DB_USER'";} ;
-  s {^\s*(\$wgEnableUploads)\s*=.*} {$1 = "'$MW_ENABLE_UPLOADS'";} ;
+  s {^\s*(\$wgEnableUploads)\s*=.*} {$1 = '$MW_ENABLE_UPLOADS';} ;
   s {^\s*(\$wgSecretKey)\s*=.*}     {$1 = "'$SecretKey'";} ;
   s {^\s*(\$wgServer)\s*=.*}        {$1 = "'$Server'";} ;
   s {^\s*(\$wgSitename)\s*=.*}      {$1 = "'$MW_SITE'";} ;
@@ -56,15 +114,16 @@ main() {
 
   xCute2 docker cp $File $DW_VIEW_HOST:$Settings || die "Error: $(getLastError)"
 
-  $Keep || xCute rm $File{,.bak} || die "Error: $(getLastError)"
+  $Keep || xCute rm -f $File{,.bak} || die "Error: $(getLastError)"
+}
 
-  xCute2 docker exec $DW_DATA_HOST mariadb -p$DB_ROOT_PASSWORD -e \
-    "SET PASSWORD FOR '$DB_USER'@'%' = PASSWORD('$DB_USER_PASSWORD')" ||
-    die "Error: $(getLastError)"
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+flushViewCache() { # that is, restart MediaWiki
 
-  xCute2 docker exec $DW_VIEW_HOST maintenance/run changePassword \
-    --user $MW_ADMIN --password $MW_ADMIN_PASSWORD ||
-    die "Error: $(getLastError)"
+  heading "FLUSH VIEW CACHE"
+
+  xCute2 docker restart $DW_VIEW_HOST || die "Error: $(getLastError)"
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -104,7 +163,7 @@ usage() {
 
 Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 
-Configure LocalSettings.php with project settings.
+Configure containers with local project settings.
 
 Options:
   -h | --help       Print this usage summary
