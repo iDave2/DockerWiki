@@ -22,82 +22,82 @@ business needs to run.
    1. [Web installer](#inWeb)
    2. [Command-line installer](#inCli)
    3. [Restore an image](#inRestore)
-5. [Passwords](#passwords)
+5. [Configuration](#configuration)
 
 ## Manifest <a name="manifest"></a>
 
 A summary of what is here:
 
-- `bin/backrest.sh`: simple backup and restore starter kit
-- `bin/cake.sh`: build script to *make* and unmake artifacts
-- `bin/configure.sh`: configure containers with project settings
+- `bin/backrest.sh`: backs up and restores wiki's
+
+- `bin/cake.sh`: *makes* and unmakes artifacts
+- `bin/configure.sh`: configures containers with project settings
 - `bin/*API.sh`: test scripts for related projects
 - `.env`: default configuration
 - `~/.DockerWiki/config`: user configuration
 - `compose.yaml`: launch instructions for `docker compose`
-- `setEnv.sh`: shortcuts for development and test
+- `setEnv.sh`: sets up a development environment
 
 [Somebody stop me](https://www.youtube.com/watch?v=jJLlGmXKvyo).
 
 ## Builds
 
-`source setEnv.sh` for a build script that runs anywhere,
+When run from mariadb or mediawiki directories, `cake.sh` only builds that
+image. When run from the parent of those folders &ndash; the project root
+&ndash; `cake.sh` builds both images:
+
 ```bash
-alias cake="/absolute/path/to/bin/cake.sh"
-alias dc="docker compose"
+$ cake.sh        # create everything
+$ cake.sh -cccc  # destroy everything
+$ cake.sh -h     # display usage summary
 ```
-When run from mariadb or mediawiki directories, `cake` only builds that image.
-When run from the parent of those folders &ndash; the project root &ndash;
-`cake` builds both images:
-```bash
-$ cake        # create everything
-$ cake -cccc  # destroy everything
-$ cake -h     # display usage summary
-```
+
 The `--clean` option is so complex, it might function as a Turing machine:
+
 ```bash
-$ cake -c     # Removes build folders,
-$ cake -cc    # and containers and networks,
-$ cake -ccc   # and images,
-$ cake -cccc  # and volumes.
+$ cake.sh -c     # Removes build folders,
+$ cake.sh -cc    # and containers and networks,
+$ cake.sh -ccc   # and images,
+$ cake.sh -cccc  # and volumes.
 ```
+
 Build instructions were removed from `compose.yaml` when post-install steps
 became complex. `docker compose` still launches DockerWiki provided it can
 find the requested images locally or on the hub,
+
 ```bash
-$ dc up -d                # create everything
-$ dc down -v --rmi local  # destroy almost everything
+$ docker compose up -d                # create everything
+$ docker compose down -v --rmi local  # destroy most stuff
 ```
+
 Remember to backup important data before (accidentally) removing its volume!
 
 ## Backups
 
-`source setEnv.sh` for a backup and restore script that runs anywhere,
-```bash
-alias backrest="/absolute/path/to/bin/backrest.sh"
-```
 `backrest.sh` backs up and restores three items:
-- MariaDB database;
+
+- MariaDB's mediawiki database;
 - MediaWiki images directory tree;
 - MediaWiki LocalSettings.php file.
 
 The working directory (option `-w` or `--work-dir`) is
 optional for backup but required for restore:
+
 ```bash
-$ backrest --backup               # -> /tmp/DockerWiki/backup-<date>/
-$ backrest -bw ./my-git-backups/  # -> ./my-git-backups/
-$ backrest -rw ./my-git-backups   # <- ./my-git-backups/
+$ backrest.sh --backup  # -> /tmp/DockerWiki/backups/<date>/
+$ backrest.sh -bw ./my-git-backups/   # -> ./my-git-backups/
+$ backrest.sh -rw ./my-git-backups    # <- ./my-git-backups/
 ```
 
 ## Installers
 
 In this context, *installer* refers to the method used to create MediaWiki's
 initial database and runtime configuration stored in `LocalSettings.php`.
-`cake` offers three choices:
+`cake.sh` offers three choices:
 ```bash
-$ cake -i web                # web-based installer
-$ cake --installer cli       # command-line installer (default)
-$ cake -i restore=my/backup  # Restore a backrest.sh backup
+$ cake.sh -i web        # web-based installer
+$ cake.sh --installer cli   # command-line installer (default)
+$ cake.sh -i restore=my/backup  # build with restored backup
 ```
 
 ### Web installer <a id="inWeb" name="inWeb"></a>
@@ -120,7 +120,7 @@ of configuration (like which extensions to include).
 ### Command-line installer <a id="inCli" name="inCli"></a>
 
 This method leverages built-in PHP programs to automate installation.
-Configuration settings come from `DW_` variables scattered in increasing
+Configuration settings come from definitions scattered in increasing
 order of precedence by files `.env`, `DW_USER_CONFIG`, and command-line
 assignments.
 
@@ -135,7 +135,7 @@ To build images with `your_hub_id` rather than mine, you could (write your
 own `.env` or) override `.env` on the command line,
 
 ```bash
-$ DW_HID=your_hub_id cake -i cli
+$ DW_HID=your_hub_id cake.sh -i cli
 ```
 
 or you could add a line to `DW_USER_CONFIG` (after learning that its
@@ -158,7 +158,7 @@ In order for these artifacts to end up in image layers rather than volatile
 container memory, we use a Dockerfile that copies them into the image from
 a folder previously created by `backrest.sh` (i.e., a backup):
 ```bash
-$ cake --installer restore=./hub
+$ cake.sh --installer restore=./hub
 ```
 This is how the Docker Hub images corresponding to this git repository
 were created.
@@ -166,19 +166,12 @@ were created.
 Also see `docker commit`, another method for creating new images from
 containers.
 
-## Passwords
+## Configuration
 
-The following procedure may be used to reset passwords if they are ever
-lost or need to be changed from insecure defaults.
+Most configuration settings may be changed in DW_USER_CONFIG. Its default
+location, `~/.DockerWiki/config`, can be changed in `.env`.
 
-First, take a backup of the current system,
-
-```bash
-$ backrest --backup [--force] --work-dir my/backup/
-```
-
-Configure desired passwords in DW_USER_CONFIG (replace `myPassXYZ` below
-with your preferred passwords):
+Given a typical DW_USER_CONFIG like this,
 
 ```bash
 # DockerWiki user config overrides
@@ -187,17 +180,17 @@ DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-myPassRoot}
 DB_USER_PASSWORD=${DB_USER_PASSWORD:-myPassDBA}
 MW_ADMIN_PASSWORD=${MW_ADMIN_PASSWORD:-myPassAdmin}
 
-# Only used by dw ...
+MW_ENABLE_UPLOADS=true
+
+# Only used by dw.sh ...
 MY_BACKUP_DIR=~/Documents/Backups
 ```
 
-Rebuild everything with a restore installer,
+apply these overrides to the wiki like this,
 
 ```bash
-$ cake -cccc; cake -i restore=my/backup/
+$ configure.sh --verbose
 ```
-
-On success, browser opens to restored wiki.
 
 ---
 

@@ -57,10 +57,7 @@ main() {
   waitForData 10 || die "Error: Cannot talk to MariaDB"
   waitForView $Server 15 || die "Error: Cannot talk to MediaWiki"
 
-  fixPasswords
-  fixSettings
-  fixImages
-  flushViewCache
+  fixSettings && fixPasswords && fixImages && flushViewCache
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
