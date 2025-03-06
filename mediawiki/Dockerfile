@@ -36,10 +36,6 @@ FROM view AS view-branch-restore
 WORKDIR /var/www/html
 COPY images images/
 COPY LocalSettings.php ./
-ARG CACHE_DATE=250228.132315
-RUN set -eu; \
-  key=$(perl -we "print map { ('0'..'9','a'..'f')[int(rand(16))] } 1..64"); \
-  perl -i.bak -pwe "s|%%wgSecretKey%%|$key|" LocalSettings.php
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
