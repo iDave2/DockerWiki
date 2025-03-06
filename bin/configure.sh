@@ -52,13 +52,19 @@ main() {
   s {^\s*(\$wgSitename)\s*=.*}      {$1 = "'$MW_SITE'";} ;
   ' $File
 
-  $Verbose && xCute diff $File.bak $File
+  ! $Verbose || xCute diff $File.bak $File
 
   xCute2 docker cp $File $DW_VIEW_HOST:$Settings || die "Error: $(getLastError)"
 
-  if test ${1:-""} != "-k" -a ${1:-""} != "--keep"; then
-    xCute2 rm $File{,.bak} || die "Error: $(getLastError)"
-  fi
+  $Keep || xCute rm $File{,.bak} || die "Error: $(getLastError)"
+
+  xCute2 docker exec $DW_DATA_HOST mariadb -p$DB_ROOT_PASSWORD -e \
+    "SET PASSWORD FOR '$DB_USER'@'%' = PASSWORD('$DB_USER_PASSWORD')" ||
+    die "Error: $(getLastError)"
+
+  xCute2 docker exec $DW_VIEW_HOST maintenance/run changePassword \
+    --user $MW_ADMIN --password $MW_ADMIN_PASSWORD ||
+    die "Error: $(getLastError)"
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
