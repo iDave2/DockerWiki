@@ -86,7 +86,7 @@ main() {
   if $Backup; then
     if test -d "$BackupDir"; then
       if $Force; then
-        xCute2 chmod -R u+w $BackupDir || # Make existing backup writable.
+        xCute2 chmod -R u+w $BackupDir/* || # Make existing backup writable.
           die "Trouble making backup writable: $(getLastError)"
       else
         usage "Use --force to reuse working dir '$BackupDir'"
@@ -158,9 +158,9 @@ main() {
     xShow "$commandA | $commandB >$file"
     $commandA | $commandB >$file || die "Error: $(getLastError)"
 
-    # Make backups mostly read-only.
+    # Make backups mostly read-only. '/.' needed when $BackupDir is a link.
 
-    command="find $BackupDir -type f -exec chmod -w {} ;"
+    command="find $BackupDir/. -type f -exec chmod -w {} ;"
     xCute2 $command || die "Trouble making backup mostly read-only: $(getLastError)"
 
     # Say goodnight.
