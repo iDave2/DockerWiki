@@ -12,7 +12,7 @@
 #      $wgDBserver      = "wiki-data-1";
 #      $wgDBuser        = "WikiDBA";
 #      $wgEnableUploads = true;
-#      $wgSecretKey     = "%%wgSecretKey%%";
+#      $wgSecretKey     = "<64 hex digits>";
 #      $wgServer        = "http://localhost:8080"; # ?
 #      $wgSitename      = "DockerWiki";
 #
@@ -38,27 +38,6 @@ Server=$(
 Settings=/var/www/html/LocalSettings.php
 
 Verbose=false
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-heading() {
-  local dashes="########"
-  echo && echo "$dashes  $*  $dashes"
-}
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-main() {
-
-  parseCommandLine "$@"
-
-  heading "WAIT FOR DATA AND VIEW TO WAKE UP"
-
-  waitForData 10 || die "Error: Cannot talk to MariaDB"
-  waitForView $Server 15 || die "Error: Cannot talk to MediaWiki"
-
-  fixSettings && fixPasswords && fixImages && flushViewCache
-}
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -133,6 +112,27 @@ flushViewCache() { # that is, restart MediaWiki
   heading "FLUSH VIEW CACHE"
 
   xCute2 docker restart $DW_VIEW_HOST || die "Error: $(getLastError)"
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+heading() {
+  local dashes="########"
+  echo && echo "$dashes  $*  $dashes"
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+main() {
+
+  parseCommandLine "$@"
+
+  heading "WAIT FOR DATA AND VIEW TO WAKE UP"
+
+  waitForData 10 || die "Error: Cannot talk to MariaDB"
+  waitForView $Server 15 || die "Error: Cannot talk to MediaWiki"
+
+  fixSettings && fixPasswords && fixImages && flushViewCache
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

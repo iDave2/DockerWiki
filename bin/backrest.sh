@@ -24,7 +24,7 @@ Restore=false
 Zipped=true
 
 # Where to do it.
-BackupDir=${DW_BACKUPS_DIR}/$(date '+%y%m%d.%H%M%S') # see --work-dir
+BackupDir='' # --work-dir
 DataFile=$DB_DATABASE.sql
 ImageDir=images
 LocalSettings=LocalSettings.php
@@ -33,6 +33,84 @@ WikiRoot="/var/www/html" # docroot inside view container
 # Defaults subject to change via command line options.
 DataContainer=$(getContainer $DW_DATA_SERVICE)
 ViewContainer=$(getContainer $DW_VIEW_SERVICE)
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Create a backup.
+#
+backup() {
+
+  # Flush view cache.
+
+  xCute2 docker restart $ViewContainer || die "Error: $(getLastError)"
+
+  # Backup database.
+
+  cmd() {
+    echo docker exec $DataContainer mariadb-dump \
+      -u$DB_USER -p"${1:-'*****'}" --databases $DB_DATABASE
+  }
+  local file="${BackupDir}/${DataFile}"
+  if $Zipped; then
+    file+=".gz"
+    xShow "$(cmd) | gzip > \"$file\""
+    xQute2 $(cmd $DB_USER_PASSWORD) | gzip >"$file"
+  else
+    xShow "$(cmd) > \"$file\""
+    xQute2 $(cmd $DB_USER_PASSWORD) >"$file"
+  fi
+  test $? -ne 0 && die "Error: $(getLastError)"
+
+  # Backup images
+
+  local commandA="docker exec $ViewContainer tar -cC $WikiRoot/$ImageDir ."
+  local commandB="tar -xC $BackupDir/$ImageDir"
+  xShow "$commandA | $commandB"
+  $commandA | $commandB
+  [ $? -ne 0 ] && die "Error backing up images"
+
+  # Save LocalSettings.php.
+
+  xCute2 docker cp $ViewContainer:/var/www/html/$LocalSettings \
+    "$BackupDir/$LocalSettings" || die "Error: $(getLastError)"
+  xCute2 obfuscate.sh "$BackupDir/$LocalSettings"
+
+  # Make backups mostly read-only. '/.' needed when $BackupDir is a link.
+
+  command="find $BackupDir/. -type f -exec chmod -w {} ;"
+  xCute2 $command || die "Trouble making backup mostly read-only: $(getLastError)"
+
+  # Say goodnight.
+
+  echo -e "\n==> Wiki backup written to '$BackupDir' <=="
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Finish validating input for a backup.
+#
+backupValidate() {
+
+  # Set default backup directory if user did not specify.
+
+  test -z "$BackupDir" &&
+    BackupDir=${DW_BACKUPS_DIR}/$(date '+%y%m%d.%H%M%S')
+
+  # Validate input.
+
+  if test -d "$BackupDir"; then
+    if $Force; then
+      xCute2 chmod -R u+w $(realpath "$BackupDir") ||
+        die "Trouble making backup writable: $(getLastError)"
+    else
+      usage "Use --force to reuse working dir '$BackupDir'"
+    fi
+  else
+    local dir="$BackupDir/$ImageDir"
+    xCute2 mkdir -p "$dir" ||
+      usage "Trouble creating '$dir': $(getLastError)"
+  fi
+}
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -78,28 +156,12 @@ main() {
 
   parseCommandLine "$@"
 
-  # Validate request excessively.
-
   ($Backup && $Restore) || (! $Backup && ! $Restore) &&
     usage "Please specify either --backup or --restore"
 
-  if $Backup; then
-    if test -d "$BackupDir"; then
-      if $Force; then
-        xCute2 chmod -R u+w $BackupDir/* || # Make existing backup writable.
-          die "Trouble making backup writable: $(getLastError)"
-      else
-        usage "Use --force to reuse working dir '$BackupDir'"
-      fi
-    fi
-    xCute2 mkdir -p "$BackupDir/$ImageDir" ||
-      usage "Trouble creating '$dir': $(getLastError)"
-  else
-    test -n "$BackupDir" ||
-      usage "Please specify \"-w <backup-dir>\" when running --restore"
-    test -d "$BackupDir" ||
-      usage "'--work-dir $BackupDir' must name an existing directory"
-  fi
+  $Backup && backupValidate || restoreValidate
+
+  # Further checks for both backup and restore.
 
   checkContainer $DataContainer $DW_DATA_HOST mariadb
   checkContainer $ViewContainer $DW_VIEW_HOST mediawiki
@@ -119,55 +181,12 @@ main() {
     echo
   done
 
-  # Backup or restore something.
+  # Just do it.
 
-  if $Backup; then
+  $Backup && backup
+  # $Backup && backup || restore
 
-    # Backup database.
-
-    command="docker exec $DataContainer mariadb-dump -u$DB_USER"
-    commandHide="$command -p***** --databases $DB_DATABASE"
-    commandShow="$command -p$DB_USER_PASSWORD --databases $DB_DATABASE"
-
-    local file="${BackupDir}/${DataFile}"
-
-    if $Zipped; then
-      file+=".gz"
-      xShow "$commandHide | gzip > \"$file\""
-      $commandShow | gzip >"$file"
-    else
-      xShow "$commandHide > \"$file\""
-      $commandShow >"$file"
-    fi
-
-    [ $? -ne 0 ] && die "Error backing up database; exit status '$?'."
-
-    # Backup images
-
-    local commandA="docker exec $ViewContainer tar -cC $WikiRoot/$ImageDir ."
-    local commandB="tar -xC $BackupDir/$ImageDir"
-    xShow "$commandA | $commandB"
-    $commandA | $commandB
-    [ $? -ne 0 ] && die "Error backing up images; exit status '$?'."
-
-    # Save LocalSettings.php.
-
-    commandA="docker exec $ViewContainer cat $LocalSettings"
-    commandB="wgSecretKey hide"
-    local file="$BackupDir/$LocalSettings"
-    xShow "$commandA | $commandB >$file"
-    $commandA | $commandB >$file || die "Error: $(getLastError)"
-
-    # Make backups mostly read-only. '/.' needed when $BackupDir is a link.
-
-    command="find $BackupDir/. -type f -exec chmod -w {} ;"
-    xCute2 $command || die "Trouble making backup mostly read-only: $(getLastError)"
-
-    # Say goodnight.
-
-    echo -e "\n==> Wiki backup written to '$BackupDir' <=="
-
-  fi
+  die
 
   if $Restore; then
 
@@ -176,6 +195,11 @@ main() {
     command="docker exec -i $DataContainer mariadb -u$DB_USER"
     commandHide="$command -p*****"
     commandShow="$command -p$DB_USER_PASSWORD"
+
+    # cmd() {
+    #   echo docker exec -i "$DataContainer" mariadb \
+    #     -u"$DB_USER" -p"${1:-$stars}"
+    # }
 
     local file="$BackupDir/${DataFile}"
 
@@ -277,6 +301,28 @@ parseCommandLine() {
       ;;
     esac
   done
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Restore a backup.
+#
+restore() {
+  a=2;
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Check restore input before continuing.
+#
+restoreValidate() {
+
+  # Validate input.
+
+  test -n "$BackupDir" ||
+    usage "Please specify \"-w <backup-dir>\" when running --restore"
+  test -d "$BackupDir" ||
+    usage "'--work-dir $BackupDir' must name an existing directory"
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
