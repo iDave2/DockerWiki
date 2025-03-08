@@ -16,13 +16,10 @@
 ScriptDir=$(dirname -- $(realpath -- ${BASH_SOURCE[0]}))
 source "${ScriptDir}/bootstrap.sh"
 
-File=''
-Keep=false
-Stars='********'
-Verbose=false
+File='' Keep=false Stars='********' Verbose=false
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
+
 main() {
 
   parseCommandLine "$@"
@@ -40,7 +37,7 @@ main() {
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
+
 parseCommandLine() {
   set -- $(getOpt "$@")
   while test $# -gt 0; do # https://stackoverflow.com/a/14203146
@@ -69,7 +66,7 @@ parseCommandLine() {
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
+
 usage() {
   if [ -n "$*" ]; then
     echo -e "\n***  $@  ***" >&2
@@ -89,5 +86,5 @@ EOT
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
+
 main "$@"

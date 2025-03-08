@@ -100,16 +100,16 @@ backupValidate() {
 
   if test -d "$BackupDir"; then
     if $Force; then
-      xCute2 chmod -R u+w $(realpath "$BackupDir") ||
+      xCute2 chmod -R u+w "$BackupDir/." ||
         die "Trouble making backup writable: $(getLastError)"
     else
       usage "Use --force to reuse working dir '$BackupDir'"
     fi
-  else
-    local dir="$BackupDir/$ImageDir"
-    xCute2 mkdir -p "$dir" ||
-      usage "Trouble creating '$dir': $(getLastError)"
   fi
+
+  # Existing folder may not include images so,
+
+  xCute2 mkdir -p "$BackupDir/$ImageDir" || die "Error: $(getLastError)"
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -150,8 +150,6 @@ checkContainer() {
 #
 main() {
 
-  local command commandHide commandShow
-
   isDockerRunning || die "Is docker down? I cannot connect."
 
   parseCommandLine "$@"
@@ -189,54 +187,6 @@ main() {
   die
 
   if $Restore; then
-
-    # Restore database
-
-    command="docker exec -i $DataContainer mariadb -u$DB_USER"
-    commandHide="$command -p*****"
-    commandShow="$command -p$DB_USER_PASSWORD"
-
-    # cmd() {
-    #   echo docker exec -i "$DataContainer" mariadb \
-    #     -u"$DB_USER" -p"${1:-$stars}"
-    # }
-
-    local file="$BackupDir/${DataFile}"
-
-    if test -f $file; then # unzipped
-      xShow "cat \"$file\" | $commandHide"
-      cat "$file" | $commandShow
-    else #zipped
-      xShow "gzcat \"$file\" | $commandHide"
-      gzcat "$file" | $commandShow
-    fi
-
-    [ $? -ne 0 ] && die "Error restoring database!"
-
-    # Restore pics.
-
-    local commandA="tar -cC ${BackupDir}/$ImageDir ."
-    local commandB="docker exec --interactive $ViewContainer tar -xC $WikiRoot/$ImageDir"
-    xShow "$commandA | $commandB"
-    $commandA | $commandB
-    [ $? -ne 0 ] && die "Error restoring images: exit status '$?'"
-
-    # Restore LocalSettings.php and its famous secret key.
-
-    local inFile="$BackupDir/$LocalSettings"
-    local tmpFile="$(getTempDir)/$LocalSettings"
-    xShow "cat $inFile | wgSecretKey show >$tmpFile"
-    cat "$inFile" | wgSecretKey show >"$tmpFile" || die "Error: $(getLastError)"
-    xCute2 docker cp "$tmpFile" "$ViewContainer:$WikiRoot/" &&
-      xCute2 rm "$tmpFile" || die "Error: $(getLastError)"
-
-    # Fix all settings to match current project context.
-
-    xCute configure.sh -v || die "Error: $(getLastError)"
-
-    # Say goodnight.
-
-    echo && echo "==> Wiki restored from '$BackupDir' <=="
 
   fi
 }
@@ -308,7 +258,54 @@ parseCommandLine() {
 #  Restore a backup.
 #
 restore() {
-  a=2;
+
+  # Restore database
+
+  command="docker exec -i $DataContainer mariadb -u$DB_USER"
+  commandHide="$command -p*****"
+  commandShow="$command -p$DB_USER_PASSWORD"
+
+  # cmd() {
+  #   echo docker exec -i "$DataContainer" mariadb \
+  #     -u"$DB_USER" -p"${1:-$stars}"
+  # }
+
+  local file="$BackupDir/${DataFile}"
+
+  if test -f $file; then # unzipped
+    xShow "cat \"$file\" | $commandHide"
+    cat "$file" | $commandShow
+  else #zipped
+    xShow "gzcat \"$file\" | $commandHide"
+    gzcat "$file" | $commandShow
+  fi
+
+  [ $? -ne 0 ] && die "Error restoring database!"
+
+  # Restore pics.
+
+  local commandA="tar -cC ${BackupDir}/$ImageDir ."
+  local commandB="docker exec --interactive $ViewContainer tar -xC $WikiRoot/$ImageDir"
+  xShow "$commandA | $commandB"
+  $commandA | $commandB
+  [ $? -ne 0 ] && die "Error restoring images: exit status '$?'"
+
+  # Restore LocalSettings.php and its famous secret key.
+
+  local inFile="$BackupDir/$LocalSettings"
+  local tmpFile="$(getTempDir)/$LocalSettings"
+  xShow "cat $inFile | wgSecretKey show >$tmpFile"
+  cat "$inFile" | wgSecretKey show >"$tmpFile" || die "Error: $(getLastError)"
+  xCute2 docker cp "$tmpFile" "$ViewContainer:$WikiRoot/" &&
+    xCute2 rm "$tmpFile" || die "Error: $(getLastError)"
+
+  # Fix all settings to match current project context.
+
+  xCute configure.sh -v || die "Error: $(getLastError)"
+
+  # Say goodnight.
+
+  echo && echo "==> Wiki restored from '$BackupDir' <=="
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
