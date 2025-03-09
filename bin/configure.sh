@@ -26,16 +26,17 @@ SecretKey=$(perl -we "print map { ('0'..'9','a'..'f')[int(rand(16))] } 1..64")
 ViewSettings="$DW_VIEW_HOST:/var/www/html/LocalSettings.php"
 Verbose=false
 
-# Yet another database API?
+# Yet another database API..
 Stars="******"
 login() { echo docker exec $DW_DATA_HOST mariadb -p"${1:-$Stars}"; }
-setPassword() { echo "SET PASSWORD FOR '$1'@'$2' = PASSWORD('${3:-$Stars}')"; }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 fixData() {
 
-  heading "FIXING DATABASE"
+  heading "FIX DATABASE"
+
+  setPassword() { echo "SET PASSWORD FOR '$1'@'$2' = PASSWORD('${3:-$Stars}')"; }
 
   local host='' hosts=()
 
@@ -51,7 +52,7 @@ fixData() {
 
   hosts=($(getHosts $DB_USER))
   # echo "$DB_USER hosts = ($(join ', ' ${hosts[@]}))."
-  for host in "${hosts[@]}"; do # hopefully not multiple hosts for root...
+  for host in "${hosts[@]}"; do
     xShow "$(login)" -e \"$(setPassword $DB_USER $host)\"
     xQute2 $(login $DB_ROOT_PASSWORD) \
       -e "$(setPassword $DB_USER $host $DB_USER_PASSWORD)" || dieLastError
@@ -73,33 +74,11 @@ fixImages() { # view:/var/www/html/images
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-fixPasswords() { # Fix passwords outside of LocalSettings.php
-
-  heading "FIX PASSWORDS"
-
-  # Fix $DB_USER aka $wgDBuser aka 'WikiDBA'
-
-  cmd() { echo docker exec $DW_DATA_HOST mariadb -p"${1:-$Stars}"; }
-  sql() { echo "SET PASSWORD FOR '$DB_USER'@'%' = PASSWORD('${1:-$Stars}')"; }
-
-  xShow "$(cmd)" -e \"$(sql)\"
-  xQute2 $(cmd $DB_ROOT_PASSWORD) -e "$(sql $DB_USER_PASSWORD)" ||
-    dieLastError
-
-  # Fix $MW_ADMIN aka 'WikiAdmin'
-
-  cmd() { echo docker exec $DW_VIEW_HOST maintenance/run changePassword \
-    --user=$MW_ADMIN --password="${1:-$Stars}"; }
-
-  xShow "$(cmd)"
-  xQute2 $(cmd $MW_ADMIN_PASSWORD) || dieLastError
-}
-
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
 fixSettings() { # view:/var/www/html/LocalSettings.php
 
   heading "FIX SETTINGS"
+
+  # Fix LocalSettings.php.
 
   xCute2 docker cp $ViewSettings $HostSettings && chmod 644 $HostSettings ||
     dieLastError
@@ -116,17 +95,15 @@ fixSettings() { # view:/var/www/html/LocalSettings.php
   ' $HostSettings
 
   ! $Verbose || xCute diff $HostSettings.bak $HostSettings
-
   xCute2 docker cp $HostSettings $ViewSettings || dieLastError
-
   $Keep || xCute rm -f $HostSettings{,.bak} || dieLastError
-}
 
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-flushViewCache() { # that is, restart MediaWiki
-  heading "FLUSH VIEW CACHE"
-  xCute2 docker restart $DW_VIEW_HOST || dieLastError
+  # Fix $MW_ADMIN aka 'WikiAdmin'
+
+  cmd() { echo docker exec $DW_VIEW_HOST maintenance/run changePassword \
+    --user=$MW_ADMIN --password="${1:-$Stars}"; }
+  xShow "$(cmd)"
+  xQute2 $(cmd $MW_ADMIN_PASSWORD) || dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -135,8 +112,8 @@ flushViewCache() { # that is, restart MediaWiki
 #
 getHosts() {
   local user=${1:-''} password=${2:-$DB_ROOT_PASSWORD}
-  getHosts() { echo "SELECT host FROM mysql.user WHERE user = '${1:-$Stars}'"; }
-  xQute2 $(login $password) -N -e "$(getHosts $user)" || dieLastError
+  sql() { echo "SELECT host FROM mysql.user WHERE user = '${1:-$Stars}'"; }
+  xQute2 $(login $password) -N -e "$(sql $user)" || dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -150,9 +127,8 @@ heading() {
 #
 main() {
   parseCommandLine "$@"
-  fixData
-  die BYE
-  fixSettings && fixPasswords && fixImages && flushViewCache
+  fixData && fixImages && fixSettings
+  xCute2 docker restart $DW_VIEW_HOST || dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
