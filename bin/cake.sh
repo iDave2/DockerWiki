@@ -309,7 +309,7 @@ makeView() {
   case $OpInstaller in
   restore)
     #waitForData || die "Cannot connect database: $(getLastError)"
-    xCute2 configure.sh -v || die "Error: $(getLastError)"
+    xCute2 configure.sh -v || dieLastError
     ;& # fall thru
   web)
     waitForView 15 || # 15 second timeout
@@ -352,7 +352,7 @@ EOT
     $MW_SITE $MW_ADMIN)
   xCute2 $command || die "Error installing mediawiki: $(getLastError)"
 
-  xCute2 configure.sh -v || die "Error: $(getLastError)"
+  xCute2 configure.sh -v || dieLastError
 
   cat <<EOT
 

@@ -33,7 +33,7 @@ main() {
   ' $File
 
   $Verbose && xCute diff $File.bak $File
-  $Keep || xCute rm -f $File.bak || die "Error: $(getLastError)"
+  $Keep || xCute rm -f $File.bak || dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

@@ -41,7 +41,7 @@ fixImages() { # view:/var/www/html/images
 
   xCute2 docker exec $DW_VIEW_HOST chown -R $ug:$ug images &&
     xCute2 docker exec $DW_VIEW_HOST find images -type f -exec chmod u+w {} \; ||
-    die "Error: $(getLastError)"
+    dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -59,7 +59,7 @@ fixPasswords() { # Fix passwords outside of LocalSettings.php
 
   xShow "$(cmd)" -e \"$(sql)\"
   xQute2 $(cmd $DB_ROOT_PASSWORD) -e "$(sql $DB_USER_PASSWORD)" ||
-    die "Error: $(getLastError)"
+    dieLastError
 
   # Fix $MW_ADMIN aka 'WikiAdmin'
 
@@ -67,7 +67,7 @@ fixPasswords() { # Fix passwords outside of LocalSettings.php
     --user=$MW_ADMIN --password="${1:-$stars}"; }
 
   xShow "$(cmd)"
-  xQute2 $(cmd $MW_ADMIN_PASSWORD) || die "Error: $(getLastError)"
+  xQute2 $(cmd $MW_ADMIN_PASSWORD) || dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -77,7 +77,7 @@ fixSettings() { # view:/var/www/html/LocalSettings.php
   heading "FIX SETTINGS"
 
   xCute2 docker cp $DW_VIEW_HOST:$Settings $File && chmod 644 $File ||
-    die "Error: $(getLastError)"
+    dieLastError
 
   perl -i.bak -pwe '
   s {^\s*(\$wgDBname)\s*=.*}        {$1 = "'$DB_DATABASE'";} ;
@@ -92,9 +92,9 @@ fixSettings() { # view:/var/www/html/LocalSettings.php
 
   ! $Verbose || xCute diff $File.bak $File
 
-  xCute2 docker cp $File $DW_VIEW_HOST:$Settings || die "Error: $(getLastError)"
+  xCute2 docker cp $File $DW_VIEW_HOST:$Settings || dieLastError
 
-  $Keep || xCute rm -f $File{,.bak} || die "Error: $(getLastError)"
+  $Keep || xCute rm -f $File{,.bak} || dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -103,7 +103,7 @@ flushViewCache() { # that is, restart MediaWiki
 
   heading "FLUSH VIEW CACHE"
 
-  xCute2 docker restart $DW_VIEW_HOST || die "Error: $(getLastError)"
+  xCute2 docker restart $DW_VIEW_HOST || dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

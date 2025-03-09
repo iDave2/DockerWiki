@@ -46,8 +46,7 @@ backup() {
 
   xCute2 docker stop $ViewContainer &&
     xCute2 docker restart $DataContainer &&
-    waitForData ||
-    die "Error: $(getLastError)"
+    waitForData || dieLastError
 
   # Backup database.
 
@@ -62,12 +61,11 @@ backup() {
     xShow "$(cmd) > \"$file\""
     xQute2 $(cmd $DB_USER_PASSWORD) >"$file"
   fi
-  test $? -ne 0 && die "Error: $(getLastError)"
+  test $? -ne 0 && dieLastError
 
   # Backup view
 
-  xCute2 docker start $ViewContainer && waitForView ||
-    die "Error: $(getLastError)"
+  xCute2 docker start $ViewContainer && waitForView || dieLastError
 
   # Backup images
 
@@ -82,13 +80,12 @@ backup() {
   local viewSettings="$ViewContainer:/var/www/html/$LocalSettings"
   local hostSettings="$BackupDir/$LocalSettings"
   xCute2 docker cp "$viewSettings" "$hostSettings" &&
-    xCute2 obfuscate.sh "$hostSettings" ||
-    die "Error: $(getLastError)"
+    xCute2 obfuscate.sh "$hostSettings" || dieLastError
 
   # Make backups mostly read-only. '/.' needed when $BackupDir is a link.
 
   command="find $BackupDir/. -type f -exec chmod -w {} ;"
-  xCute2 $command || die "Trouble making backup mostly read-only: $(getLastError)"
+  xCute2 $command || dieLastError
 
   banner Backup written to $BackupDir
 }
@@ -117,7 +114,7 @@ backupValidate() {
 
   # Existing folder may not include images so,
 
-  xCute2 mkdir -p "$BackupDir/$ImageDir" || die "Error: $(getLastError)"
+  xCute2 mkdir -p "$BackupDir/$ImageDir" || dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -278,7 +275,7 @@ restore() {
   # Restore database
 
   cmd() { echo docker exec -i "$DataContainer" mariadb \
-      -u"$DB_USER" -p"${1:-'*****'}"; }
+    -u"$DB_USER" -p"${1:-'*****'}"; }
   local file="$BackupDir/${DataFile}"
   if test -f $file; then # unzipped
     xShow "cat \"$file\" | $(cmd)"
@@ -301,8 +298,7 @@ restore() {
   # Restore LocalSettings.php, copy project settings, say goodbye.
 
   xCute2 docker cp "$BackupDir/$LocalSettings" "$ViewContainer:$WikiRoot/" &&
-    xCute2 configure.sh ||
-    dieLastError
+    xCute2 configure.sh || dieLastError
 
   banner Wiki restored from $BackupDir
 }
@@ -312,9 +308,6 @@ restore() {
 #  Check restore input before continuing.
 #
 restoreValidate() {
-
-  # Validate input.
-
   test -n "$BackupDir" ||
     usage "Please specify \"-w <backup-dir>\" when running --restore"
   test -d "$BackupDir" ||

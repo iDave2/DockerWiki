@@ -31,7 +31,7 @@ main() {
 
   weOpenedDocker=false
   if ! isDockerRunning; then # Disable auto-dashboard in Settings
-    xCute2 open -a Docker || die "Error: $(getLastError)"
+    xCute2 open -a Docker || dieLastError
     for ((timer = 10; timer > 0; --timer)); do
       sleep 1 # Next isDockerRunning appears to wait...
       isDockerRunning && weOpenedDocker=true && break
@@ -42,7 +42,7 @@ main() {
   # Make an unzipped backup
 
   xCute2 backrest.sh --backup --force --unzipped --work-dir $BackupDir ||
-    die "Error: $(getLastError)"
+    dieLastError
 
   $BackupOnly && return 0
 
