@@ -40,16 +40,17 @@ ViewContainer=$(getContainer $DW_VIEW_SERVICE)
 #
 backup() {
 
-  # Flush view cache.
+  # Flush cache.
 
-  xCute2 docker restart $ViewContainer || die "Error: $(getLastError)"
+  xCute2 docker stop $ViewContainer &&
+    xCute2 docker restart $DataContainer &&
+    waitForData ||
+    die "Error: $(getLastError)"
 
   # Backup database.
 
-  cmd() {
-    echo docker exec $DataContainer mariadb-dump \
-      -u$DB_USER -p"${1:-'*****'}" --databases $DB_DATABASE
-  }
+  cmd() { echo docker exec $DataContainer mariadb-dump \
+    -u$DB_USER -p"${1:-'*****'}" --databases $DB_DATABASE; }
   local file="${BackupDir}/${DataFile}"
   if $Zipped; then
     file+=".gz"
@@ -61,6 +62,11 @@ backup() {
   fi
   test $? -ne 0 && die "Error: $(getLastError)"
 
+  # Backup view
+
+  xCute2 docker start $ViewContainer && waitForView ||
+    die "Error: $(getLastError)"
+
   # Backup images
 
   local commandA="docker exec $ViewContainer tar -cC $WikiRoot/$ImageDir ."
@@ -71,18 +77,16 @@ backup() {
 
   # Save LocalSettings.php.
 
-  xCute2 docker cp $ViewContainer:/var/www/html/$LocalSettings \
-    "$BackupDir/$LocalSettings" || die "Error: $(getLastError)"
-  xCute2 obfuscate.sh "$BackupDir/$LocalSettings"
+  local viewSettings="$ViewContainer:/var/www/html/$LocalSettings"
+  local hostSettings="$BackupDir/$LocalSettings"
+  xCute2 docker cp "$viewSettings" "$hostSettings" &&
+    xCute2 obfuscate.sh "$hostSettings" ||
+    die "Error: $(getLastError)"
 
   # Make backups mostly read-only. '/.' needed when $BackupDir is a link.
 
   command="find $BackupDir/. -type f -exec chmod -w {} ;"
   xCute2 $command || die "Trouble making backup mostly read-only: $(getLastError)"
-
-  # Say goodnight.
-
-  echo -e "\n==> Wiki backup written to '$BackupDir' <=="
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -110,6 +114,21 @@ backupValidate() {
   # Existing folder may not include images so,
 
   xCute2 mkdir -p "$BackupDir/$ImageDir" || die "Error: $(getLastError)"
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  Make it easier to see what is going on.
+#
+banner() {
+  cat <<EOT
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
+#  $@
+#
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+EOT
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -146,8 +165,6 @@ checkContainer() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
-#  chatgpt://get/quote?keyword="main"&limit=1
-#
 main() {
 
   isDockerRunning || die "Is docker down? I cannot connect."
@@ -159,7 +176,9 @@ main() {
 
   $Backup && backupValidate || restoreValidate
 
-  # Further checks for both backup and restore.
+  banner Starting backup to $BackupDir
+
+  # Further (old) checks for both backup and restore.
 
   checkContainer $DataContainer $DW_DATA_HOST mariadb
   checkContainer $ViewContainer $DW_VIEW_HOST mediawiki
@@ -184,11 +203,9 @@ main() {
   $Backup && backup
   # $Backup && backup || restore
 
-  die
+  echo Finish Restore
 
-  if $Restore; then
-
-  fi
+  banner Backup written to $BackupDir
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

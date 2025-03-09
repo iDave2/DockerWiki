@@ -11,6 +11,8 @@ DECORATE=true # see --no-decoration and decorate()
 readonly SecretHide='%%wgSecretKey%%'
 unset SecretShow
 
+unset wgServer # see getServer()
+
 ####-####+####-####+####-####+####-####+
 #
 #  Open default browser with the given URL.
@@ -114,6 +116,21 @@ getOpt() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
+getServer() {
+  if test -z ${wgServer:-''}; then
+    local host=127.0.0.1
+    local map=($(echo $MW_PORTS | tr ':' ' '))
+    local port=${map[-2]}
+    if test ${#map[@]} -gt 2 -a -n "${map[-3]}"; then
+      host=${map[-3]}
+    fi
+    wgServer="http://$host:$port"
+  fi
+  echo $wgServer
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
 #  Function returns the .State.Status of a given container. Returned
 #  status values have the form '"running"' where the double quotes are
 #  part of the string. Errors can be multiline so are collapsed into one
@@ -190,9 +207,9 @@ waitForData() {
   local viewContainer=$(getContainer $DW_VIEW_SERVICE)
   local format="\n==> Container status: %s is \"%s\", %s is \"%s\" <==\n"
 
-  # Start the database.
+  # Start the database. No, that is caller's job.
 
-  xCute2 docker start $dataContainer || die "Error: $(getLastError)"
+  # xCute2 docker start $dataContainer || die "Error: $(getLastError)"
 
   # Smell the roses.
 
@@ -229,11 +246,13 @@ waitForData() {
 #
 waitForView() {
 
-  local url=$1 seconds=${2:-10} isUp=false timer http status message
+  # local url=$1 seconds=${2:-10} isUp=false timer http status message
+  local url=$(getServer) seconds=${1:-10} isUp=false
+  local timer http status message
 
-  # Start the view.
+  # Start the view. No, caller handles this...
 
-  xCute2 docker start $DW_VIEW_HOST || die "Error: $(getLastError)"
+  # xCute2 docker start $DW_VIEW_HOST || die "Error: $(getLastError)"
 
   # Sample headers returned from view container.
 

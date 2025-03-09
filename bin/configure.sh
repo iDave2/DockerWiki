@@ -27,14 +27,6 @@ File="$DW_TEMP_DIR/config.php" Keep=false
 
 SecretKey=$(perl -we "print map { ('0'..'9','a'..'f')[int(rand(16))] } 1..64")
 
-Server=$(
-  host=127.0.0.1 map=($(echo $MW_PORTS | tr ':' ' ')) port=${map[-2]}
-  if test ${#map[@]} -gt 2 -a -n "${map[-3]}"; then
-    host=${map[-3]}
-  fi
-  echo "http://$host:$port"
-)
-
 Settings=/var/www/html/LocalSettings.php
 
 Verbose=false
@@ -94,7 +86,7 @@ fixSettings() { # view:/var/www/html/LocalSettings.php
   s {^\s*(\$wgDBuser)\s*=.*}        {$1 = "'$DB_USER'";} ;
   s {^\s*(\$wgEnableUploads)\s*=.*} {$1 = '$MW_ENABLE_UPLOADS';} ;
   s {^\s*(\$wgSecretKey)\s*=.*}     {$1 = "'$SecretKey'";} ;
-  s {^\s*(\$wgServer)\s*=.*}        {$1 = "'$Server'";} ;
+  s {^\s*(\$wgServer)\s*=.*}        {$1 = "'$(getServer)'";} ;
   s {^\s*(\$wgSitename)\s*=.*}      {$1 = "'$MW_SITE'";} ;
   ' $File
 
@@ -127,10 +119,10 @@ main() {
 
   parseCommandLine "$@"
 
-  heading "WAIT FOR DATA AND VIEW TO WAKE UP"
+  heading "WAIT FOR DATA AND VIEW"
 
   waitForData 10 || die "Error: Cannot talk to MariaDB"
-  waitForView $Server 15 || die "Error: Cannot talk to MediaWiki"
+  waitForView 15 || die "Error: Cannot talk to MediaWiki"
 
   fixSettings && fixPasswords && fixImages && flushViewCache
 }

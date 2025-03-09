@@ -312,7 +312,7 @@ makeView() {
     xCute2 configure.sh -v || die "Error: $(getLastError)"
     ;& # fall thru
   web)
-    waitForView $SiteURL 15 || # 15 second timeout
+    waitForView 15 || # 15 second timeout
       die "Trouble starting view: $(getLastError)"
     cat <<EOT
 

@@ -12,15 +12,10 @@ source "${ScriptDir}/bootstrap.sh"
 # MY_BACKUP_DIR could be in DW_USER_CONFIG, for example.
 BackupDir=${MY_BACKUP_DIR:-$DW_BACKUPS_DIR/$(date '+%y%m%d.%H%M%S')}
 
-SiteURL=http://localhost:8080/
+# Backup and Browse or just Backup?
+BackupOnly=false
 
-####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
-#
-backup() {
-  echo && echo "==> Backing up $MW_SITE <=="
-  xCute2 backrest.sh --backup --force --unzipped --work-dir $BackupDir ||
-    die "Error: $(getLastError)"
-}
+SiteURL=http://localhost:8080/
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
@@ -44,18 +39,17 @@ main() {
     $weOpenedDocker || die "Error: cannot start docker"
   fi
 
-  # Make sure containers are chatty.
+  # Make an unzipped backup
 
-  xCute2 docker start wiki-data-1 wiki-view-1 && waitForView $SiteURL ||
-    die "Trouble accessing $SiteURL: $(getLastError)"
+  xCute2 backrest.sh --backup --force --unzipped --work-dir $BackupDir ||
+    die "Error: $(getLastError)"
+
+  $BackupOnly && return 0
 
   # Open browser page.
 
   xCute open $SiteURL
 
-  # Make an unzipped backup
-
-  backup || die "ERROR: backup failed"
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -64,6 +58,10 @@ parseCommandLine() {
   set -- $(getOpt "$@")
   while [[ $# -gt 0 ]]; do # https://stackoverflow.com/a/14203146
     case "$1" in
+    -b | --backupOnly)
+      BackupOnly=true
+      shift
+      ;;
     -h | --help)
       usage
       ;;
@@ -90,7 +88,8 @@ Usage: $(basename ${BASH_SOURCE[0]}) [OPTIONS]
 Start DockerWiki and take a backup.
 
 Options:
-  -h | --help               Print this usage summary
+  -b | --backupOnly    Backup only, do not start browser
+  -h | --help          Print this usage summary
 EOT
   exit 1
 }
