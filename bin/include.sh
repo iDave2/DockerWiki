@@ -65,6 +65,16 @@ die() {
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
+#  Shorthand for: die "Error: $(getLastError)"
+#
+dieLastError() {
+  (echo && echo "Error: $(getLastError)") >&2
+  echo Death caused by ${FUNCNAME[1]}:${BASH_LINENO[0]} at $(date +%H:%M). >&2
+  exit 42
+}
+
+####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
+#
 #  Function returns container name of a given service name.
 #  For example, 'data' => 'wiki-data-1' unless --no-decoration.
 #

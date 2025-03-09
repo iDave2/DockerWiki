@@ -40,6 +40,8 @@ ViewContainer=$(getContainer $DW_VIEW_SERVICE)
 #
 backup() {
 
+  banner Starting backup to $BackupDir
+
   # Flush cache.
 
   xCute2 docker stop $ViewContainer &&
@@ -87,6 +89,8 @@ backup() {
 
   command="find $BackupDir/. -type f -exec chmod -w {} ;"
   xCute2 $command || die "Trouble making backup mostly read-only: $(getLastError)"
+
+  banner Backup written to $BackupDir
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -176,8 +180,6 @@ main() {
 
   $Backup && backupValidate || restoreValidate
 
-  banner Starting backup to $BackupDir
-
   # Further (old) checks for both backup and restore.
 
   checkContainer $DataContainer $DW_DATA_HOST mariadb
@@ -200,12 +202,7 @@ main() {
 
   # Just do it.
 
-  $Backup && backup
-  # $Backup && backup || restore
-
-  echo Finish Restore
-
-  banner Backup written to $BackupDir
+  $Backup && backup || restore
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -276,28 +273,22 @@ parseCommandLine() {
 #
 restore() {
 
+  banner Starting restore from $BackupDir
+
   # Restore database
 
-  command="docker exec -i $DataContainer mariadb -u$DB_USER"
-  commandHide="$command -p*****"
-  commandShow="$command -p$DB_USER_PASSWORD"
-
-  # cmd() {
-  #   echo docker exec -i "$DataContainer" mariadb \
-  #     -u"$DB_USER" -p"${1:-$stars}"
-  # }
-
+  cmd() { echo docker exec -i "$DataContainer" mariadb \
+      -u"$DB_USER" -p"${1:-'*****'}"; }
   local file="$BackupDir/${DataFile}"
-
   if test -f $file; then # unzipped
-    xShow "cat \"$file\" | $commandHide"
-    cat "$file" | $commandShow
+    xShow "cat \"$file\" | $(cmd)"
+    cat "$file" | xQute2 $(cmd $DB_USER_PASSWORD)
   else #zipped
-    xShow "gzcat \"$file\" | $commandHide"
-    gzcat "$file" | $commandShow
+    xShow "gzcat \"$file.gz\" | $(cmd)"
+    gzcat "$file.gz" | xQute2 $(cmd $DB_USER_PASSWORD)
   fi
 
-  [ $? -ne 0 ] && die "Error restoring database!"
+  test $? -ne 0 && dieLastError
 
   # Restore pics.
 
@@ -307,22 +298,13 @@ restore() {
   $commandA | $commandB
   [ $? -ne 0 ] && die "Error restoring images: exit status '$?'"
 
-  # Restore LocalSettings.php and its famous secret key.
+  # Restore LocalSettings.php, copy project settings, say goodbye.
 
-  local inFile="$BackupDir/$LocalSettings"
-  local tmpFile="$(getTempDir)/$LocalSettings"
-  xShow "cat $inFile | wgSecretKey show >$tmpFile"
-  cat "$inFile" | wgSecretKey show >"$tmpFile" || die "Error: $(getLastError)"
-  xCute2 docker cp "$tmpFile" "$ViewContainer:$WikiRoot/" &&
-    xCute2 rm "$tmpFile" || die "Error: $(getLastError)"
+  xCute2 docker cp "$BackupDir/$LocalSettings" "$ViewContainer:$WikiRoot/" &&
+    xCute2 configure.sh ||
+    dieLastError
 
-  # Fix all settings to match current project context.
-
-  xCute configure.sh -v || die "Error: $(getLastError)"
-
-  # Say goodnight.
-
-  echo && echo "==> Wiki restored from '$BackupDir' <=="
+  banner Wiki restored from $BackupDir
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
