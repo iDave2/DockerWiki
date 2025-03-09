@@ -64,7 +64,7 @@ die() {
 #  Shorthand for: die "Error: $(getLastError)"
 #
 dieLastError() {
-  (echo && echo "Error: $(getLastError)") >&2
+  (echo; echo "Error: $(getLastError)"; echo) >&2
   echo Death caused by ${FUNCNAME[1]}:${BASH_LINENO[0]} at $(date +%H:%M). >&2
   exit 42
 }
