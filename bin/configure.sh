@@ -100,9 +100,7 @@ fixSettings() { # view:/var/www/html/LocalSettings.php
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 flushViewCache() { # that is, restart MediaWiki
-
   heading "FLUSH VIEW CACHE"
-
   xCute2 docker restart $DW_VIEW_HOST || dieLastError
 }
 
@@ -116,16 +114,7 @@ heading() {
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 main() {
-
   parseCommandLine "$@"
-
-  # If we've just restored, LS.php is still obfuscated so this will fail...
-  #
-  # heading "WAIT FOR DATA AND VIEW"
-  #
-  # waitForData 10 || die "Error: Cannot talk to MariaDB"
-  # waitForView 15 || die "Error: Cannot talk to MediaWiki"
-
   fixSettings && fixPasswords && fixImages && flushViewCache
 }
 

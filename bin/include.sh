@@ -7,10 +7,6 @@
 # Additional variables declared at EOF after functions are visible.
 DECORATE=true # see --no-decoration and decorate()
 
-# Hide and show (generate) secrets.
-readonly SecretHide='%%wgSecretKey%%'
-unset SecretShow
-
 unset wgServer # see getServer()
 
 ####-####+####-####+####-####+####-####+
@@ -280,58 +276,6 @@ waitForView() {
   # Report.
 
   $isUp
-}
-
-####-####+####-####+####-####+####-####+
-#
-#  This filter expects to be inside a pipe streaming LocalSettings.php
-#  to or from a MediaWiki container's /var/www/html folder. It takes
-#  one argument, 'hide' or 'show'.
-#
-#  'hide' is used during backups to replace a live $wgSecretKey with
-#  the string '%%wgSecretKey%%'.
-#
-#  'show' works in the opposite direction, replacing '%%wgSecretKey%%'
-#  with a fresh 64-character random string.
-#
-#  Examples:
-#    # Hiding is straightforward:
-#    $ docker exec wiki-view-1 cat LocalSettings.php | wgSecretKey hide | ...
-#
-#    # Showing is awkward, so far:
-#    $ $(... | wgSecretKey show >tmpFile) &&
-#        docker cp tmpFile wiki-view-1:/var/www/html/LocalSettings.php &&
-#        rm tmpFile
-#
-#  Also see:
-#    https://stackoverflow.com/a/66461030.
-#
-#  Note: This algorithm was motivated by github warnings apparently triggered
-#  by conditions name=LocalSettings.php and $wgSecretKey=<clearkey>. The
-#  MediaWiki DB user password is still clear (in case you want to generalize
-#  this). Also see usage in MediaWiki Dockerfile.
-#
-wgSecretKey() {
-
-  local action=${1:-unset}
-
-  case $action in
-  hide | show) ;;
-  *) usage "wgSecretKey [hide | show], not '\$1 $action'" ;;
-  esac
-
-  if test -z ${SecretShow:-''}; then
-    readonly Hex=$(echo {0..9} {a..f} | tr -d ' ') # 0123456789abcdef
-    for i in {1..64}; do
-      SecretShow+=${Hex:((RANDOM % ${#Hex})):1} # Tsoj2 dowsth!
-    done
-    readonly SecretShow
-  fi
-
-  case $action in
-  hide) perl -pwe 's|^(\$wgSecretKey)\s*=.*|$1 = "%%wgSecretKey%%";|' ;;
-  show) perl -pwe "s|$SecretHide|$SecretShow|" ;;
-  esac
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
