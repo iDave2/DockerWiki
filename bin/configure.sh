@@ -104,6 +104,10 @@ fixSettings() { # view:/var/www/html/LocalSettings.php
   xCute2 docker cp $HostSettings $ViewSettings || dieLastError
   $Keep || xCute rm -f $HostSettings{,.bak} || dieLastError
 
+  # View needs to use these settings
+
+  xCute2 docker restart $DW_VIEW_HOST && waitForView || dieLastError
+
   # Fix $MW_ADMIN aka 'WikiAdmin'
 
   cmd() { echo docker exec $DW_VIEW_HOST maintenance/run changePassword \
@@ -133,8 +137,7 @@ heading() {
 #
 main() {
   parseCommandLine "$@"
-  fixData && fixImages && fixSettings &&
-    xCute2 docker restart $DW_VIEW_HOST || dieLastError
+  fixData && fixImages && fixSettings || dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

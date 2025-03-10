@@ -310,14 +310,8 @@ makeView() {
   xCute pushd build && make "$buildOptions" && xCute popd
 
   # Are we done yet?
-  case $OpInstaller in
-  restore)
-    #waitForData || die "Cannot connect database: $(getLastError)"
-    xCute2 configure.sh || dieLastError
-    ;& # fall thru
-  web)
-    waitForView 15 || # 15 second timeout
-      die "Trouble starting view: $(getLastError)"
+  if $OpInstaller = 'web'; then
+    waitForView 15 || die "Trouble starting view: $(getLastError)"
     cat <<EOT
 
 #
@@ -325,9 +319,8 @@ makeView() {
 #
 EOT
     browse $SiteURL # Also see https://stackoverflow.com/a/23039509.
-    return 0        # Restore and web installers stop here.
-    ;;
-  esac
+    return 0        # Web installer stops here.
+  fi
 
   # Database needs to be Running and Connectable to continue.
   if ! waitForData; then
@@ -338,25 +331,31 @@ EOT
     return -42
   fi
 
-  # Install / configure mediawiki using the famous PHP language.
-  # This creates MW DB tables and generates LocalSettings.php file.
-  local port=${MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
-  port=${port#*:}           # 127.0.0.1:8080 -> 8080
-  local command=$(echo docker exec $Container \
-    maintenance/run install \
-    --dbtype=mysql \
-    --dbserver=$DW_DATA_HOST \
-    --dbname=$DB_DATABASE \
-    --dbuser=$DB_USER \
-    --dbpassfile="$TONY/dbpassfile" \
-    --passfile="$TONY/passfile" \
-    --scriptpath='' \
-    --server="http://localhost:$port" \
-    --with-extensions \
-    $MW_SITE $MW_ADMIN)
-  xCute2 $command || die "Error installing mediawiki: $(getLastError)"
+  if test $OpInstaller = 'cli'; then
 
-  xCute2 configure.sh || dieLastError
+    # Install / configure mediawiki using the famous PHP language.
+    # This creates MW DB tables and generates LocalSettings.php file.
+    local port=${MW_PORTS%:*} # 127.0.0.1:8080:80 -> 127.0.0.1:8080
+    port=${port#*:}           # 127.0.0.1:8080 -> 8080
+    local command=$(echo docker exec $Container \
+      maintenance/run install \
+      --dbtype=mysql \
+      --dbserver=$DW_DATA_HOST \
+      --dbname=$DB_DATABASE \
+      --dbuser=$DB_USER \
+      --dbpassfile="$TONY/dbpassfile" \
+      --passfile="$TONY/passfile" \
+      --scriptpath='' \
+      --server="http://localhost:$port" \
+      --with-extensions \
+      $MW_SITE $MW_ADMIN)
+    xCute2 $command || die "Error installing mediawiki: $(getLastError)"
+
+  else # 'restore'
+
+    xCute2 configure.sh || dieLastError
+
+  fi
 
   cat <<EOT
 
