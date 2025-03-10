@@ -216,17 +216,20 @@ makeData() {
   [ ! -d build ] || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mariadb/build failed: $(getLastError)"
 
-  # Prepare contents of build directory.
-  echo $DB_ROOT_PASSWORD >build/mariadb-root-password-file
-  test -f build/mariadb-root-password-file &&
-    xCute2 cp "$DockerFile" 20-noop.sh build/ ||
-    die "Copy failed: $(getLastError)"
-
-  # Prepare build command line and gather inputs.
+  # Initialize build options.
   local buildOptions=''
   $OpCache || buildOptions='--no-cache'
   buildOptions+=" --build-arg MARIA=/root" # TODO: hard-coded?
   buildOptions+=" --build-arg VERSION=$OpInstaller"
+
+  # Prepare contents of build directory.
+  echo $DB_ROOT_PASSWORD >build/$DB_ROOT_PASSWORD_FILE
+  test -f build/$DB_ROOT_PASSWORD_FILE &&
+    xCute2 cp "$DockerFile" 20-noop.sh build/ ||
+    die "Copy failed: $(getLastError)"
+  buildOptions+=" --build-arg DB_ROOT_PASSWORD_FILE=$DB_ROOT_PASSWORD_FILE"
+
+  # Keep preparing. Can't be too prepared.
   case $OpInstaller in
   web) ;;
   restore)
@@ -239,10 +242,11 @@ makeData() {
     buildOptions+=" --build-arg MARIADB_ROOT_HOST=$DB_ROOT_HOST"
     buildOptions+=" --build-arg MARIADB_DATABASE=$DB_DATABASE"
     buildOptions+=" --build-arg MARIADB_USER=$DB_USER"
-    echo $DB_USER_PASSWORD >build/mariadb-password-file
-    test -f build/mariadb-password-file &&
+    echo $DB_USER_PASSWORD >build/$DB_USER_PASSWORD_FILE
+    test -f build/$DB_USER_PASSWORD_FILE &&
       xCute2 cp show-databases build/mariadb-show-databases ||
       die "Copy failed: $(getLastError)"
+    buildOptions+=" --build-arg DB_USER_PASSWORD_FILE=$DB_USER_PASSWORD_FILE"
     ;;
   esac
 

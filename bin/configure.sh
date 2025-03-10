@@ -26,7 +26,7 @@ SecretKey=$(perl -we "print map { ('0'..'9','a'..'f')[int(rand(16))] } 1..64")
 ViewSettings="$DW_VIEW_HOST:/var/www/html/LocalSettings.php"
 Verbose=false
 
-# Yet another database API..
+# These little functions are nice for hide and show.
 Stars="******"
 login() { echo docker exec $DW_DATA_HOST mariadb -p"${1:-$Stars}"; }
 
@@ -38,16 +38,22 @@ fixData() {
 
   setPassword() { echo "SET PASSWORD FOR '$1'@'$2' = PASSWORD('${3:-$Stars}')"; }
 
+  updateFile() { echo docker exec $DW_DATA_HOST bash -c \
+    "echo '${2:-$Stars}' >/root/${1:-$Stars}"; }
+
   local host='' hosts=()
 
   if test -n ${OldRootPassword:-''}; then
-    hosts=($(getHosts root $OldRootPassword))
+    hosts=($(getHosts root $OldRootPassword)) || dieLastError
     # echo "root hosts = ($(join ', ' ${hosts[@]}))."
     for host in "${hosts[@]}"; do # hopefully not multiple hosts for root...
       xShow "$(login)" -e \"$(setPassword root $host)\"
       xQute2 $(login $OldRootPassword) \
         -e "$(setPassword root $host $DB_ROOT_PASSWORD)" || dieLastError
     done
+    xShow $(updateFile $DB_ROOT_PASSWORD_FILE)
+    xQute2 $(updateFile $DB_ROOT_PASSWORD_FILE $DB_ROOT_PASSWORD) ||
+      dieLastError
   fi
 
   hosts=($(getHosts $DB_USER))
@@ -57,16 +63,16 @@ fixData() {
     xQute2 $(login $DB_ROOT_PASSWORD) \
       -e "$(setPassword $DB_USER $host $DB_USER_PASSWORD)" || dieLastError
   done
+  xShow $(updateFile $DB_USER_PASSWORD_FILE)
+  xQute2 $(updateFile $DB_USER_PASSWORD_FILE $DB_USER_PASSWORD) ||
+    dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 #
 fixImages() { # view:/var/www/html/images
-
   heading "FIX IMAGES"
-
   local ug='www-data' # TODO: hard-coded user:group ?
-
   xCute2 docker exec $DW_VIEW_HOST chown -R $ug:$ug images &&
     xCute2 docker exec $DW_VIEW_HOST find images -type f -exec chmod u+w {} \; ||
     dieLastError
@@ -127,8 +133,8 @@ heading() {
 #
 main() {
   parseCommandLine "$@"
-  fixData && fixImages && fixSettings
-  xCute2 docker restart $DW_VIEW_HOST || dieLastError
+  fixData && fixImages && fixSettings &&
+    xCute2 docker restart $DW_VIEW_HOST || dieLastError
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

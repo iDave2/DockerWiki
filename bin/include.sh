@@ -56,7 +56,8 @@ die() {
   test $# -gt 0 && echo -e "\n$*" >&2 # https://stackoverflow.com/q/3601515
   echo >&2
   echo Death caused by ${FUNCNAME[1]}:${BASH_LINENO[0]} at $(date +%H:%M). >&2
-  exit 42
+  kill -TERM $$
+  # exit 42
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
@@ -66,7 +67,8 @@ die() {
 dieLastError() {
   (echo; echo "Error: $(getLastError)"; echo) >&2
   echo Death caused by ${FUNCNAME[1]}:${BASH_LINENO[0]} at $(date +%H:%M). >&2
-  exit 42
+  # exit 42
+  kill -TERM $$
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

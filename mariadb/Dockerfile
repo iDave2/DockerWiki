@@ -25,13 +25,15 @@ FROM mariadb:11.6 AS data
 ARG MARIA=/root
 
 # Arguments available to every stage, even if not used.
+ARG DB_ROOT_PASSWORD_FILE
+ARG DB_USER_PASSWORD_FILE
 ARG MARIADB_ROOT_HOST
 ARG MARIADB_DATABASE
 ARG MARIADB_USER
 
 # Every MariaDB image requires root credentials to get going.
-ENV MARIADB_ROOT_PASSWORD_FILE="$MARIA/mariadb-root-password-file"
-COPY --chmod=400 mariadb-root-password-file $MARIA/
+ENV MARIADB_ROOT_PASSWORD_FILE="$MARIA/$DB_ROOT_PASSWORD_FILE"
+COPY --chmod=400 $DB_ROOT_PASSWORD_FILE $MARIA/
 
 # Test /docker-entrypoint-initdb.d mechanism.
 COPY ./20-noop.sh /docker-entrypoint-initdb.d/
@@ -51,8 +53,8 @@ ENV MARIADB_ROOT_HOST=$MARIADB_ROOT_HOST
 # and an owner of that database different from root.
 ENV MARIADB_DATABASE=$MARIADB_DATABASE
 ENV MARIADB_USER=$MARIADB_USER
-ENV MARIADB_PASSWORD_FILE="$MARIA/mariadb-password-file"
-COPY --chmod=400 mariadb-password-file $MARIA/
+ENV MARIADB_PASSWORD_FILE="$MARIA/$DB_USER_PASSWORD_FILE"
+COPY --chmod=400 $DB_USER_PASSWORD_FILE $MARIA/
 COPY --chmod=500 mariadb-show-databases $MARIA/
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####

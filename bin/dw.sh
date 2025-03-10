@@ -39,9 +39,9 @@ main() {
     $weOpenedDocker || die "Error: cannot start docker"
   fi
 
-  # Make an unzipped backup
+  # Make a backup so it at least is happening regularly.
 
-  xCute2 backrest.sh --backup --force --unzipped --work-dir $BackupDir ||
+  xCute2 backrest.sh --backup --force --work-dir $BackupDir ||
     dieLastError
 
   $BackupOnly && return 0
