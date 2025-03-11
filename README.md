@@ -166,28 +166,25 @@ containers.
 
 ## Configuration
 
-Most configuration settings may be changed in DW_USER_CONFIG. Its default
-location, `~/.DockerWiki/config`, can be changed in `.env`.
-
-Given a typical DW_USER_CONFIG like this,
+Passwords may be changed in DW_USER_CONFIG;
+its default location is `~/.DockerWiki/config`:
 
 ```bash
-# DockerWiki user config overrides
+# user config overrides .env
 
-DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-myPassRoot}
-DB_USER_PASSWORD=${DB_USER_PASSWORD:-myPassDBA}
-MW_ADMIN_PASSWORD=${MW_ADMIN_PASSWORD:-myPassAdmin}
+DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-myRootPass}
+DB_USER_PASSWORD=${DB_USER_PASSWORD:-myDBAPass}
 
+MW_ADMIN_PASSWORD=${MW_ADMIN_PASSWORD:-myAdminPass}
 MW_ENABLE_UPLOADS=true
-
-# Only used by dw.sh ...
-MY_BACKUP_DIR=~/Documents/Backups
 ```
 
-you can apply these overrides to the current wiki like this,
+`configure.sh` updates running containers with project settings and restarts
+them. If the MariaDB root password is changing, `configure.sh` needs to be
+told the old password before it can change it to the new one:
 
 ```bash
-$ configure.sh --verbose
+$ configure.sh -v --password changeThis
 ```
 
 ---
