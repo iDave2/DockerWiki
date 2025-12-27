@@ -168,12 +168,17 @@ makeClean() {
   fi
 
   # Remove existing IMAGEs sometimes (-ccc).
+  #
+  # 251227: Our $Image here is the .Repository in json schema and the
+  # default output format changed since our last visit so let us use
+  # the go-language format specs here and elsewhere when available;
+  # maybe better persistence, at least until the json schema changes. ;)
+  #
   if (($OpClean == 0 || $OpClean > 2)); then
-    xCute12 docker image ls $Image ||
+    xCute12 docker image ls --format '{{.Tag}}' $Image ||
       die "Error listing images: $(getLastError)"
-    echo "$(getLastOutput)" && mapfile < <(getLastOutput)
-    local tags=($(echo "${MAPFILE[@]:1}" | sed -e 's/^ *//' | cut -w -f 2))
-    # echo tags = "${tags[@]}"
+    echo "$(getLastOutput)"
+    local tags=($(getLastOutput))
     if ((${#tags[*]} > 0)); then # https://stackoverflow.com/a/13216833
       local images=(${tags[@]/#/${Image}:})
       xCute2 docker rmi "${images[@]}" ||
@@ -310,7 +315,7 @@ makeView() {
   xCute pushd build && make "$buildOptions" && xCute popd
 
   # Are we done yet?
-  if $OpInstaller = 'web'; then
+  if $OpInstaller eq 'web'; then
     waitForView 15 || die "Trouble starting view: $(getLastError)"
     cat <<EOT
 
