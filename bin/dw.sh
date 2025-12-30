@@ -9,6 +9,8 @@
 ScriptDir=$(dirname -- $(realpath -- ${BASH_SOURCE[0]}))
 source "${ScriptDir}/bootstrap.sh"
 
+PATH=${ScriptDir}:$PATH
+
 # MY_BACKUP_DIR could be in DW_USER_CONFIG, for example.
 BackupDir=${MY_BACKUP_DIR:-$DW_BACKUPS_DIR/$(date '+%y%m%d.%H%M%S')}
 
