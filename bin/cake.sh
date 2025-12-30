@@ -315,7 +315,7 @@ makeView() {
   xCute pushd build && make "$buildOptions" && xCute popd
 
   # Are we done yet?
-  if $OpInstaller eq 'web'; then
+  if [ "$OpInstaller" = "web" ]; then
     waitForView 15 || die "Trouble starting view: $(getLastError)"
     cat <<EOT
 
