@@ -175,7 +175,7 @@ main() {
   ($Backup && $Restore) || (! $Backup && ! $Restore) &&
     usage "Please specify either --backup or --restore"
 
-  $Backup && backupValidate || restoreValidate
+  if $Backup; then backupValidate; else restoreValidate; fi
 
   # Further (old) checks for both backup and restore.
 
@@ -199,7 +199,7 @@ main() {
 
   # Just do it.
 
-  $Backup && backup || restore
+  if $Backup; then backup; else restore; fi
 }
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
