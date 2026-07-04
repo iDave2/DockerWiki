@@ -14,7 +14,12 @@
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
 ScriptDir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-source "${ScriptDir}/bootstrap.sh"
+
+BOOTSTRAP="${ScriptDir}/bootstrap.sh"
+CONFIGURE="${ScriptDir}/configure.sh"
+OBFUSCATE="${ScriptDir}/obfuscate.sh"
+
+source "$BOOTSTRAP" || dieLastError
 
 # What to do.
 Backup=false
@@ -80,7 +85,7 @@ backup() {
   local viewSettings="$ViewContainer:/var/www/html/$LocalSettings"
   local hostSettings="$BackupDir/$LocalSettings"
   xCute2 docker cp "$viewSettings" "$hostSettings" &&
-    xCute2 obfuscate.sh "$hostSettings" || dieLastError
+    xCute2 "$OBFUSCATE" "$hostSettings" || dieLastError
 
   # Make backups mostly read-only. '/.' needed when $BackupDir is a link.
 
@@ -168,12 +173,12 @@ checkContainer() {
 #
 main() {
 
-  isDockerRunning || die "Is docker down? I cannot connect."
-
   parseCommandLine "$@"
 
   ($Backup && $Restore) || (! $Backup && ! $Restore) &&
     usage "Please specify either --backup or --restore"
+
+  isDockerRunning || die "Is docker down? I cannot connect."
 
   if $Backup; then backupValidate; else restoreValidate; fi
 
@@ -298,7 +303,7 @@ restore() {
   # Restore LocalSettings.php, copy project settings, say goodbye.
 
   xCute2 docker cp "$BackupDir/$LocalSettings" "$ViewContainer:$WikiRoot/" &&
-    xCute2 configure.sh || dieLastError
+    xCute2 "$CONFIGURE" || dieLastError
 
   banner Wiki restored from $BackupDir
 }
@@ -309,7 +314,7 @@ restore() {
 #
 restoreValidate() {
   test -n "$BackupDir" ||
-    usage "Please specify \"-w <backup-dir>\" when running --restore"
+    usage "Please specify \"-w <from-dir>\" when running --restore"
   test -d "$BackupDir" ||
     usage "'--work-dir $BackupDir' must name an existing directory"
 }

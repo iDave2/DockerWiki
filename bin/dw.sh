@@ -7,12 +7,14 @@
 
 # Resolve links completely or find nothing.
 ScriptDir=$(dirname -- $(realpath -- ${BASH_SOURCE[0]}))
-source "${ScriptDir}/bootstrap.sh"
 
-PATH=${ScriptDir}:$PATH
+BACKREST="${ScriptDir}/backrest.sh"
+BOOTSTRAP="${ScriptDir}/bootstrap.sh"
+
+source "$BOOTSTRAP" || dieLastError
 
 # MY_BACKUP_DIR could be in DW_USER_CONFIG, for example.
-BackupDir=${MY_BACKUP_DIR:-$DW_BACKUPS_DIR/$(date '+%y%m%d.%H%M%S')}
+BackupDir="${MY_BACKUP_DIR:-$DW_BACKUPS_DIR/$(date '+%y%m%d.%H%M%S')}"
 
 # Backup and Browse or just Backup?
 BackupOnly=false
@@ -31,8 +33,8 @@ main() {
 
   # Make sure docker is listening.
 
-  weOpenedDocker=false
   if ! isDockerRunning; then # Disable auto-dashboard in Settings
+    weOpenedDocker=false
     xCute2 open -a Docker || dieLastError
     for ((timer = 10; timer > 0; --timer)); do
       sleep 1 # Next isDockerRunning appears to wait...
@@ -43,7 +45,7 @@ main() {
 
   # Make a backup so it at least is happening regularly.
 
-  xCute2 backrest.sh --backup --force --work-dir $BackupDir ||
+  xCute2 "$BACKREST" --backup --force --work-dir "$BackupDir" ||
     dieLastError
 
   $BackupOnly && return 0
