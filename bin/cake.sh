@@ -116,7 +116,7 @@ make() {
   fi
 
   # Build the image.
-  command="docker build $buildOptions --tag $Image:$DW_TAG ."
+  command="docker build --pull $buildOptions --tag $Image:$DW_TAG ."
   xShow $command # xCute garbles output, if any
   $command || die "Build failed: $(getLastError)"
   for ((i = 0; i < ${#DW_EXTRA_TAGS[*]}; i++)); do

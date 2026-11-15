@@ -19,7 +19,7 @@ ARG VERSION=cli
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-FROM mariadb:11.6 AS data
+FROM mariadb:12 AS data
 
 # I just met a girl.
 ARG MARIA=/root

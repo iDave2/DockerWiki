@@ -16,7 +16,10 @@ ARG VERSION=cli
 
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
-FROM mediawiki:1.43 AS view
+FROM mediawiki:1.46 AS view
+
+## ADD --pull TO BUILDS WHEN USING HARDENED IMAGES.
+## DOCKER HARDENED IMAGES QUICK-ACCESS VIA dhi.io.
 
 # Tony is Maria's boyfriend.
 ARG TONY=/root
