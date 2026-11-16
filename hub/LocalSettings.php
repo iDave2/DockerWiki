@@ -149,7 +149,8 @@ wfLoadExtension( 'Echo' );
 wfLoadExtension( 'Gadgets' );
 wfLoadExtension( 'ImageMap' );
 wfLoadExtension( 'InputBox' );
-wfLoadExtension( 'Interwiki' );
+# Remove this line — Interwiki is built into core in 1.44+
+# wfLoadExtension( 'Interwiki' );
 wfLoadExtension( 'Linter' );
 wfLoadExtension( 'LoginNotify' );
 wfLoadExtension( 'Math' );
@@ -175,4 +176,3 @@ wfLoadExtension( 'WikiEditor' );
 
 # End of automatically generated settings.
 # Add more configuration options below.
-
