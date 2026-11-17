@@ -134,44 +134,40 @@ wfLoadSkin( 'Timeless' );
 wfLoadSkin( 'Vector' );
 
 
-# Enabled extensions. Most of the extensions are enabled by adding
-# wfLoadExtension( 'ExtensionName' );
-# to LocalSettings.php. Check specific extension documentation for more details.
-# The following extensions were automatically enabled:
-wfLoadExtension( 'AbuseFilter' );
-wfLoadExtension( 'CategoryTree' );
-wfLoadExtension( 'Cite' );
-wfLoadExtension( 'CiteThisPage' );
-wfLoadExtension( 'CodeEditor' );
-wfLoadExtension( 'ConfirmEdit' );
-wfLoadExtension( 'DiscussionTools' );
-wfLoadExtension( 'Echo' );
-wfLoadExtension( 'Gadgets' );
-wfLoadExtension( 'ImageMap' );
-wfLoadExtension( 'InputBox' );
-# Remove this line — Interwiki is built into core in 1.44+
-# wfLoadExtension( 'Interwiki' );
-wfLoadExtension( 'Linter' );
-wfLoadExtension( 'LoginNotify' );
-wfLoadExtension( 'Math' );
-wfLoadExtension( 'MultimediaViewer' );
-wfLoadExtension( 'Nuke' );
-wfLoadExtension( 'OATHAuth' );
-wfLoadExtension( 'PageImages' );
-wfLoadExtension( 'ParserFunctions' );
-wfLoadExtension( 'PdfHandler' );
-wfLoadExtension( 'Poem' );
-wfLoadExtension( 'ReplaceText' );
-wfLoadExtension( 'Scribunto' );
-wfLoadExtension( 'SecureLinkFixer' );
-wfLoadExtension( 'SpamBlacklist' );
-wfLoadExtension( 'SyntaxHighlight_GeSHi' );
-wfLoadExtension( 'TemplateData' );
-wfLoadExtension( 'TextExtracts' );
-wfLoadExtension( 'Thanks' );
-wfLoadExtension( 'TitleBlacklist' );
-wfLoadExtension( 'VisualEditor' );
-wfLoadExtension( 'WikiEditor' );
+# Extensions, anyone?
+# wfLoadExtension( 'AbuseFilter' );
+# wfLoadExtension( 'CategoryTree' );
+# wfLoadExtension( 'Cite' );
+# wfLoadExtension( 'CiteThisPage' );
+# wfLoadExtension( 'CodeEditor' );
+# wfLoadExtension( 'ConfirmEdit' );
+# wfLoadExtension( 'DiscussionTools' );
+# wfLoadExtension( 'Echo' );
+# wfLoadExtension( 'Gadgets' );
+# wfLoadExtension( 'ImageMap' );
+# wfLoadExtension( 'InputBox' );
+# wfLoadExtension( 'Interwiki' );  # Interwiki is built into core in 1.44+
+# wfLoadExtension( 'Linter' );
+# wfLoadExtension( 'LoginNotify' );
+# wfLoadExtension( 'Math' );
+# wfLoadExtension( 'MultimediaViewer' );
+# wfLoadExtension( 'Nuke' );
+# wfLoadExtension( 'OATHAuth' );
+# wfLoadExtension( 'PageImages' );
+# wfLoadExtension( 'ParserFunctions' );
+# wfLoadExtension( 'PdfHandler' );
+# wfLoadExtension( 'Poem' );
+# wfLoadExtension( 'ReplaceText' );
+# wfLoadExtension( 'Scribunto' );
+# wfLoadExtension( 'SecureLinkFixer' );
+# wfLoadExtension( 'SpamBlacklist' );
+# wfLoadExtension( 'SyntaxHighlight_GeSHi' );
+# wfLoadExtension( 'TemplateData' );
+# wfLoadExtension( 'TextExtracts' );
+# wfLoadExtension( 'Thanks' );
+# wfLoadExtension( 'TitleBlacklist' );
+# wfLoadExtension( 'VisualEditor' );
+# wfLoadExtension( 'WikiEditor' );
 
 
 # End of automatically generated settings.
