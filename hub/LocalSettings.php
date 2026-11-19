@@ -31,7 +31,10 @@ $wgSitename = "DockerWiki";
 $wgScriptPath = "";
 
 ## The protocol and server name to use in fully-qualified URLs
-$wgServer = "http://localhost:8080";
+#$wgServer = "http://localhost:8080";
+$wgServer = "http://wiki-view-1";
+#$wgServer = "http://172.18.0.3:80";
+
 
 ## The URL path to static resources (images, scripts, etc.)
 $wgResourceBasePath = $wgScriptPath;
@@ -135,39 +138,39 @@ wfLoadSkin( 'Vector' );
 
 
 # Extensions, anyone?
-# wfLoadExtension( 'AbuseFilter' );
-# wfLoadExtension( 'CategoryTree' );
-# wfLoadExtension( 'Cite' );
-# wfLoadExtension( 'CiteThisPage' );
-# wfLoadExtension( 'CodeEditor' );
-# wfLoadExtension( 'ConfirmEdit' );
-# wfLoadExtension( 'DiscussionTools' );
-# wfLoadExtension( 'Echo' );
-# wfLoadExtension( 'Gadgets' );
-# wfLoadExtension( 'ImageMap' );
-# wfLoadExtension( 'InputBox' );
+wfLoadExtension( 'AbuseFilter' );
+wfLoadExtension( 'CategoryTree' );
+wfLoadExtension( 'Cite' );
+wfLoadExtension( 'CiteThisPage' );
+wfLoadExtension( 'CodeEditor' );
+wfLoadExtension( 'ConfirmEdit' );
+wfLoadExtension( 'DiscussionTools' );
+wfLoadExtension( 'Echo' );
+wfLoadExtension( 'Gadgets' );
+wfLoadExtension( 'ImageMap' );
+wfLoadExtension( 'InputBox' );
 # wfLoadExtension( 'Interwiki' );  # Interwiki is built into core in 1.44+
-# wfLoadExtension( 'Linter' );
-# wfLoadExtension( 'LoginNotify' );
-# wfLoadExtension( 'Math' );
-# wfLoadExtension( 'MultimediaViewer' );
-# wfLoadExtension( 'Nuke' );
-# wfLoadExtension( 'OATHAuth' );
-# wfLoadExtension( 'PageImages' );
-# wfLoadExtension( 'ParserFunctions' );
-# wfLoadExtension( 'PdfHandler' );
-# wfLoadExtension( 'Poem' );
-# wfLoadExtension( 'ReplaceText' );
-# wfLoadExtension( 'Scribunto' );
-# wfLoadExtension( 'SecureLinkFixer' );
-# wfLoadExtension( 'SpamBlacklist' );
-# wfLoadExtension( 'SyntaxHighlight_GeSHi' );
-# wfLoadExtension( 'TemplateData' );
-# wfLoadExtension( 'TextExtracts' );
-# wfLoadExtension( 'Thanks' );
-# wfLoadExtension( 'TitleBlacklist' );
-# wfLoadExtension( 'VisualEditor' );
-# wfLoadExtension( 'WikiEditor' );
+wfLoadExtension( 'Linter' );
+wfLoadExtension( 'LoginNotify' );
+wfLoadExtension( 'Math' );
+wfLoadExtension( 'MultimediaViewer' );
+wfLoadExtension( 'Nuke' );
+wfLoadExtension( 'OATHAuth' );
+wfLoadExtension( 'PageImages' );
+wfLoadExtension( 'ParserFunctions' );
+wfLoadExtension( 'PdfHandler' );
+wfLoadExtension( 'Poem' );
+wfLoadExtension( 'ReplaceText' );
+wfLoadExtension( 'Scribunto' );
+wfLoadExtension( 'SecureLinkFixer' );
+wfLoadExtension( 'SpamBlacklist' );
+wfLoadExtension( 'SyntaxHighlight_GeSHi' );
+wfLoadExtension( 'TemplateData' );
+wfLoadExtension( 'TextExtracts' );
+wfLoadExtension( 'Thanks' );
+wfLoadExtension( 'TitleBlacklist' );
+wfLoadExtension( 'VisualEditor' );
+wfLoadExtension( 'WikiEditor' );
 
 
 # End of automatically generated settings.

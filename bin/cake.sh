@@ -35,6 +35,7 @@ Publish=
 # Miscellaneous.
 BackupDir= # --installer restore=BackupDir
 DockerFile=Dockerfile
+DockerConfig=docker-php.conf
 DataVolume=$(decorate "$DW_DATA_VOLUME" "$DW_PROJECT" 'volume')
 DataTarget=/var/lib/mysql
 Network=$(decorate "$DW_NETWORK" "$DW_PROJECT" 'network')
@@ -286,7 +287,8 @@ makeView() {
   # Prepare build directory. We presently sit in mediawiki folder.
   test ! -d build || xCute2 rm -fr build || die "rm failed: $(getLastError)"
   xCute2 mkdir build || die "mkdir mediawiki/build failed: $(getLastError)"
-  xCute2 cp "$DockerFile" build/Dockerfile || die "Copy failed: $(getLastError)"
+  xCute2 cp "$DockerFile" "$DockerConfig" build/ ||
+    die "Copy failed: $(getLastError)"
 
   # Prepare build command line and gather inputs.
   $OpCache || buildOptions='--no-cache'

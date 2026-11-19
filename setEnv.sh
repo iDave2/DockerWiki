@@ -14,3 +14,5 @@ PATH=${ScriptDir}/bin:$PATH
 alias d=docker
 alias dc="docker compose"
 alias dp="declare -p"
+
+function dx { docker exec -it wiki-${1}-1 ${@:2}; }

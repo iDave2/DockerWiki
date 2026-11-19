@@ -43,3 +43,5 @@ COPY LocalSettings.php ./
 ####-####+####-####+####-####+####-####+####-####+####-####+####-####+####
 
 FROM view-branch-${VERSION} AS final
+RUN a2enmod headers
+COPY ./docker-php.conf /etc/apache2/conf-available/
