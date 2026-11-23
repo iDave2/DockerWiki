@@ -4,6 +4,9 @@
 
 # DockerWiki
 
+> This project is temporarily broken.
+> Updates forthcoming. :)
+
 This project is an implementation of the multi-container pattern outlined
 in Docker Docs'
 [Getting Started](https://docs.docker.com/get-started/07_multi_container/)
